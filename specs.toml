@@ -1,0 +1,20 @@
+# Configuration for the `spec` CLI (github.com/brettcallaghan/agent-plugins/cli/spec).
+#
+# This corpus holds the portable release and branching strategy for CLI
+# tools, libraries, and language toolchains. It governs several
+# repositories rather than living inside any one of them, so it is its
+# own workspace. Its final home is not yet decided.
+
+[workspace]
+# Attribution for this corpus's documents, so indexes emitted by several
+# repositories merge without two `adr-001`s colliding.
+name = "release"
+
+# The corpus directory, resolved relative to this file.
+root = "specs"
+
+[profile]
+name = "spec-driven-dev"
+
+[conventions]
+line_width = 80

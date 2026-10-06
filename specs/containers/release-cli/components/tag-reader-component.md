@@ -1,0 +1,91 @@
+---
+title: "Component Blueprint: Tag Reader"
+description: Release tags reachable from a ref, parsed to versions and
+  ordered, so the base version of a release line is a git query.
+slug: component-tag-reader
+type: component-blueprint
+status: draft
+updated_at: 2026-10-06T00:00:00Z
+kind: standard
+contracts_provided: []
+contracts_consumed: []
+source_paths:
+  - cli/release/internal/gitread
+test_paths:
+  - cli/release/internal/gitread
+---
+
+# Tag Reader
+
+## Overview
+
+Answers one question: what is the latest release already published on this
+branch's line? It lists tags **reachable** from a ref, discards those that
+do not parse as release tags, and returns the highest.
+
+Reachability is what lets the tooling stay branch-agnostic. A branch cut
+before a later tag existed cannot reach it, so a query scoped to a branch is
+already scoped to that branch's line — mechanically, without the tool
+knowing anything about which branches carry which majors ([[adr-001]]).
+
+- **Role:** the base version for a release line.
+- **Scope:** in — reachable tag enumeration, parsing, ordering; out —
+  creating tags, and deciding the next version.
+- **Composed into:** [[container-release-cli]] — consumed by
+  [[component-version-calculator]] and
+  [[component-release-commit-verifier]]; see it for relationships.
+- **Source & tests:** `cli/release/internal/gitread`.
+
+## Interface
+
+- **Surface:** latest reachable release version for a ref; the full ordered
+  list of reachable release versions.
+- **Guarantees:**
+  - The component SHALL consider only tags reachable from the named ref.
+  - The component SHALL ignore a tag that does not parse as a release tag
+    rather than failing.
+  - WHEN no release tag is reachable, the component SHALL report the absence
+    distinctly from an error.
+  - The component SHALL NOT infer a major version from a branch name.
+  - The component SHALL NOT require network access.
+
+## Cross-Cutting Standards
+
+This component SHALL comply with:
+
+- [[release-tooling-standards]] — version computation from reachable tags.
+
+## Change Guidance
+
+The component SHALL NOT filter tags by major version.
+
+**Rationale:** Reachability already scopes the query. A major filter would
+make the answer depend on a branch-name convention, which is exactly the
+coupling [[adr-001]] removes.
+
+---
+
+WHEN back-porting behaviour is specified, this component's reachability
+assumption SHALL be re-examined: merging one release line into another makes
+its tags reachable from the target and silently changes every answer this
+component gives. This is why [[repository-release-policy]] requires
+cherry-picks rather than merges between lines.
+
+- **Verification gates:** the component's unit suite against fixture
+  repositories, including the no-tags case and a branched topology where a
+  later major's tags are unreachable.
+
+## Key Decisions
+
+- [[adr-001]] — the tooling is branch-agnostic; reachability distinguishes
+  release lines without it.
+
+## Open Questions
+
+None.
+
+## References
+
+- `shared/c4-standards.md` — C4 mapping rules and diagram conventions
+- [[container-release-cli]] — the container this component is composed into
+- [[frd-version-computation]] — the feature this component serves
