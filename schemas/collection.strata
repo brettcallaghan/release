@@ -1,0 +1,104 @@
+"""
+The records the collectors produce.
+
+Collection is deliberately free of interpretation: these records carry what
+git and the hosting platform said, parsed into fields but not given meaning.
+Deciding what a trailer means, or which records become changelog entries, is
+the business of the components that consume them.
+"""
+struct CommitRecord {
+    """
+    The full commit hash.
+    """
+    hash: String
+
+    """
+    The commit subject — its first line.
+
+    For a squash merge this is the pull request title, with the pull request
+    reference the hosting platform appends still present.
+    """
+    subject: String
+
+    """
+    The commit body — everything after the subject.
+
+    Where a repository squashes using the pull request description, this is
+    that description, which is how pull request prose reaches the release
+    without the hosting platform being consulted.
+    """
+    body: String
+
+    """
+    The pull request number parsed out of the subject, where one is present.
+
+    Absent for a commit pushed directly to a release line.
+    """
+    pull_request: Int?
+
+    """
+    Trailers parsed from the body as key-value pairs.
+
+    Recorded without interpretation. A release-type trailer means something
+    to the bump classifier and nothing here.
+    """
+    trailers: [String: String]
+
+    """
+    The commit author's name, as git recorded it.
+    """
+    author_name: String
+
+    """
+    The commit author's email address, as git recorded it.
+    """
+    author_email: String
+}
+
+"""
+The metadata a hosting platform holds about one pull request.
+
+Collected only for the fields a release consumes. A field absent from this
+record is a field the release process has no use for.
+"""
+struct PullRequestRecord {
+    """
+    The pull request number.
+    """
+    number: Int
+
+    """
+    The pull request title.
+    """
+    title: String
+
+    """
+    The pull request description, where it has one.
+    """
+    description: String?
+
+    """
+    The labels applied to the pull request.
+
+    Collected because a project may use them, not because the release process
+    requires them: an impact signal that lives only on the hosting platform
+    cannot be read from a clone, so it is never the primary signal.
+    """
+    labels: [String]
+
+    """
+    The account that authored the pull request.
+    """
+    author: String
+
+    """
+    The branch the pull request was opened from.
+    """
+    head_branch: String?
+
+    """
+    The commit the merge produced on the target branch, where the pull
+    request has been merged.
+    """
+    merge_commit: String?
+}
