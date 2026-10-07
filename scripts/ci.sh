@@ -20,6 +20,8 @@ check "build"     'go build ./...'
 check "test-go"   'go test ./...'
 check "coverage"  'scripts/coverage.sh --check'
 check "corpus"    'command -v specs >/dev/null 2>&1 || { echo "corpus: SKIPPED (specs not on PATH)"; exit 0; }; specs check --strict'
+check "skills"    'scripts/check-skills.sh --strict'
+check "plugin"    'command -v claude >/dev/null 2>&1 || { echo "plugin: SKIPPED (claude not on PATH)"; exit 0; }; claude plugin validate plugin --strict; a=$?; claude plugin validate . --strict; b=$?; exit $(( a | b ))'
 
 printf '\n=== RESULT: %s\n' "$([ $rc -eq 0 ] && echo PASS || echo FAIL)"
 exit $rc

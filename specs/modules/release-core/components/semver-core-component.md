@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Semver Core"
+entity_name: Semver Core
 description: Version parsing and comparison, and every branch, tag and
   prerelease name derived from a version.
 slug: component-semver-core
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/semver

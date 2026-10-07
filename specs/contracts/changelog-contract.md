@@ -6,9 +6,8 @@ slug: contract-changelog
 type: contract
 status: approved
 updated_at: 2026-10-07T00:00:00Z
-provider: container-release-cli
+provider: module-release-core
 visibility: public
-consumers: []
 specs:
   - schemas/changelog.strata
 version: "1.0"

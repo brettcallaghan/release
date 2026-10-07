@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Commit Collector"
+entity_name: Commit Collector
 description: Commits between two refs, with pull-request identity, trailers
   and descriptions parsed out of the commits themselves.
 slug: component-commit-collector
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/gitread

@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Changelog Corpus Builder"
+entity_name: Changelog Corpus Builder
 description: Collected commit and pull-request records assembled into a
   changelog corpus, merging author-written notes where they exist.
 slug: component-changelog-corpus-builder
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:

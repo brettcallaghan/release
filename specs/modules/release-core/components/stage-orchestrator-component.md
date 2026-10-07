@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Stage Orchestrator"
+entity_name: Stage Orchestrator
 description: The sequence that cuts a release — producing a stage branch and
   its pull request — and the only component that writes to a repository or a
   hosting platform.
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:

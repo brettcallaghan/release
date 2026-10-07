@@ -3,7 +3,7 @@ title: "Feature Blueprint: Tool Configuration"
 description: How release core gains a validated configuration model and a
   delegated-command runner, and how the CLI discovers, loads and reports
   the configuration.
-slug: fb-tool-configuration
+slug: feature-tool-configuration
 type: feature-blueprint
 status: in-progress
 updated_at: 2026-10-07T00:00:00Z
@@ -24,7 +24,7 @@ The configuration is modelled, defaulted and validated in
 and refuses before any command runs. Delegated commands run through one new
 module component so every step that delegates fails the same way. The
 feature then replaces the default policy `release version` ships with
-([[fb-version-computation]]) by the loaded configuration. Delta blocks in
+([[feature-version-computation]]) by the loaded configuration. Delta blocks in
 dependency order: CFGM, RUN, LOAD, CMDCFG, WIRE.
 
 ## Element Deltas
@@ -244,5 +244,5 @@ None.
 - `shared/c4-standards.md` — the module and container definitions these
   deltas are written against
 - [[frd-tool-configuration]] — the requirements this realizes
-- [[fb-version-computation]] — the default policy this feature replaces
+- [[feature-version-computation]] — the default policy this feature replaces
 - [[release-tooling-standards]] — the configuration requirements

@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Bump Classifier"
+entity_name: Bump Classifier
 description: Release impact computed deterministically from a named bump, an
   authored changelog, or commit metadata, with whatever drove the result
   reported alongside it.
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/bump

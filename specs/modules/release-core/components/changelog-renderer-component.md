@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Changelog Renderer"
+entity_name: Changelog Renderer
 description: A changelog corpus rendered to markdown, one rendering per
   target, deterministically and from a single input.
 slug: component-changelog-renderer
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:

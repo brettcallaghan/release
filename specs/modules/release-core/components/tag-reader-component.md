@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Tag Reader"
+entity_name: Tag Reader
 description: Release tags reachable from a ref, parsed to versions and
   ordered, so the base version of a release line is a git query.
 slug: component-tag-reader
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/gitread

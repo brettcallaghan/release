@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Pull Request Metadata Collector"
+entity_name: Pull Request Metadata Collector
 description: "Not part of the MVP. Pull-request metadata fetched from the
   hosting platform for one pull request or a list — title, description,
   author, labels and branch."
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/platform

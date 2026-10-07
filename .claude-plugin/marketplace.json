@@ -1,0 +1,20 @@
+{
+  "name": "brettcallaghan-release",
+  "metadata": {
+    "description": "Marketplace for the release plugin: skills the release CLI invokes. Its specs dependency comes from the public brettcallaghan marketplace (brettcallaghan/agent-plugins)."
+  },
+  "owner": {
+    "name": "Brett Callaghan",
+    "email": "14969027+brettcallaghan@users.noreply.github.com"
+  },
+  "allowCrossMarketplaceDependenciesOn": [
+    "brettcallaghan"
+  ],
+  "plugins": [
+    {
+      "name": "release",
+      "source": "./plugin",
+      "description": "Skills for the release CLI. The changelog skill authors a release's changelog corpus; the CLI's claude producer invokes it as release:changelog"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Diff Collector"
+entity_name: Diff Collector
 description: "Not part of the MVP. The code diff between two refs, collected
   as changelog material for releases where the commits and pull requests do not
   say enough."
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/gitread

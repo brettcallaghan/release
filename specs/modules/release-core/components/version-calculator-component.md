@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Version Calculator"
+entity_name: Version Calculator
 description: The next version for a release line, carrying the version
   rules the tooling enforces — the leap guard, pre-1.0 semantics, and
   prerelease derivation.
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/version
