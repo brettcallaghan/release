@@ -31,13 +31,18 @@ directory. Read them rather than relying on a copy here. Write only fields the s
 ## What you author
 
 The prose a person would otherwise write: `title`, `summary`, each entry's
-`summary`, `detail` and `migration`, and `proposed_bump` as a proposal.
+`summary`, `detail` and `migration`, and `proposed_bump` as a proposal. The
+corpus arrives without `proposed_bump`; return it with one, or the release
+CLI rejects the result.
 
 ## What you never change
 
 - `version`: the computed version is the tooling's. Leave it as it arrived.
 - Any field derived from the collected records rather than authored:
-  `schema_version` and each entry's `sources`. Carry them through unchanged.
+  `schema_version`, the corpus's `sources` and each entry's `sources`. Carry
+  them through unchanged.
+- An entry's `derived` flag, unless you replace its summary with your own
+  prose: then clear it.
 - Set `migration` on every entry whose `breaking` flag is set.
 
 Authoring order is presentation order: put the entries a reader should see

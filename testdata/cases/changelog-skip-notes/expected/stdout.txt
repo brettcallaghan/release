@@ -1,0 +1,14 @@
+version: 1.9.0
+corpus_path: null
+section: |-
+  ## 1.9.0
+
+  ### Features
+
+  - A maintainer can compute a version for **any** release line. (#12)
+
+    Pass `--target <branch>`; it defaults to the configured target.
+
+  ### Fixes
+
+  - **cli:** handle empty input (#11)

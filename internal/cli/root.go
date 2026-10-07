@@ -121,6 +121,7 @@ func newRootCmd(s *streams) *cobra.Command {
 	root.PersistentFlags().StringVar(&configPath, "config", "", "Use this configuration `file` instead of discovering one")
 
 	root.AddCommand(newVersionCmd(s))
+	root.AddCommand(newChangelogCmd(s))
 	root.AddCommand(newConfigCmd(s))
 
 	return root

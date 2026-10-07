@@ -52,7 +52,33 @@ type Changelog struct {
 	OtherHeading string `toml:"other_heading"`
 	// BreakingHeading heads every entry marked breaking.
 	BreakingHeading string `toml:"breaking_heading"`
+	// Producer names the changelog producer the authoring bridge invokes:
+	// one of Producers.
+	Producer string `toml:"producer"`
+	// ProducerCommand is the command the `command` producer runs; nil means
+	// unset. Required WHEN Producer is ProducerCommandName.
+	ProducerCommand *string `toml:"producer_command"`
 }
+
+// Adapters are the optional changelog source adapters. The commit adapter is
+// always on and has no setting.
+type Adapters struct {
+	// PullRequests enriches commit records from the hosting platform.
+	PullRequests bool `toml:"pull_requests"`
+	// Diffs reads the changes each commit made.
+	Diffs bool `toml:"diffs"`
+}
+
+// The changelog producers a configuration can name.
+const (
+	// ProducerClaudeName runs `claude -p` with the release:changelog skill.
+	ProducerClaudeName = "claude"
+	// ProducerCommandName runs changelog.producer_command.
+	ProducerCommandName = "command"
+)
+
+// Producers is every producer name, the default first.
+var Producers = []string{ProducerClaudeName, ProducerCommandName}
 
 // ChangeKinds is every change kind the release core knows, in the order
 // schemas/changelog.strata declares them.
@@ -96,6 +122,7 @@ type Config struct {
 	Signals   []string  `toml:"signals"`
 	Commands  Commands  `toml:"commands"`
 	Changelog Changelog `toml:"changelog"`
+	Adapters  Adapters  `toml:"adapters"`
 }
 
 // signalOrder is every commit signal, in the order the default lists them.
@@ -129,6 +156,7 @@ func Default() Config {
 			},
 			OtherHeading:    "Other changes",
 			BreakingHeading: "Breaking changes",
+			Producer:        ProducerClaudeName,
 		},
 	}
 }
@@ -193,6 +221,21 @@ func (c Config) Validate() error {
 			reasons = append(reasons, fmt.Sprintf("changelog.groups lists kind %q more than once", g.Kind))
 		}
 		seen[g.Kind] = true
+	}
+	switch c.Changelog.Producer {
+	case ProducerClaudeName:
+	case ProducerCommandName:
+		if c.Changelog.ProducerCommand == nil || strings.TrimSpace(*c.Changelog.ProducerCommand) == "" {
+			reasons = append(reasons, `changelog.producer is "command" but changelog.producer_command is unset; name the command that authors the corpus`)
+		}
+	default:
+		reasons = append(reasons, fmt.Sprintf("changelog.producer names %q, which is not a changelog producer (want one of %s)", c.Changelog.Producer, strings.Join(Producers, ", ")))
+	}
+	if c.Adapters.PullRequests {
+		reasons = append(reasons, "adapters.pull_requests is on, but the pull request adapter is not implemented yet; leave it off")
+	}
+	if c.Adapters.Diffs {
+		reasons = append(reasons, "adapters.diffs is on, but no diff adapter is implemented; leave it off")
 	}
 	if len(reasons) > 0 {
 		return &Refusal{Reasons: reasons}

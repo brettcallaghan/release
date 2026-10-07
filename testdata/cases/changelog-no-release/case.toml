@@ -1,0 +1,11 @@
+description = "with only commits that indicate no impact, no release is warranted: exit 1 and nothing on standard output"
+cites = ["contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "docs: describe the flag"],
+]
+args = ["changelog", "--skip-notes", "--target", "main"]
+exit_code = 1
+artifacts = ["stdout.txt", "stderr.txt"]

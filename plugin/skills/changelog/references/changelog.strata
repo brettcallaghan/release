@@ -24,11 +24,12 @@ struct Changelog {
     """
     The release impact the producer concluded from the content.
 
-    Compared against the bump the tooling computes. A disagreement halts the
-    release for human confirmation; it is never resolved by preferring one
-    side.
+    Absent on a corpus the tooling assembled, which proposes nothing, and
+    required of every corpus a producer returns. Compared against the bump
+    the tooling computes. A disagreement halts the release for human
+    confirmation; it is never resolved by preferring one side.
     """
-    proposed_bump: Bump
+    proposed_bump: Bump?
 
     """
     The resolved version this changelog describes, without a tag prefix — for
@@ -68,6 +69,60 @@ struct Changelog {
     breaking note is an entry whose sources span the changes that caused it.
     """
     entries: [ChangelogEntry]
+
+    """
+    Every adapter that contributed material to this corpus, and the commit
+    range each read.
+
+    Written when the corpus is assembled and carried through authoring
+    unchanged, so a reviewer can tell what the prose was written from. Empty
+    for a corpus nobody assembled, such as one written by hand.
+    """
+    sources: [AdapterRun]
+}
+
+"""
+One adapter's contribution to a corpus: which adapter, and the range it read.
+"""
+struct AdapterRun {
+    """
+    The adapter that contributed.
+    """
+    adapter: Adapter
+
+    """
+    The full hash of the range's base commit: the commit the previous release
+    was tagged on. Absent for a release line with no release yet, whose range
+    starts at its root.
+    """
+    from: String?
+
+    """
+    The full hash of the range's head commit: the newest commit the adapter
+    read.
+    """
+    to: String
+}
+
+"""
+A source of changelog material.
+"""
+enum Adapter {
+    """
+    Commit records read from git: subjects, bodies, trailers and the pull
+    request numbers in squash subjects.
+    """
+    COMMITS
+
+    """
+    Pull request titles and descriptions fetched from the hosting platform.
+    """
+    PULL_REQUESTS
+
+    """
+    The changes each commit made, read from git.
+    """
+    DIFFS
 }
 
 """
@@ -129,6 +184,17 @@ struct ChangelogEntry {
     arrived across more than one pull request.
     """
     sources: [ChangeSource]
+
+    """
+    Whether `summary` was derived mechanically from a commit subject rather
+    than written by a person or a producer.
+
+    Set when the tooling assembles an entry from a commit that carried no
+    author-written release-notes block. A producer that replaces the summary
+    with prose of its own clears it; one that keeps the derived summary
+    leaves it set, so a reviewer can see which lines nobody wrote.
+    """
+    derived: Bool
 }
 
 """

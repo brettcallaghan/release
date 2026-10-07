@@ -55,6 +55,7 @@ func TestUnconfiguredValuesTakeTheirDocumentedDefaults(t *testing.T) {
 			},
 			OtherHeading:    "Other changes",
 			BreakingHeading: "Breaking changes",
+			Producer:        "claude",
 		},
 	}
 	if !reflect.DeepEqual(d, want) {
@@ -315,5 +316,52 @@ func TestEveryChangeKindIsKnown(t *testing.T) {
 	}
 	if KnownChangeKind("feature") {
 		t.Error("kinds are case-sensitive; feature is not FEATURE")
+	}
+}
+
+func TestAuthoringSettingsDefaults(t *testing.T) {
+	d := Default()
+	if d.Changelog.Producer != "claude" {
+		t.Errorf("changelog.producer default = %q, want claude", d.Changelog.Producer)
+	}
+	if d.Changelog.ProducerCommand != nil {
+		t.Errorf("changelog.producer_command default = %q, want unset", *d.Changelog.ProducerCommand)
+	}
+	if d.Adapters.PullRequests || d.Adapters.Diffs {
+		t.Errorf("adapters default = %+v, want both off", d.Adapters)
+	}
+}
+
+func TestAuthoringSettingsRefusals(t *testing.T) {
+	blank := "  "
+	cmd := "./author.sh"
+	cases := []struct {
+		name   string
+		mutate func(*Config)
+		want   string
+	}{
+		{"command producer without a command", func(c *Config) { c.Changelog.Producer = "command" }, "changelog.producer_command is unset"},
+		{"command producer with a blank command", func(c *Config) {
+			c.Changelog.Producer, c.Changelog.ProducerCommand = "command", &blank
+		}, "changelog.producer_command is unset"},
+		{"unknown producer", func(c *Config) { c.Changelog.Producer = "gpt" }, `changelog.producer names "gpt"`},
+		{"pull request adapter", func(c *Config) { c.Adapters.PullRequests = true }, "adapters.pull_requests is on"},
+		{"diff adapter", func(c *Config) { c.Adapters.Diffs = true }, "adapters.diffs is on"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := Default()
+			tc.mutate(&c)
+			got := reasons(t, c)
+			if len(got) != 1 || !strings.Contains(got[0], tc.want) {
+				t.Errorf("reasons = %q, want one containing %q", got, tc.want)
+			}
+		})
+	}
+
+	c := Default()
+	c.Changelog.Producer, c.Changelog.ProducerCommand = "command", &cmd
+	if err := c.Validate(); err != nil {
+		t.Errorf("command producer with a command is refused: %v", err)
 	}
 }

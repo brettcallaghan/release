@@ -25,3 +25,8 @@ changelog:
       heading: Reverts
   other_heading: Other changes
   breaking_heading: 💥 Breaking changes
+  producer: claude
+  producer_command: null
+adapters:
+  pull_requests: false
+  diffs: false

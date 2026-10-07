@@ -250,6 +250,7 @@ func TestADeclaredChangelogGroupListReplacesTheDefaultWhole(t *testing.T) {
 		Groups:          []config.ChangelogGroup{{Kind: "FIX", Heading: "Bugs"}},
 		OtherHeading:    "Misc",
 		BreakingHeading: "Breaking changes",
+		Producer:        "claude",
 	}
 	if !reflect.DeepEqual(cfg.Changelog, want) {
 		t.Errorf("changelog = %+v\nwant %+v", cfg.Changelog, want)
@@ -292,6 +293,7 @@ func TestThisRepositorysConfigurationLoads(t *testing.T) {
 		},
 		OtherHeading:    "Other changes",
 		BreakingHeading: "💥 Breaking changes",
+		Producer:        "claude",
 	}
 	if !reflect.DeepEqual(cfg.Changelog, want) {
 		t.Errorf("changelog = %+v\nwant %+v", cfg.Changelog, want)

@@ -1,0 +1,27 @@
+changelog resolves the next version, assembles a changelog corpus from the
+commits since the base version, has the configured producer author it, and
+answers with the version, where the authored corpus is kept, and the
+rendered changelog section. It writes CHANGELOG.md only with --write.
+
+bump is major, minor or patch, and names the impact instead of inferring
+it. An authored corpus proposes an impact; when the proposal disagrees with
+the computed impact and no bump is named, changelog prints both and exits 1
+without rendering. Naming the bump confirms it, and the proposal is then
+advisory. The authored corpus is cached for the commit range, and reused
+until --redo-notes. Exits 1 when no release is warranted.
+
+Usage:
+  release changelog [bump] [flags]
+
+Flags:
+      --corpus path     Read the corpus at this path instead of the cache when it exists, and write it there otherwise
+  -h, --help            help for changelog
+      --json            Render the answer as JSON instead of YAML
+      --redo-notes      Discard any cached corpus and author again
+      --skip-notes      Assemble mechanically and invoke no producer
+      --target branch   The release line to collect from: a branch (default: the configured target, else the branch origin/HEAD points to)
+      --write           Write the rendered section into CHANGELOG.md
+
+Global Flags:
+      --config file   Use this configuration file instead of discovering one
+  -C, --repo path     Operate on the repository at this path instead of the working directory

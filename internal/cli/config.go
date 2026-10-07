@@ -168,11 +168,19 @@ func configAnswer(c config.Config, target string) yMap {
 			{"preflight", strs(c.Commands.Preflight)},
 		}},
 		{"changelog", changelogAnswer(c.Changelog)},
+		{"adapters", yMap{
+			{"pull_requests", yBool(c.Adapters.PullRequests)},
+			{"diffs", yBool(c.Adapters.Diffs)},
+		}},
 	}
 }
 
 // changelogAnswer is the changelog settings, in the blueprint's order.
 func changelogAnswer(c config.Changelog) yMap {
+	command := yNull()
+	if c.ProducerCommand != nil {
+		command = yStr(*c.ProducerCommand)
+	}
 	groups := ySeq{}
 	for _, g := range c.Groups {
 		groups = append(groups, yMap{
@@ -184,5 +192,7 @@ func changelogAnswer(c config.Changelog) yMap {
 		{"groups", groups},
 		{"other_heading", yStr(c.OtherHeading)},
 		{"breaking_heading", yStr(c.BreakingHeading)},
+		{"producer", yStr(c.Producer)},
+		{"producer_command", command},
 	}
 }

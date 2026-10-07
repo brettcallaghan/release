@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "proposed_bump": "MINOR",
+  "title": "Release lines on demand",
+  "summary": "Compute for any line.\n\nNothing breaks.",
+  "entries": [
+    {
+      "kind": "FEATURE",
+      "summary": "A maintainer can compute a version for any release line — naïvely fast.",
+      "breaking": false,
+      "derived": false,
+      "detail": "Pass `--target <branch>`.",
+      "sources": [
+        {
+          "__type": "PullRequest",
+          "number": 12
+        }
+      ]
+    },
+    {
+      "kind": "FIX",
+      "scope": "cli",
+      "summary": "handle empty input",
+      "breaking": false,
+      "derived": true,
+      "sources": [
+        {
+          "__type": "PullRequest",
+          "number": 11
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "adapter": "COMMITS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "53b6ea9aa35aa95ab7d00846da292db29f5ac460"
+    }
+  ]
+}
