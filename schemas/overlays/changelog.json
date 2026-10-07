@@ -1,0 +1,6 @@
+{
+  "jsonSchema": {
+    "root": "Changelog",
+    "bundle": true
+  }
+}

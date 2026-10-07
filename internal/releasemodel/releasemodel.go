@@ -96,19 +96,6 @@ func (v *Changelog) UnmarshalJSON(data []byte) error {
 	} else if err := json.Unmarshal(m, &v.Entries); err != nil {
 		return prefixField("entries", err)
 	}
-	var unknown string
-	for key := range raw {
-		switch key {
-		case "schema_version", "proposed_bump", "version", "title", "summary", "entries":
-		default:
-			if unknown == "" || key < unknown {
-				unknown = key
-			}
-		}
-	}
-	if unknown != "" {
-		return &unknownFieldError{Struct: "Changelog", Field: unknown}
-	}
 	return nil
 }
 
@@ -190,19 +177,6 @@ func (v *ChangelogEntry) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("ChangelogEntry: required field \"sources\" is missing or null")
 	} else if err := json.Unmarshal(m, &v.Sources); err != nil {
 		return prefixField("sources", err)
-	}
-	var unknown string
-	for key := range raw {
-		switch key {
-		case "kind", "summary", "scope", "detail", "breaking", "migration", "sources":
-		default:
-			if unknown == "" || key < unknown {
-				unknown = key
-			}
-		}
-	}
-	if unknown != "" {
-		return &unknownFieldError{Struct: "ChangelogEntry", Field: unknown}
 	}
 	return nil
 }
@@ -287,33 +261,24 @@ func (u *ChangeSource) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &probe); err != nil {
 		return err
 	}
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	delete(raw, "__type")
-	body, err := json.Marshal(raw)
-	if err != nil {
-		return err
-	}
 	switch probe.Tag {
 	case "PullRequest":
 		var v PullRequestSource
-		if err := json.Unmarshal(body, &v); err != nil {
+		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Value = v
 		return nil
 	case "Commit":
 		var v CommitSource
-		if err := json.Unmarshal(body, &v); err != nil {
+		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Value = v
 		return nil
 	case "Issue":
 		var v IssueSource
-		if err := json.Unmarshal(body, &v); err != nil {
+		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
 		u.Value = v
@@ -338,19 +303,6 @@ func (v *PullRequestSource) UnmarshalJSON(data []byte) error {
 	} else if err := json.Unmarshal(m, &v.Number); err != nil {
 		return prefixField("number", err)
 	}
-	var unknown string
-	for key := range raw {
-		switch key {
-		case "number":
-		default:
-			if unknown == "" || key < unknown {
-				unknown = key
-			}
-		}
-	}
-	if unknown != "" {
-		return &unknownFieldError{Struct: "PullRequestSource", Field: unknown}
-	}
 	return nil
 }
 
@@ -369,19 +321,6 @@ func (v *CommitSource) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("CommitSource: required field \"hash\" is missing or null")
 	} else if err := json.Unmarshal(m, &v.Hash); err != nil {
 		return prefixField("hash", err)
-	}
-	var unknown string
-	for key := range raw {
-		switch key {
-		case "hash":
-		default:
-			if unknown == "" || key < unknown {
-				unknown = key
-			}
-		}
-	}
-	if unknown != "" {
-		return &unknownFieldError{Struct: "CommitSource", Field: unknown}
 	}
 	return nil
 }
@@ -402,19 +341,6 @@ func (v *IssueSource) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("IssueSource: required field \"id\" is missing or null")
 	} else if err := json.Unmarshal(m, &v.Id); err != nil {
 		return prefixField("id", err)
-	}
-	var unknown string
-	for key := range raw {
-		switch key {
-		case "id":
-		default:
-			if unknown == "" || key < unknown {
-				unknown = key
-			}
-		}
-	}
-	if unknown != "" {
-		return &unknownFieldError{Struct: "IssueSource", Field: unknown}
 	}
 	return nil
 }
@@ -596,19 +522,6 @@ func (v *CommitRecord) UnmarshalJSON(data []byte) error {
 	} else if err := json.Unmarshal(m, &v.AuthorEmail); err != nil {
 		return prefixField("author_email", err)
 	}
-	var unknown string
-	for key := range raw {
-		switch key {
-		case "hash", "subject", "body", "pull_request", "trailers", "author_name", "author_email":
-		default:
-			if unknown == "" || key < unknown {
-				unknown = key
-			}
-		}
-	}
-	if unknown != "" {
-		return &unknownFieldError{Struct: "CommitRecord", Field: unknown}
-	}
 	return nil
 }
 
@@ -678,31 +591,7 @@ func (v *PullRequestRecord) UnmarshalJSON(data []byte) error {
 			return prefixField("merge_commit", err)
 		}
 	}
-	var unknown string
-	for key := range raw {
-		switch key {
-		case "number", "title", "description", "labels", "author", "head_branch", "merge_commit":
-		default:
-			if unknown == "" || key < unknown {
-				unknown = key
-			}
-		}
-	}
-	if unknown != "" {
-		return &unknownFieldError{Struct: "PullRequestRecord", Field: unknown}
-	}
 	return nil
-}
-
-// unknownFieldError reports a key the schema does not declare. Field
-// accumulates the path as each enclosing struct prefixes its own key.
-type unknownFieldError struct {
-	Struct string
-	Field  string
-}
-
-func (e *unknownFieldError) Error() string {
-	return e.Struct + ": unknown field \"" + e.Field + "\""
 }
 
 // prefixField re-attaches a struct's key to a decode error raised inside a
@@ -715,10 +604,6 @@ func prefixField(key string, err error) error {
 		} else {
 			typeErr.Field = key + "." + typeErr.Field
 		}
-	}
-	var unknownErr *unknownFieldError
-	if errors.As(err, &unknownErr) {
-		unknownErr.Field = key + "." + unknownErr.Field
 	}
 	return err
 }

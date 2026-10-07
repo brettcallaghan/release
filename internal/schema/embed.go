@@ -6,8 +6,17 @@ package schema
 
 import _ "embed"
 
-// ReleaseModel is the schema covering the changelog corpus and the
-// collector records: release-model.schema.json.
+// ReleaseModel is the bundle of every type's definition — the changelog
+// corpus and the collector records — with no root, so it validates nothing
+// on its own: address a definition by JSON Pointer.
+// release-model.schema.json.
 //
 //go:embed release-model.schema.json
 var ReleaseModel []byte
+
+// Changelog is the changelog corpus schema, rooted at Changelog: the one a
+// consumer validates an instance against before rendering.
+// changelog.schema.json.
+//
+//go:embed changelog.schema.json
+var Changelog []byte

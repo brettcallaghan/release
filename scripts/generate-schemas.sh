@@ -26,6 +26,17 @@ if ! command -v strata >/dev/null 2>&1; then
   exit 1
 fi
 
+# The compiler release is pinned in schemas/strata.version, so regeneration
+# is reproducible: a new strata release must not change the output of
+# unchanged sources. Update the pin deliberately and regenerate.
+want="$(tr -d '[:space:]' <"$SRC/strata.version")"
+have="$(strata --version 2>/dev/null || true)"
+if [[ "$have" != "strata-cli ${want#v}" ]]; then
+  echo "error: strata is '$have', but $SRC/strata.version pins $want." >&2
+  echo "  Install the pinned release: scripts/install-strata-cli.sh $want" >&2
+  exit 1
+fi
+
 CHECK=0
 [[ "${1:-}" == "--check" ]] && CHECK=1
 
@@ -43,6 +54,14 @@ strata build "$SRC" --target ast --output "$WORK/ast" --error-format json
 strata build "$SRC" --target json-schema --output "$WORK/schema"
 mv "$WORK/schema/ReleaseModel.schema.json" "$WORK/schema/release-model.schema.json"
 
+# 2.25. The changelog schema rooted at Changelog: the artifact a consumer
+#       validates a corpus against before rendering, per the changelog
+#       contract. The bundle above has no root, so it accepts any instance.
+strata build "$SRC" --target json-schema \
+  --config "$SRC/overlays/changelog.json" \
+  --output "$WORK/changelog"
+mv "$WORK/changelog/ReleaseModel.schema.json" "$WORK/schema/changelog.schema.json"
+
 # 2.5. go:embed cannot reach outside its own package directory, so the
 #      wrapper lives beside the JSON. It is written here rather than by hand
 #      so the package's contents and its exported var cannot drift apart.
@@ -55,11 +74,20 @@ package schema
 
 import _ "embed"
 
-// ReleaseModel is the schema covering the changelog corpus and the
-// collector records: release-model.schema.json.
+// ReleaseModel is the bundle of every type's definition — the changelog
+// corpus and the collector records — with no root, so it validates nothing
+// on its own: address a definition by JSON Pointer.
+// release-model.schema.json.
 //
 //go:embed release-model.schema.json
 var ReleaseModel []byte
+
+// Changelog is the changelog corpus schema, rooted at Changelog: the one a
+// consumer validates an instance against before rendering.
+// changelog.schema.json.
+//
+//go:embed changelog.schema.json
+var Changelog []byte
 GOFILE
 
 # 3. Go types for the release core. strata does not align struct fields the

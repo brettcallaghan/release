@@ -48,7 +48,7 @@ func (r Repo) ReleaseTags(ctx context.Context, ref, tagPrefix string) ([]Release
 			continue
 		}
 		key := tag.Version.String()
-		if prev, seen := byVersion[key]; !seen || preferred(tagPrefix, tag.Name, prev.Name) {
+		if prev, seen := byVersion[key]; !seen || preferred(tagPrefix, tag, prev.Name) {
 			byVersion[key] = tag
 		}
 	}
@@ -61,9 +61,12 @@ func (r Repo) ReleaseTags(ctx context.Context, ref, tagPrefix string) ([]Release
 }
 
 // preferred reports whether candidate should replace current as the tag for
-// a version both carry: a prefixed name wins over a bare one.
-func preferred(tagPrefix, candidate, current string) bool {
-	return tagPrefix != "" && strings.HasPrefix(candidate, tagPrefix) && !strings.HasPrefix(current, tagPrefix)
+// a version both carry: the name derived from the prefix wins over any other
+// spelling. It compares whole names, because an unrestricted prefix can be a
+// prefix of a bare version's spelling ("1" and "11.2.3").
+func preferred(tagPrefix string, candidate ReleaseTag, current string) bool {
+	derived := semver.TagName(tagPrefix, candidate.Version)
+	return tagPrefix != "" && candidate.Name == derived && current != derived
 }
 
 // LatestReleaseTag returns the highest release tag reachable from ref. found

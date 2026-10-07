@@ -106,7 +106,7 @@ if [ -n "$SHA" ]; then
   fi
   [ "${got%% *}" = "$SHA" ] || die "$ASSET sha256 is ${got%% *}, release says $SHA"
 else
-  log "warning: release publishes no digest for $ASSET — not verified"
+  die "release publishes no sha256 digest for $ASSET; refusing to install an unverified binary"
 fi
 
 tar -xzf "$WORK/$ASSET" -C "$WORK" strata || die "$ASSET has no strata binary"

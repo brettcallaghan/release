@@ -285,3 +285,22 @@ func TestImportsNoGeneratedSchemaPackage(t *testing.T) {
 		}
 	}
 }
+
+func TestIncrementAtTheMaximumComponentIsRefused(t *testing.T) {
+	const max = ^uint64(0)
+	for _, tc := range []struct {
+		base   semver.Version
+		impact Impact
+	}{
+		{semver.Version{Major: 1, Minor: 2, Patch: max}, ImpactPatch},
+		{semver.Version{Major: 1, Minor: max}, ImpactMinor},
+		{semver.Version{Major: max}, ImpactMajor},
+		{semver.Version{Minor: max}, ImpactMajor},
+	} {
+		b := tc.base
+		got := Next(Request{Base: &b, Impact: tc.impact, Policy: Policy{Pre1Remap: true}})
+		if got.Kind != Violation {
+			t.Errorf("Next(%s, %s) = %+v, want a violation rather than a wrapped version", tc.base, tc.impact, got)
+		}
+	}
+}

@@ -10,6 +10,7 @@ package version
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/brettcallaghan/release/internal/semver"
 )
@@ -143,19 +144,29 @@ func Next(req Request) Result {
 	case ImpactNone:
 		return Result{Kind: NoRelease, Reason: "the computed impact is none"}
 	case ImpactPatch:
-		return release(semver.Version{Major: b.Major, Minor: b.Minor, Patch: b.Patch + 1})
+		return increment(b, semver.Version{Major: b.Major, Minor: b.Minor, Patch: b.Patch + 1}, b.Patch)
 	case ImpactMinor:
-		return release(semver.Version{Major: b.Major, Minor: b.Minor + 1})
+		return increment(b, semver.Version{Major: b.Major, Minor: b.Minor + 1}, b.Minor)
 	case ImpactMajor:
 		if !pre1 {
-			return release(semver.Version{Major: b.Major + 1})
+			return increment(b, semver.Version{Major: b.Major + 1}, b.Major)
 		}
 		if req.Policy.Pre1Remap {
-			return release(semver.Version{Major: 0, Minor: b.Minor + 1})
+			return increment(b, semver.Version{Major: 0, Minor: b.Minor + 1}, b.Minor)
 		}
 		return violation("RTS-019", "an impact of major from %s would produce 1.0.0, which requires an explicit graduation", b)
 	}
 	return violation("", "unknown impact %s", req.Impact)
+}
+
+// increment returns next as a Release, or a violation WHEN the component it
+// increments is already at the largest value a version can carry: the sum
+// would wrap to zero and no longer follow the base.
+func increment(b, next semver.Version, component uint64) Result {
+	if component == math.MaxUint64 {
+		return violation("", "base version %s cannot be incremented: the component is at its maximum", b)
+	}
+	return release(next)
 }
 
 // CheckProposed checks a proposed next version against a base (nil means

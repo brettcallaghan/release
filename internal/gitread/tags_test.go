@@ -178,6 +178,17 @@ func TestSameVersionPrefersPrefixedTag(t *testing.T) {
 	}
 }
 
+// A prefix can itself begin a bare version's spelling: with prefix "1", the
+// derived name of 1.2.3 is "11.2.3", and the bare "1.2.3" also starts with
+// "1". The derived name still wins.
+func TestSameVersionPrefersExactDerivedName(t *testing.T) {
+	for _, order := range [][]string{{"1.2.3", "11.2.3"}, {"11.2.3", "1.2.3"}} {
+		f := newFixture(t)
+		f.commit(order...)
+		wantLatest(t, f, "main", "1", "11.2.3", "1.2.3")
+	}
+}
+
 func TestBranchNameDoesNotConstrainMajor(t *testing.T) {
 	f := newFixture(t)
 	f.commit("1.9.0")

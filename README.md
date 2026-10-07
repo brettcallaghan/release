@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-97.5%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-97.7%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 521 / 571 | 91.2% |
-| Snapshot cases | 362 / 571 | 63.4% |
-| End-to-end (built binary) | 329 / 571 | 57.6% |
-| **All layers combined** | **557 / 571** | **97.5%** |
+| Unit tests | 526 / 575 | 91.5% |
+| Snapshot cases | 364 / 575 | 63.3% |
+| End-to-end (built binary) | 331 / 575 | 57.6% |
+| **All layers combined** | **562 / 575** | **97.7%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -59,11 +59,11 @@ A statement is covered if any layer reaches it.
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
 | `release/internal/bump` | 79 | 79 | 100.0% |
 | `release/internal/cli` | 185 | 175 | 94.6% |
-| `release/internal/gitread` | 96 | 95 | 99.0% |
+| `release/internal/gitread` | 97 | 96 | 99.0% |
 | `release/internal/resolve` | 27 | 26 | 96.3% |
-| `release/internal/semver` | 110 | 109 | 99.1% |
-| `release/internal/version` | 65 | 65 | 100.0% |
-| **Total** | **571** | **557** | **97.5%** |
+| `release/internal/semver` | 110 | 110 | 100.0% |
+| `release/internal/version` | 68 | 68 | 100.0% |
+| **Total** | **575** | **562** | **97.7%** |
 
-Generated code is excluded from these figures: 278 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
+Generated code is excluded from these figures: 218 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->

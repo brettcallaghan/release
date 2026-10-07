@@ -29,63 +29,73 @@
       "type": "string"
     },
     "ChangeSource": {
-      "anyOf": [
+      "allOf": [
         {
-          "additionalProperties": false,
-          "properties": {
-            "__type": {
-              "const": "PullRequest",
-              "type": "string"
+          "if": {
+            "properties": {
+              "__type": {
+                "const": "PullRequest"
+              }
             },
-            "number": {
-              "$ref": "#/definitions/__Int"
-            }
+            "required": [
+              "__type"
+            ],
+            "type": "object"
           },
-          "required": [
-            "__type",
-            "number"
-          ],
-          "type": "object"
+          "then": {
+            "$ref": "#/definitions/PullRequestSource"
+          }
         },
         {
-          "additionalProperties": false,
-          "properties": {
-            "__type": {
-              "const": "Commit",
-              "type": "string"
+          "if": {
+            "properties": {
+              "__type": {
+                "const": "Commit"
+              }
             },
-            "hash": {
-              "type": "string"
-            }
+            "required": [
+              "__type"
+            ],
+            "type": "object"
           },
-          "required": [
-            "__type",
-            "hash"
-          ],
-          "type": "object"
+          "then": {
+            "$ref": "#/definitions/CommitSource"
+          }
         },
         {
-          "additionalProperties": false,
-          "properties": {
-            "__type": {
-              "const": "Issue",
-              "type": "string"
+          "if": {
+            "properties": {
+              "__type": {
+                "const": "Issue"
+              }
             },
-            "id": {
-              "type": "string"
-            }
+            "required": [
+              "__type"
+            ],
+            "type": "object"
           },
-          "required": [
-            "__type",
-            "id"
-          ],
-          "type": "object"
+          "then": {
+            "$ref": "#/definitions/IssueSource"
+          }
         }
       ],
-      "description": "A reference to something that accounts for a change."
+      "description": "A reference to something that accounts for a change.",
+      "properties": {
+        "__type": {
+          "enum": [
+            "PullRequest",
+            "Commit",
+            "Issue"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "__type"
+      ],
+      "type": "object"
     },
     "Changelog": {
-      "additionalProperties": false,
       "description": "A release's changelog as structured data.\n\nThis is the contract between a producer that may vary between runs — a\nlanguage model, a command, a conventional-commit parser, or a person — and\nthe deterministic consumers that render it. Authoring may vary; rendering may\nnot. Every published artifact describing a release is rendered from one\ninstance, so no two artifacts can disagree.\n\n`proposed_bump` carries the producer's conclusion about release impact. It is\na proposal, never an authority: the release tooling computes the bump\nindependently and halts when the two disagree. Where a maintainer names the\nbump explicitly, the named bump governs and the proposal is advisory.",
       "properties": {
         "entries": {
@@ -133,7 +143,6 @@
       "type": "object"
     },
     "ChangelogEntry": {
-      "additionalProperties": false,
       "description": "A single itemized change.",
       "properties": {
         "breaking": {
@@ -186,7 +195,6 @@
       "type": "object"
     },
     "CommitRecord": {
-      "additionalProperties": false,
       "description": "The records the collectors produce.\n\nCollection is deliberately free of interpretation: these records carry what\ngit and the hosting platform said, parsed into fields but not given meaning.\nDeciding what a trailer means, or which records become changelog entries, is\nthe business of the components that consume them.",
       "properties": {
         "author_email": {
@@ -242,7 +250,6 @@
       "type": "object"
     },
     "CommitSource": {
-      "additionalProperties": false,
       "description": "A commit that carried a change.",
       "properties": {
         "hash": {
@@ -256,7 +263,6 @@
       "type": "object"
     },
     "IssueSource": {
-      "additionalProperties": false,
       "description": "An issue or work item a change resolves.",
       "properties": {
         "id": {
@@ -270,7 +276,6 @@
       "type": "object"
     },
     "PullRequestRecord": {
-      "additionalProperties": false,
       "description": "The metadata a hosting platform holds about one pull request.\n\nCollected only for the fields a release consumes. A field absent from this\nrecord is a field the release process has no use for.",
       "properties": {
         "author": {
@@ -323,7 +328,6 @@
       "type": "object"
     },
     "PullRequestSource": {
-      "additionalProperties": false,
       "description": "A pull request that carried a change.",
       "properties": {
         "number": {

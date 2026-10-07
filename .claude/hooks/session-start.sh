@@ -184,9 +184,10 @@ command -v specs >/dev/null 2>&1 || log "note: no specs CLI — attach brettcall
 # The Go types and JSON Schema under internal/ are generated from
 # schemas/*.strata by scripts/generate-schemas.sh. strata-lang/strata is
 # private, so the installer needs STRATA_ACCESS_TOKEN; without it the
-# `schemas` check SKIPs out loud. The installer is a no-op when current.
+# `schemas` check SKIPs out loud. It installs the release pinned in
+# schemas/strata.version, and is a no-op when that is current.
 if [ -n "${STRATA_ACCESS_TOKEN:-}" ]; then
-  if scripts/install-strata-cli.sh >/dev/null 2>&1; then
+  if scripts/install-strata-cli.sh "$(tr -d '[:space:]' <schemas/strata.version)" >/dev/null 2>&1; then
     log "strata CLI ready: $(strata --version 2>/dev/null || echo installed)"
   else
     log "WARNING: could not install strata — run scripts/install-strata-cli.sh to see why"
