@@ -31,9 +31,9 @@ Sources are tried in precedence order:
 2. **An authored changelog** — the baseline path. Each entry carries a `kind`
    and a `breaking` flag, and the mapping from those to an impact is a pure
    function: any breaking entry means major, otherwise any `FEATURE` means
-   minor, otherwise patch. The entries may have been written by a language model; the
-   mapping over them is arithmetic, so the result is reproducible from the
-   corpus.
+   minor, otherwise patch. The entries may have been written by a language
+   model; the mapping over them is arithmetic, so the result is reproducible
+   from the corpus.
 3. **Conventional commits** — a type in the commit subject (`feat`, `fix` and
    the rest), with `!` before the colon marking a breaking change.
 4. **A release-type trailer** — `Release-Type: major|minor|patch|none` in the
