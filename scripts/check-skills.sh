@@ -35,7 +35,7 @@ import glob, os, re, sys
 # Expressed in bytes at ~4 bytes/token so the gate needs no tokenizer.
 BODY_BYTE_MAX = 20000
 
-errors, warnings = [], []
+errors, warnings, notes = [], [], []
 def err(w, m):  errors.append(f"{w}: {m}")
 def warn(w, m): warnings.append(f"{w}: {m}")
 
@@ -55,7 +55,7 @@ try:
     HAVE_YAML = True
 except ImportError:
     HAVE_YAML = False
-    warnings.append("frontmatter: pyyaml not installed — using a reduced structural check")
+    notes.append("frontmatter: pyyaml not installed — using a reduced structural check (pip install pyyaml for the full parse)")
 
 for p in SKILLS:
     text = open(p).read()
@@ -134,6 +134,7 @@ for p in ('plugin/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json'
 print("=== check-skills ===")
 for e in errors:   print(f"  ERROR {e}")
 for w in warnings: print(f"  WARN  {w}")
+for n in notes: print(f"  NOTE  {n}")
 print(f"--- {len(errors)} error(s), {len(warnings)} warning(s) ---")
 strict = os.environ.get('STRICT') == '1'
 if errors or (strict and warnings):
