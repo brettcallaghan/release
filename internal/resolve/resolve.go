@@ -76,6 +76,8 @@ type Resolution struct {
 	Named bool
 	// DeterminedBy lists the commits that indicated Impact, newest first.
 	DeterminedBy []Driver
+	// Commits are every commit record in the range, newest first.
+	Commits []releasemodel.CommitRecord
 	// Next is the calculator's answer: a version, no release, or a policy
 	// violation.
 	Next version.Result
@@ -107,6 +109,7 @@ func Resolve(ctx context.Context, req Request) (Resolution, error) {
 		Commits: commits,
 		Enabled: req.Policy.Signals,
 	})
+	res.Commits = commits
 	res.Impact, res.Named = classified.Impact, classified.Named
 	for _, d := range classified.Commits {
 		res.DeterminedBy = append(res.DeterminedBy, Driver{Hash: d.Commit.Hash, Subject: d.Commit.Subject, Signal: d.Signal})

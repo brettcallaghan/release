@@ -80,11 +80,38 @@ keys `base`, `impact`, `named`, `determined_by` (each `hash`, `subject`,
 WHEN no release is warranted or the policy refuses the version, and 2 for an
 invalid bump or a repository it cannot read.
 
+`release changelog [major|minor|patch] [--target <branch>] [--skip-notes]
+[--redo-notes] [--corpus <path>] [--write] [--json]` calls the release
+core's changelog operation (`internal/changelog`), which resolves the
+version as `release version` does, assembles the corpus from the range's
+commits, exchanges it with the configured producer through the authoring
+bridge, sets the corpus `version`, and renders it. Its answer is one
+mapping with keys `version`, `corpus_path` (where the authored corpus is
+kept, relative to the repository root when inside it; null under
+`--skip-notes`) and `section` (the rendered changelog section, trimmed as
+every multi-line value is), in that order. It exits 1 WHEN no release is
+warranted or the policy refuses the version; WHEN the corpus's
+`proposed_bump` disagrees with the computed impact and no bump is named,
+it answers `computed`, `proposed` and `corpus_path` instead, explains on
+standard error, writes nothing, and exits 1; and it exits 1 WHEN the
+producer fails or its corpus is rejected. A named bump governs, and the
+proposal is then advisory. `--skip-notes` invokes no producer and renders
+the assembled corpus; `--redo-notes` discards the cached corpus and
+authors again; `--corpus <path>` reads that path instead of the cache WHEN
+it exists and writes the authored corpus there otherwise; `--write` places
+the section in `CHANGELOG.md` through the changelog writer and changes
+nothing else. `--skip-notes` with `--redo-notes` or `--corpus` is invalid,
+and a missing producer prerequisite exits 2. The repository web URL the
+renderer links sources to is derived from a GitHub `origin` remote, and
+sources render as plain text otherwise.
+
 `release config [--json]` answers with the effective configuration, declared
 values over the release core's defaults, as one mapping: `target`,
 `tag_prefix`, `stage_prefix`, `release_branches`, `release_paths`, `leaps`,
-`pre1_remap`, `signals`, and `commands` holding `validate`, `propagate` and
-`preflight`, in that order. An unset command is null and an empty list `[]`.
+`pre1_remap`, `signals`, `commands` holding `validate`, `propagate` and
+`preflight`, `changelog` holding `groups`, `other_heading`,
+`breaking_heading`, `producer` and `producer_command`, and `adapters`
+holding `pull_requests` and `diffs`, in that order. An unset command is null and an empty list `[]`.
 `target` is the configured one, or else the branch `origin/HEAD` points to;
 IF neither is available, THEN it exits 2 naming
 `git remote set-head origin --auto`.

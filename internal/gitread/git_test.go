@@ -46,3 +46,15 @@ func TestCommonDirIsSharedByWorktrees(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRemoteURL(t *testing.T) {
+	f := newFixture(t)
+	if _, found, err := f.repo().RemoteURL(context.Background(), "origin"); found || err != nil {
+		t.Errorf("no remote: found %v, err %v; want false, nil", found, err)
+	}
+	f.git("remote", "add", "origin", "git@github.com:o/r.git")
+	url, found, err := f.repo().RemoteURL(context.Background(), "origin")
+	if url != "git@github.com:o/r.git" || !found || err != nil {
+		t.Errorf("RemoteURL = %q, %v, %v", url, found, err)
+	}
+}

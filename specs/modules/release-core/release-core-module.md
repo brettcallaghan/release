@@ -74,6 +74,16 @@ the first time something outside this repository depends on it.
   calculator's own impact, and never writes to the repository. A repository
   that cannot be read is an error; a refused or unwarranted release is a
   result.
+- **Changelog operation:** `internal/changelog`. `Prepare` takes the
+  repository, a target ref, an optional named bump, the loaded
+  configuration, the producers by name, an optional corpus path, and the
+  redo and skip requests. It resolves the version, assembles the corpus from
+  the range's commits ([[component-changelog-corpus-builder]]), exchanges it
+  ([[component-changelog-authoring-bridge]]), sets its `version`, and
+  renders it ([[component-changelog-renderer]]). An unwarranted release, and
+  a disagreement between the proposal and the computed impact with no bump
+  named, are results; it writes only the authoring cache, never the
+  changelog file.
 - **Default policy:** `DefaultPolicy` — tag prefix `v`, stage prefix
   `cut/`, `leaps` off, `pre1_remap` on, and every commit signal enabled:
   `release-type`, `conventional-type` and `breaking-marker`. The

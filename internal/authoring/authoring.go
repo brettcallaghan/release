@@ -161,7 +161,7 @@ func Accept(data []byte, source string) (releasemodel.Changelog, error) {
 		SchemaVersion *string `json:"schema_version"`
 	}
 	if err := json.Unmarshal(data, &probe); err != nil {
-		return reject("it is not a JSON object: %v", err)
+		return reject("it is not a JSON object (%v); it begins %q", err, excerpt(data))
 	}
 	if probe.SchemaVersion != nil {
 		v, err := semver.Parse(*probe.SchemaVersion)
@@ -220,4 +220,13 @@ func names(m map[string]Producer) string {
 	}
 	sort.Strings(out)
 	return strings.Join(out, ", ")
+}
+
+// excerpt is the start of a document, for a rejection to quote.
+func excerpt(data []byte) string {
+	s := strings.TrimSpace(string(data))
+	if r := []rune(s); len(r) > 60 {
+		return string(r[:60]) + "…"
+	}
+	return s
 }

@@ -131,3 +131,17 @@ func (r Repo) CommonDir(ctx context.Context) (string, error) {
 	}
 	return filepath.Abs(dir)
 }
+
+// RemoteURL returns the URL configured for the named remote. found is false,
+// with a nil error, WHEN no such remote is configured.
+func (r Repo) RemoteURL(ctx context.Context, name string) (url string, found bool, err error) {
+	out, err := r.run(ctx, "config", "--get", "remote."+name+".url")
+	var gitErr *GitError
+	if errors.As(err, &gitErr) && gitErr.ExitCode == 1 {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return strings.TrimSpace(string(out)), true, nil
+}

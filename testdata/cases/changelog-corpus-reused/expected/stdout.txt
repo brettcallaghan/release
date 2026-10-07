@@ -1,0 +1,20 @@
+version: 1.9.0
+corpus_path: notes.json
+section: |-
+  ## 1.9.0
+
+  **Release lines on demand**
+
+  Compute for any line.
+
+  Nothing breaks.
+
+  ### Features
+
+  - Prose from the saved corpus. (#12)
+
+    Pass `--target <branch>`.
+
+  ### Fixes
+
+  - **cli:** handle empty input (#11)

@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "proposed_bump": "MINOR",
+  "title": "Release lines on demand",
+  "summary": "Compute for any line.\n\nNothing breaks.",
+  "entries": [
+    {
+      "kind": "FEATURE",
+      "summary": "Stale prose from the saved corpus.",
+      "breaking": false,
+      "derived": false,
+      "detail": "Pass `--target <branch>`.",
+      "sources": [
+        {
+          "__type": "PullRequest",
+          "number": 12
+        }
+      ]
+    },
+    {
+      "kind": "FIX",
+      "scope": "cli",
+      "summary": "handle empty input",
+      "breaking": false,
+      "derived": true,
+      "sources": [
+        {
+          "__type": "PullRequest",
+          "number": 11
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "adapter": "COMMITS",
+      "to": "0000000000000000000000000000000000000000"
+    }
+  ]
+}
