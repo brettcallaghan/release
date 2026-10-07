@@ -246,6 +246,7 @@ on a platform the tooling does not integrate with.
   proposes but never decides.
 - [[adr-005]] — the release process is a composable library behind a thin
   front end, which is what this module is.
+- [[adr-006]] — git is reached through the installed git binary.
 
 ## Open Questions
 
