@@ -44,8 +44,12 @@ jobs:
       - name: Skill invariants
         run: scripts/check-skills.sh --strict
 
+      # Bumping this pin is a deliberate change.
       - name: Install the Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+        run: npm install -g @anthropic-ai/claude-code@2.1.292
 
       - name: Validate the plugin
         run: claude plugin validate plugin --strict
+
+      - name: Validate the marketplace
+        run: claude plugin validate . --strict
