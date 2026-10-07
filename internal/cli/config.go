@@ -167,5 +167,22 @@ func configAnswer(c config.Config, target string) yMap {
 			{"propagate", command(c.Commands.Propagate)},
 			{"preflight", strs(c.Commands.Preflight)},
 		}},
+		{"changelog", changelogAnswer(c.Changelog)},
+	}
+}
+
+// changelogAnswer is the changelog settings, in the blueprint's order.
+func changelogAnswer(c config.Changelog) yMap {
+	groups := ySeq{}
+	for _, g := range c.Groups {
+		groups = append(groups, yMap{
+			{"kind", yStr(string(g.Kind))},
+			{"heading", yStr(g.Heading)},
+		})
+	}
+	return yMap{
+		{"groups", groups},
+		{"other_heading", yStr(c.OtherHeading)},
+		{"breaking_heading", yStr(c.BreakingHeading)},
 	}
 }

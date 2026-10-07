@@ -84,13 +84,22 @@ the first time something outside this repository depends on it.
   `stage_prefix` `cut/`, `release_branches` (globs, empty),
   `release_paths` (empty), `leaps` off, `pre1_remap` on, `signals` (every
   signal), `commands.validate` and `commands.propagate` (unset) and
-  `commands.preflight` (empty). Its version settings are `DefaultPolicy`'s,
-  and `Policy` turns a configuration into the resolution policy.
+  `commands.preflight` (empty), and the `changelog` settings below. Its
+  version settings are `DefaultPolicy`'s, and `Policy` turns a
+  configuration into the resolution policy.
+  - `changelog.groups` is an ordered list of `{kind, heading}`, `kind` a
+    `ChangeKind` name; the default is `FEATURE` "Features", `FIX` "Fixes",
+    `PERFORMANCE` "Performance", `REVERT` "Reverts". A declared list
+    replaces the default whole, so a kind it omits does not render.
+    `changelog.other_heading` defaults to "Other changes" and
+    `changelog.breaking_heading` to "Breaking changes". Headings are any
+    UTF-8 text, emoji included, rendered verbatim.
   - `Validate` SHALL refuse an empty `stage_prefix`, a `signals` entry
-    naming no known signal, a malformed `release_branches` glob, and a
-    `release_branches` glob that can match any stage branch name: any name
-    made of `stage_prefix` followed by one or more version characters
-    (`0-9`, `a-z`, `A-Z`, `.`, `-`, `+`), whatever the version (RTS-009; Go
+    naming no known signal, a `changelog.groups` kind that is not a
+    `ChangeKind` name or is listed twice, a malformed `release_branches`
+    glob, and a `release_branches` glob that can match any stage branch
+    name: any name made of `stage_prefix` followed by one or more version
+    characters (`0-9`, `a-z`, `A-Z`, `.`, `-`, `+`), whatever the version (RTS-009; Go
     `path.Match`, where `*` does not cross `/`). The check is exact over
     that set, so it may refuse a glob matching only a non-version name under
     the prefix, such as `cut/latest`, but never misses a stage branch. It

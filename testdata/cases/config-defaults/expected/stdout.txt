@@ -13,3 +13,15 @@ commands:
   validate: null
   propagate: null
   preflight: []
+changelog:
+  groups:
+    - kind: FEATURE
+      heading: Features
+    - kind: FIX
+      heading: Fixes
+    - kind: PERFORMANCE
+      heading: Performance
+    - kind: REVERT
+      heading: Reverts
+  other_heading: Other changes
+  breaking_heading: Breaking changes

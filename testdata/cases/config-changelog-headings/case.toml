@@ -1,0 +1,11 @@
+description = "declared changelog headings, emoji included, are answered verbatim, and a declared group list replaces the default whole"
+cites = ["contract-release-cli#release-config"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["update-ref", "refs/remotes/origin/main", "HEAD"],
+  ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+]
+args = ["config"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]
