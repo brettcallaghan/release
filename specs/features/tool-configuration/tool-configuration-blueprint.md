@@ -238,8 +238,10 @@ CMDCFG = [[container-release-cli]] delta (— `release config`); WIRE =
 - [ ] **How a configured command runs.** Proposed: a string run through
   `sh -c` from the repository root, as `swarm.toml` checks are. The
   alternative is an argument list with no shell, which avoids quoting
-  surprises but cannot use pipes or `&&`. Blocks RUN. Decided by the
-  project owner.
+  surprises but cannot use pipes or `&&`. swarm's ADR-025 takes the
+  argument-list side for every external command, and adopting it here is
+  still undecided, so this answer should agree with that one. Blocks RUN.
+  Decided by the project owner.
 
 ## References
 
