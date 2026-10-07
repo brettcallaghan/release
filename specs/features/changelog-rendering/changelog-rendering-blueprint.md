@@ -4,9 +4,10 @@ description: How release core renders one changelog corpus into every
   target in one pure pass, and places the changelog section idempotently.
 slug: fb-changelog-rendering
 type: feature-blueprint
-status: draft
+status: in-progress
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
+plan: release-fgl
 frd: frd-changelog-rendering
 ---
 
@@ -77,10 +78,29 @@ two cannot differ.
 - IF the corpus `version` is unset, or its `schema_version` has a major
   version the component does not implement, THEN the component SHALL
   refuse to render.
-- The changelog section SHALL be laid out as in Open Questions (layout):
-  a `## <version>` heading, then the title in bold and the summary WHEN
+- The changelog section SHALL be laid out as below: a `## <version>`
+  heading with no date, then the title in bold and the summary WHEN
   present, then the breaking-changes group, then each configured group in
-  configured order, then the other group.
+  configured order, then the other group. For a corpus with a breaking
+  `feat` and a `fix`, with a repository web URL and default headings:
+
+  ```markdown
+  ## 1.9.0
+
+  **Faster resolution for large monorepos**
+
+  Resolution now caches per package. Upgrade when convenient.
+
+  ### Breaking changes
+
+  - **cli:** `--target` is required ([#412](https://github.com/o/r/pull/412))
+
+    Migration: pass `--target main` where you relied on the default.
+
+  ### Fixes
+
+  - Tags with a `v` prefix are recognised ([#87](https://github.com/o/r/pull/87))
+  ```
 - The release body SHALL be the changelog section without its
   `## <version>` heading line and the blank line after it.
 - Every entry marked `breaking` SHALL render in the breaking-changes group
@@ -188,34 +208,7 @@ Legend: HEAD = [[module-release-core]] delta (— changelog headings); RND =
 
 ## Open Questions
 
-- [ ] **Approve the default layout.** The RND and WR behaviour lines pin a
-  layout; it needs the owner's eye because every published changelog will
-  look like it. For a corpus with a breaking `feat` and a `fix`:
-
-  ```markdown
-  ## 1.9.0
-
-  **Faster resolution for large monorepos**
-
-  Resolution now caches per package. Upgrade when convenient.
-
-  ### Breaking changes
-
-  - **cli:** `--target` is required ([#412](https://github.com/o/r/pull/412))
-
-    Migration: pass `--target main` where you relied on the default.
-
-  ### Fixes
-
-  - Tags with a `v` prefix are recognised (#87)
-  ```
-
-  Choices inside it: no date in the heading (a date would be an input the
-  renderer cannot compute purely); internal kinds (`REFACTOR`, `DOCUMENTATION`,
-  `BUILD`, `CI`, `TEST`, `STYLE`, `CHORE`) left out by default, as the
-  schema suggests; links only when a repository web URL is supplied,
-  using GitHub's URL shapes. Blocks RND and WR. Decided by the project
-  owner.
+None.
 
 ## References
 

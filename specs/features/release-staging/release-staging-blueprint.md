@@ -5,9 +5,10 @@ description: How release core cuts a release as a stage branch and pull
   `release cut` drives it.
 slug: fb-release-staging
 type: feature-blueprint
-status: ready-for-review
+status: in-progress
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
+plan: release-elu
 frd: frd-release-staging
 ---
 

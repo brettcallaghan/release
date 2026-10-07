@@ -5,9 +5,10 @@ description: How release core gains a validated configuration model and a
   the configuration.
 slug: fb-tool-configuration
 type: feature-blueprint
-status: ready-for-review
+status: in-progress
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
+plan: release-0qc
 frd: frd-tool-configuration
 ---
 

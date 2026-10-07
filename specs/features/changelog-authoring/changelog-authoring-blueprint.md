@@ -5,9 +5,10 @@ description: How release core assembles a changelog corpus from git,
   returns, and how `release changelog` drives it.
 slug: fb-changelog-authoring
 type: feature-blueprint
-status: ready-for-review
+status: in-progress
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
+plan: release-mng
 frd: frd-changelog-authoring
 ---
 
@@ -157,8 +158,9 @@ default. `conventional` and `manual` are later work.
 - The `command` producer SHALL run `changelog.producer_command` with the
   assembled corpus as JSON on standard input and read the authored corpus
   as JSON from standard output, failing on a non-zero exit.
-- The `claude` producer SHALL run `claude -p` with a prompt naming the
-  release plugin's changelog skill, the assembled corpus as JSON on
+- The `claude` producer SHALL run `claude -p` with a prompt invoking the
+  `release:changelog` skill (the `changelog` skill of this repository's
+  `release` plugin), the assembled corpus as JSON on
   standard input, and SHALL read the authored corpus as JSON from
   standard output, failing on a non-zero exit.
 - Tests SHALL exercise the `claude` producer against a stub `claude` on
@@ -211,8 +213,9 @@ resolve the version, assemble, author, render, and print or write.
 
 - release-8bt.2 — prerequisite: SCH regenerates the bindings and BR
   validates against the generated JSON Schema.
-- release-8bt.4 — out-of-scope: the Claude plugin that hosts the skill the
-  `claude` producer names is that bead's; PROD only invokes it.
+- release-8bt.4 — out-of-scope: the `release` plugin and its `changelog`
+  skill, which the `claude` producer invokes, are that bead's; PROD only
+  invokes it.
 - release-cb2.4 — prerequisite: CB consumes the commit records that work
   order produces.
 - release-cb2.7 — prerequisite: CLCMD resolves the version through that
