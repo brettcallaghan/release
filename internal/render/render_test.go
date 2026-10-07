@@ -362,3 +362,15 @@ func TestASourceWithNoKindIsRefused(t *testing.T) {
 		t.Error("a source with no kind rendered")
 	}
 }
+
+func TestConfiguredHeadingsRenderVerbatim(t *testing.T) {
+	s := defaults()
+	s.Groups[1].Heading = "  Fixes, spaced  "
+	r, err := Render(corpus190(), s, repoURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(r.Section, "\n###   Fixes, spaced  \n") {
+		t.Errorf("the heading was not rendered verbatim:\n%q", r.Section)
+	}
+}

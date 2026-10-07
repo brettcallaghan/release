@@ -70,7 +70,8 @@ func Render(c releasemodel.Changelog, settings config.Changelog, repoURL string)
 				}
 			}
 		}
-		blocks = append(blocks, "### "+text(g.heading), list.String())
+		// A heading is configuration, rendered verbatim (not trimmed).
+		blocks = append(blocks, "### "+g.heading, list.String())
 	}
 
 	heading := "## " + strings.TrimSpace(*c.Version) + "\n"
