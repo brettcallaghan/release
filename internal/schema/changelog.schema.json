@@ -2,6 +2,40 @@
   "$ref": "#/definitions/Changelog",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
+    "Adapter": {
+      "description": "A source of changelog material.",
+      "enum": [
+        "COMMITS",
+        "PULL_REQUESTS",
+        "DIFFS"
+      ],
+      "type": "string"
+    },
+    "AdapterRun": {
+      "description": "One adapter's contribution to a corpus: which adapter, and the range it read.",
+      "properties": {
+        "adapter": {
+          "$ref": "#/definitions/Adapter",
+          "description": "The adapter that contributed."
+        },
+        "from": {
+          "description": "The full hash of the range's base commit: the commit the previous release\nwas tagged on. Absent for a release line with no release yet, whose range\nstarts at its root.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "description": "The full hash of the range's head commit: the newest commit the adapter\nread.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "adapter",
+        "to"
+      ],
+      "type": "object"
+    },
     "Bump": {
       "description": "The release impact of a change or of a release as a whole.",
       "enum": [
@@ -107,12 +141,26 @@
           "type": "array"
         },
         "proposed_bump": {
-          "$ref": "#/definitions/Bump",
-          "description": "The release impact the producer concluded from the content.\n\nCompared against the bump the tooling computes. A disagreement halts the\nrelease for human confirmation; it is never resolved by preferring one\nside."
+          "description": "The release impact the producer concluded from the content.\n\nAbsent on a corpus the tooling assembled, which proposes nothing, and\nrequired of every corpus a producer returns. Compared against the bump\nthe tooling computes. A disagreement halts the release for human\nconfirmation; it is never resolved by preferring one side.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Bump"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "schema_version": {
           "description": "Version of this schema that the instance conforms to.\n\nConsumers reject an instance declaring a schema version they do not\nimplement rather than rendering it partially.",
           "type": "string"
+        },
+        "sources": {
+          "description": "Every adapter that contributed material to this corpus, and the commit\nrange each read.\n\nWritten when the corpus is assembled and carried through authoring\nunchanged, so a reviewer can tell what the prose was written from. Empty\nfor a corpus nobody assembled, such as one written by hand.",
+          "items": {
+            "$ref": "#/definitions/AdapterRun"
+          },
+          "type": "array"
         },
         "summary": {
           "description": "One or two paragraphs introducing the release in prose.\n\nThis is where a release earns readable notes: what changed in aggregate,\nwho should care, and what to do about it. Entries carry the itemized\nrecord; this carries the narrative.",
@@ -138,8 +186,8 @@
       },
       "required": [
         "schema_version",
-        "proposed_bump",
-        "entries"
+        "entries",
+        "sources"
       ],
       "type": "object"
     },
@@ -148,6 +196,10 @@
       "properties": {
         "breaking": {
           "description": "Whether a consumer that upgrades is broken by this change.",
+          "type": "boolean"
+        },
+        "derived": {
+          "description": "Whether `summary` was derived mechanically from a commit subject rather\nthan written by a person or a producer.\n\nSet when the tooling assembles an entry from a commit that carried no\nauthor-written release-notes block. A producer that replaces the summary\nwith prose of its own clears it; one that keeps the derived summary\nleaves it set, so a reviewer can see which lines nobody wrote.",
           "type": "boolean"
         },
         "detail": {
@@ -191,7 +243,8 @@
         "kind",
         "summary",
         "breaking",
-        "sources"
+        "sources",
+        "derived"
       ],
       "type": "object"
     },

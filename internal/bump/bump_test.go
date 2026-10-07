@@ -102,7 +102,8 @@ func TestNoSignalYieldsNone(t *testing.T) {
 func TestAuthoredProposalIsIgnored(t *testing.T) {
 	// The changelog's proposed_bump (major) is not an input at all: only its
 	// entries are, and a FIX entry indicates patch.
-	_ = releasemodel.Changelog{ProposedBump: releasemodel.BumpMajor}
+	major := releasemodel.BumpMajor
+	_ = releasemodel.Changelog{ProposedBump: &major}
 	r := Classify(Input{
 		Changelog: []releasemodel.ChangelogEntry{{Kind: releasemodel.ChangeKindFix, Summary: "Fix a crash"}},
 		Commits:   []releasemodel.CommitRecord{commit("a", "fix: crash", "", nil)},

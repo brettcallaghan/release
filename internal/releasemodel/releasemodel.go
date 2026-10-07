@@ -28,10 +28,11 @@ type Changelog struct {
 	SchemaVersion string `json:"schema_version"`
 	// The release impact the producer concluded from the content.
 	//
-	// Compared against the bump the tooling computes. A disagreement halts the
-	// release for human confirmation; it is never resolved by preferring one
-	// side.
-	ProposedBump Bump `json:"proposed_bump"`
+	// Absent on a corpus the tooling assembled, which proposes nothing, and
+	// required of every corpus a producer returns. Compared against the bump
+	// the tooling computes. A disagreement halts the release for human
+	// confirmation; it is never resolved by preferring one side.
+	ProposedBump *Bump `json:"proposed_bump,omitempty"`
 	// The resolved version this changelog describes, without a tag prefix — for
 	// example `1.4.0`.
 	//
@@ -59,6 +60,13 @@ type Changelog struct {
 	// `migration`. There is no separate collection for them: a release-level
 	// breaking note is an entry whose sources span the changes that caused it.
 	Entries []ChangelogEntry `json:"entries"`
+	// Every adapter that contributed material to this corpus, and the commit
+	// range each read.
+	//
+	// Written when the corpus is assembled and carried through authoring
+	// unchanged, so a reviewer can tell what the prose was written from. Empty
+	// for a corpus nobody assembled, such as one written by hand.
+	Sources []AdapterRun `json:"sources"`
 }
 
 func (v *Changelog) UnmarshalJSON(data []byte) error {
@@ -71,10 +79,10 @@ func (v *Changelog) UnmarshalJSON(data []byte) error {
 	} else if err := json.Unmarshal(m, &v.SchemaVersion); err != nil {
 		return prefixField("schema_version", err)
 	}
-	if m, ok := raw["proposed_bump"]; !ok || string(m) == "null" {
-		return fmt.Errorf("Changelog: required field \"proposed_bump\" is missing or null")
-	} else if err := json.Unmarshal(m, &v.ProposedBump); err != nil {
-		return prefixField("proposed_bump", err)
+	if m, ok := raw["proposed_bump"]; ok {
+		if err := json.Unmarshal(m, &v.ProposedBump); err != nil {
+			return prefixField("proposed_bump", err)
+		}
 	}
 	if m, ok := raw["version"]; ok {
 		if err := json.Unmarshal(m, &v.Version); err != nil {
@@ -96,7 +104,86 @@ func (v *Changelog) UnmarshalJSON(data []byte) error {
 	} else if err := json.Unmarshal(m, &v.Entries); err != nil {
 		return prefixField("entries", err)
 	}
+	if m, ok := raw["sources"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Changelog: required field \"sources\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Sources); err != nil {
+		return prefixField("sources", err)
+	}
 	return nil
+}
+
+// One adapter's contribution to a corpus: which adapter, and the range it read.
+type AdapterRun struct {
+	// The adapter that contributed.
+	Adapter Adapter `json:"adapter"`
+	// The full hash of the range's base commit: the commit the previous release
+	// was tagged on. Absent for a release line with no release yet, whose range
+	// starts at its root.
+	From *string `json:"from,omitempty"`
+	// The full hash of the range's head commit: the newest commit the adapter
+	// read.
+	To string `json:"to"`
+}
+
+func (v *AdapterRun) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["adapter"]; !ok || string(m) == "null" {
+		return fmt.Errorf("AdapterRun: required field \"adapter\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Adapter); err != nil {
+		return prefixField("adapter", err)
+	}
+	if m, ok := raw["from"]; ok {
+		if err := json.Unmarshal(m, &v.From); err != nil {
+			return prefixField("from", err)
+		}
+	}
+	if m, ok := raw["to"]; !ok || string(m) == "null" {
+		return fmt.Errorf("AdapterRun: required field \"to\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.To); err != nil {
+		return prefixField("to", err)
+	}
+	return nil
+}
+
+// A source of changelog material.
+type Adapter string
+
+const (
+	// Commit records read from git: subjects, bodies, trailers and the pull
+	// request numbers in squash subjects.
+	AdapterCommits Adapter = "COMMITS"
+	// Pull request titles and descriptions fetched from the hosting platform.
+	AdapterPullRequests Adapter = "PULL_REQUESTS"
+	// The changes each commit made, read from git.
+	AdapterDiffs Adapter = "DIFFS"
+)
+
+func (e Adapter) MarshalJSON() ([]byte, error) {
+	switch e {
+	case AdapterCommits, AdapterPullRequests, AdapterDiffs:
+		return json.Marshal(string(e))
+	}
+	return nil, fmt.Errorf("Adapter: unknown value %q", string(e))
+}
+
+func (e *Adapter) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch Adapter(s) {
+	case AdapterCommits, AdapterPullRequests, AdapterDiffs:
+		*e = Adapter(s)
+		return nil
+	}
+	return fmt.Errorf("Adapter: unknown value %q", s)
+}
+
+func (e Adapter) String() string {
+	return string(e)
 }
 
 // A single itemized change.
@@ -136,6 +223,14 @@ type ChangelogEntry struct {
 	// sources of different kinds, which is how one entry describes work that
 	// arrived across more than one pull request.
 	Sources []ChangeSource `json:"sources"`
+	// Whether `summary` was derived mechanically from a commit subject rather
+	// than written by a person or a producer.
+	//
+	// Set when the tooling assembles an entry from a commit that carried no
+	// author-written release-notes block. A producer that replaces the summary
+	// with prose of its own clears it; one that keeps the derived summary
+	// leaves it set, so a reviewer can see which lines nobody wrote.
+	Derived bool `json:"derived"`
 }
 
 func (v *ChangelogEntry) UnmarshalJSON(data []byte) error {
@@ -177,6 +272,11 @@ func (v *ChangelogEntry) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("ChangelogEntry: required field \"sources\" is missing or null")
 	} else if err := json.Unmarshal(m, &v.Sources); err != nil {
 		return prefixField("sources", err)
+	}
+	if m, ok := raw["derived"]; !ok || string(m) == "null" {
+		return fmt.Errorf("ChangelogEntry: required field \"derived\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Derived); err != nil {
+		return prefixField("derived", err)
 	}
 	return nil
 }

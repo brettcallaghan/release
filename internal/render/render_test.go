@@ -32,9 +32,10 @@ func issue(id string) releasemodel.ChangeSource {
 }
 
 func corpus(version string, entries ...releasemodel.ChangelogEntry) releasemodel.Changelog {
+	minor := releasemodel.BumpMinor
 	return releasemodel.Changelog{
 		SchemaVersion: "1.0.0",
-		ProposedBump:  releasemodel.BumpMinor,
+		ProposedBump:  &minor,
 		Version:       str(version),
 		Entries:       entries,
 	}
@@ -71,7 +72,8 @@ func corpus190() releasemodel.Changelog {
 			Sources: []releasemodel.ChangeSource{pr(87)},
 		},
 	)
-	c.ProposedBump = releasemodel.BumpMajor
+	major := releasemodel.BumpMajor
+	c.ProposedBump = &major
 	c.Title = str("Faster resolution for large monorepos")
 	c.Summary = str("Resolution now caches per package. Upgrade when convenient.")
 	return c
