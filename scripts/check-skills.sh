@@ -86,8 +86,10 @@ for p in SKILLS:
                        f"continuation: {ln[:60]!r}")
 
     name, desc = d.get('name'), d.get('description')
-    if not name:
+    if name is None or name == '':
         err(p, "missing `name`")
+    elif not isinstance(name, str):
+        err(p, f"name must be a string, not {type(name).__name__}")
     else:
         if len(name) > 64:                     err(p, f"name is {len(name)} chars (max 64)")
         if not re.fullmatch(r'[a-z0-9-]+', name): err(p, f"name '{name}' must be lowercase letters, numbers, hyphens")
@@ -95,8 +97,10 @@ for p in SKILLS:
             if w in name.lower():              err(p, f"name contains the reserved word '{w}'")
         if os.path.basename(os.path.dirname(p)) != name:
             err(p, f"name '{name}' does not match its directory")
-    if not desc:
+    if desc is None or desc == '':
         err(p, "missing `description` — without it the skill will not be discovered")
+    elif not isinstance(desc, str):
+        err(p, f"description must be a string, not {type(desc).__name__}")
     else:
         if len(desc) > 1024: err(p, f"description is {len(desc)} chars (max 1024)")
         if len(desc) < 40:   warn(p, f"description is only {len(desc)} chars — likely too thin to trigger on")
