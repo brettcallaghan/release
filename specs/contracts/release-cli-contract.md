@@ -11,7 +11,7 @@ visibility: public
 consumers: []
 specs:
   - testdata/help/
-version: "1.0"
+version: "1.1"
 ---
 
 # Release CLI Command Surface
@@ -54,14 +54,15 @@ anything.
 | Flag | Meaning |
 |---|---|
 | `--target <branch>` | The release line to compute for. Defaults to the configured target, then the current branch |
-| `--json` | Emit the result as one JSON object |
+| `--json` | Render the answer as JSON instead of YAML |
 
-Prints the base version, the resolved impact, what drove that impact, and the
-next version. Read-only, and safe to run against any repository at any time.
+Answers with the base version, the resolved impact, what drove that impact,
+and the next version. Read-only, and safe to run against any repository at any time.
 
 ### `release changelog [bump]`
 
-Assembles a changelog corpus, authors it, renders it, and prints the result.
+Assembles a changelog corpus, authors it, renders it, and answers with the
+corpus and the rendered section.
 
 | Flag | Meaning |
 |---|---|
@@ -70,7 +71,7 @@ Assembles a changelog corpus, authors it, renders it, and prints the result.
 | `--redo-notes` | Discard any cached corpus and author again |
 | `--corpus <path>` | Read or write the corpus at an explicit path instead of the cache |
 | `--write` | Write the rendered section into the changelog file |
-| `--json` | Emit the corpus and the rendered output as one JSON object |
+| `--json` | Render the answer as JSON instead of YAML |
 
 Read-only unless `--write` is given.
 
@@ -87,18 +88,18 @@ writes the release commit onto a stage branch, and opens its pull request.
 | `--no-pull-request` | Create the stage branch and stop; open no pull request |
 | `--dry-run` | Report every intended action and change nothing |
 | `--yes` | Do not prompt before writing. Only meaningful interactively |
-| `--json` | Emit the outcome as one JSON object |
+| `--json` | Render the answer as JSON instead of YAML |
 
 The only command that writes to the repository or the hosting platform.
 
 ### `release config`
 
-Prints the effective configuration — declared values and defaults — and
-validates it.
+Answers with the effective configuration — declared values and defaults —
+and validates it.
 
 | Flag | Meaning |
 |---|---|
-| `--json` | Emit the effective configuration as one JSON object |
+| `--json` | Render the answer as JSON instead of YAML |
 
 ### Global flags
 
@@ -106,9 +107,9 @@ validates it.
 |---|---|
 | `-C, --repo <path>` | Operate on the repository at this path instead of the working directory |
 | `--config <path>` | Use this configuration file instead of discovering one |
-| `-q, --quiet` | Suppress informational output; errors still print |
+| `-q, --quiet` | Suppress informational output on standard error; errors still print |
 | `-v, --verbose` | Print additional diagnostics to standard error |
-| `--no-color` | Disable styled output |
+| `--no-color` | Disable styled diagnostics on standard error |
 | `-h, --help` | Print usage for the program or a command |
 | `-V, --version` | Print the tool's own version |
 
@@ -138,7 +139,17 @@ SHALL exit 3 and report every change it made.
 
 ---
 
-The provider SHALL print machine-readable output only to standard output.
+The provider SHALL print a command's answer only to standard output.
+
+---
+
+The provider SHALL render every answer as [[cli-output-standards]] specifies:
+YAML by default, and JSON carrying the same values in the same order WHERE
+`--json` is given.
+
+**Rationale:** One rendering a person and an agent can both read without a
+key, and one a consumer already parsing JSON can take unchanged. A caller
+never has to choose between readable output and parseable output.
 
 ---
 
@@ -197,7 +208,8 @@ undiagnosable, and the usual cause is one mis-marked change.
   credentials of the platform's own CLI rather than requiring a token of their
   own.
 - **Consumer obligations:** consumers SHALL branch on exit codes rather than
-  on message text, and SHALL pass `--json` where they parse output.
+  on message text, and SHALL parse an answer rather than diagnostics. Either
+  rendering may be parsed; both carry the same values.
 - **Provider obligations:** the provider SHALL treat message text as
   unversioned and exit codes as versioned.
 
@@ -205,11 +217,11 @@ undiagnosable, and the usual cause is one mis-marked change.
 
 - **Versioning scheme:** semantic versioning on the tool's own version.
 - **Compatible changes:** the provider MAY add a command, add a flag, add a
-  field to `--json` output, and change message text, without a major version
+  property to an answer, and change message text, without a major version
   change.
 - **Breaking changes:** WHEN a command or flag is removed or renamed, a
-  default changes, an exit code's meaning changes, or a `--json` field is
-  removed or re-typed, the provider SHALL increment its major version.
+  default changes, an exit code's meaning changes, or a property of an answer
+  is removed, renamed or re-typed in either rendering, the provider SHALL increment its major version.
 - **Deprecation:** WHEN a command or flag is deprecated, it SHALL continue to
   work for one major version, and invoking it SHALL print a notice to standard
   error naming its replacement.
@@ -230,6 +242,7 @@ prompt, so no automation needs the flag.
 
 - `shared/c4-standards.md` — C4 mapping rules and contract visibility tiers
 - [[container-release-cli]] — provider's blueprint
+- [[cli-output-standards]] — the shape of every answer on standard output
 - [[module-release-core]] — the library every command calls
 - [[frd-tool-configuration]] — the configuration `release config` reports
 - [[frd-version-computation]], [[frd-changelog-authoring]],

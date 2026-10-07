@@ -86,14 +86,14 @@ description: Locates and parses the repository's release configuration, and vali
 
 ### Output Renderer
 
-Human-readable output by default and machine-readable output on request, plus
-exit codes. The module returns structured results; this turns them into
-something a terminal or a script can read.
+YAML by default and JSON under `--json`, plus exit codes. The module returns
+structured results; this renders them as [[cli-output-standards]] specifies,
+so one answer reads the same at a terminal, in a script and to an agent.
 
 ```component
 title: Output Renderer
 slug: component-output-renderer
-description: Renders structured results from the core library as human-readable or machine-readable output, and sets exit codes.
+description: Renders structured results from the core library as YAML by default or JSON on request, and sets exit codes.
 ```
 
 ## Provided Contracts
@@ -174,4 +174,5 @@ consumer inherits.
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
 - [[module-release-core]] — the library this container wraps
 - [[contract-release-cli]] — the command surface this container vends
+- [[cli-output-standards]] — the shape the Output Renderer gives every answer
 - [[frd-tool-configuration]] — the configuration this container loads
