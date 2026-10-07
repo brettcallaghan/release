@@ -6,6 +6,8 @@
 #   2. Build the `release` CLI from this working tree onto PATH.
 #   3. Build the `specs` CLI from a sibling agent-plugins checkout, when one
 #      is attached, so `specs check --strict` can gate the corpus.
+#   4. Install the `strata` compiler when STRATA_ACCESS_TOKEN is set, so
+#      scripts/generate-schemas.sh can regenerate and check internal/ types.
 #
 # Idempotent and non-interactive. Claude Code registers hooks from the
 # PROJECT ROOT's .claude/settings.json only, so a session that attaches this
@@ -178,7 +180,23 @@ for candidate in "${SPECS_SRC_DIR:-}" "$PROJECT_DIR/../agent-plugins"; do
 done
 command -v specs >/dev/null 2>&1 || log "note: no specs CLI — attach brettcallaghan/agent-plugins to check the corpus"
 
-# --- 5. Fail loudly if the tracker is unusable -----------------------------------
+# --- 5. strata CLI --------------------------------------------------------------
+# The Go types and JSON Schema under internal/ are generated from
+# schemas/*.strata by scripts/generate-schemas.sh. strata-lang/strata is
+# private, so the installer needs STRATA_ACCESS_TOKEN; without it the
+# `schemas` check SKIPs out loud. It installs the release pinned in
+# schemas/strata.version, and is a no-op when that is current.
+if [ -n "${STRATA_ACCESS_TOKEN:-}" ]; then
+  if scripts/install-strata-cli.sh "$(tr -d '[:space:]' <schemas/strata.version)" >/dev/null 2>&1; then
+    log "strata CLI ready: $(strata --version 2>/dev/null || echo installed)"
+  else
+    log "WARNING: could not install strata — run scripts/install-strata-cli.sh to see why"
+  fi
+else
+  log "note: no STRATA_ACCESS_TOKEN — strata not installed; generated schemas cannot be checked"
+fi
+
+# --- 6. Fail loudly if the tracker is unusable -----------------------------------
 # Last, so everything else is provisioned first. A session that cannot write
 # the tracker would lose every bead it closes.
 if [ -n "${BB_DOLT_FATAL:-}" ]; then

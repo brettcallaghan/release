@@ -1,0 +1,8 @@
+base: 1.0.0
+impact: patch
+named: false
+determined_by:
+  - hash: d12ccd9d2415925a83e730717c9e3b1b15dc719f
+    subject: "fix: published fix"
+    signal: conventional-type
+next: 1.0.1

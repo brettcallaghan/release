@@ -76,6 +76,24 @@ marked breaking, or one mis-typed commit — is invisible in the result alone.
     impact of none.
   - The component SHALL be a pure function of its inputs.
   - The component SHALL NOT require any signal that lives outside git.
+- **Signal mappings:** the enabled signal set names any of
+  `release-type`, `conventional-type` and `breaking-marker`.
+  - `release-type`: a `Release-Type` trailer of `major`, `minor`, `patch`
+    or `none`, key and value case-insensitive, indicates that impact.
+    `none` never lowers what another signal indicates, on the same commit
+    or another.
+  - `conventional-type`: a subject type of `feat` indicates minor; `fix`,
+    `perf` and `refactor` indicate patch; any other type is no signal.
+  - `breaking-marker`: a `!` immediately before the subject's colon, or a
+    line in the body's final paragraph beginning `BREAKING CHANGE:` or
+    `BREAKING-CHANGE:`, indicates major. The footer is read from the body
+    because git's trailer rules reject a key containing a space.
+  - Authored changelog entries: `breaking` indicates major, kind `FEATURE`
+    minor, any other entry patch. The changelog's `proposed_bump` is never
+    read.
+  - WHERE one commit indicates the winning impact through several signals,
+    it is reported once, preferring `breaking-marker`, then `release-type`,
+    then `conventional-type`.
 
 ## Cross-Cutting Standards
 

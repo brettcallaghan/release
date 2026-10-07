@@ -63,6 +63,21 @@ is a pure function, so it can be tested exhaustively without a repository.
   - WHEN no base version is supplied, the component SHALL compute from a base
     of 0.0.0.
   - The component SHALL require an explicit graduation to produce 1.0.0.
+  - WHEN graduation is requested and the base is below 1.0.0, the component
+    SHALL return 1.0.0 whatever the impact.
+  - IF graduation is requested and the base is 1.0.0 or above, THEN the
+    component SHALL return a policy violation.
+  - IF the base is below 1.0.0, the impact is major, no graduation is
+    requested and the pre-1.0 remapping is off, THEN the component SHALL
+    return a policy violation rather than 1.0.0.
+  - The computed next version SHALL always increment exactly one component
+    by one; the leap policy affects only whether a proposed version is
+    accepted.
+  - The component SHALL check a proposed version against a base under the
+    policy, and SHALL return a policy violation WHEN the proposal increments
+    any component by more than one while leaps are off, does not follow the
+    base, leaves a component after the incremented one non-zero, or reaches
+    1.0.0 or above from a base below it without graduation.
   - The component SHALL derive a prerelease identifier for a planned
     version on request.
   - A prerelease version the component returns SHALL order before the

@@ -3,7 +3,14 @@ its changelog, and stages the release on a stage branch for review.
 
 Usage:
   release [flags]
+  release [command]
+
+Available Commands:
+  help        Help about any command
+  version     Resolve the version a release would carry, without writing anything
 
 Flags:
   -h, --help      help for release
   -V, --version   Print the tool's own version
+
+Use "release [command] --help" for more information about a command.

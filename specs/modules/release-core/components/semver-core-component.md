@@ -50,8 +50,12 @@ component generated both forms.
     versioning, including prerelease precedence.
   - The component SHALL derive a tag name and a stage branch name from one
     version such that each can be parsed back to that version.
-  - The component SHALL NOT accept a version string carrying a tag prefix;
-    callers strip the prefix before parsing.
+  - The component SHALL NOT accept a version string carrying a tag prefix,
+    including a leading `v`; callers strip the prefix before parsing, or
+    parse the string as a tag name given its prefix.
+  - The component SHALL derive the prerelease version previewing a planned
+    version with ordinal `n` as `<planned>-rc.<n>`, which orders before the
+    planned version.
   - The component SHALL NOT read git, the filesystem, or the network.
 
 ## Cross-Cutting Standards

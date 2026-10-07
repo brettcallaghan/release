@@ -63,6 +63,21 @@ the first time something outside this repository depends on it.
     a caller can pass.
   - The module SHALL NOT terminate the process.
   - The module SHALL NOT call a language model.
+- **Version resolution:** `internal/resolve`. `Resolve` takes a repository
+  path, a target ref, an optional named bump, an optional graduation flag
+  and a policy, and returns the base version (or its absence) with its tag,
+  the impact, whether it was named, the commits that determined it with the
+  signal each indicated, and the next version, a no-release result or a
+  policy violation. It composes [[component-tag-reader]],
+  [[component-commit-collector]], [[component-bump-classifier]] and
+  [[component-version-calculator]], maps the classifier's bump onto the
+  calculator's own impact, and never writes to the repository. A repository
+  that cannot be read is an error; a refused or unwarranted release is a
+  result.
+- **Default policy:** `DefaultPolicy` — tag prefix `v`, stage prefix
+  `cut/`, `leaps` off, `pre1_remap` on, and every commit signal enabled:
+  `release-type`, `conventional-type` and `breaking-marker`. It applies
+  until the Configuration Loader supplies a configured policy.
 
 **Rationale for the first two:** a front end that has to parse the library's
 human-readable output is a front end that breaks when the wording changes, and
@@ -231,6 +246,7 @@ on a platform the tooling does not integrate with.
   proposes but never decides.
 - [[adr-005]] — the release process is a composable library behind a thin
   front end, which is what this module is.
+- [[adr-006]] — git is reached through the installed git binary.
 
 ## Open Questions
 

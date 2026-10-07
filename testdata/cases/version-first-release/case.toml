@@ -1,0 +1,9 @@
+description = "with no release tag reachable, base is null and the first version is computed from 0.0.0; a major impact below 1.0.0 is remapped to minor"
+cites = ["AC-VER-001.4", "AC-VER-001.6", "AC-VER-003.6"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "feat!: first cut", "-m", "BREAKING CHANGE: everything is new"],
+]
+args = ["version", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

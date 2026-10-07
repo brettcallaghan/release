@@ -1,0 +1,349 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Bump": {
+      "description": "The release impact of a change or of a release as a whole.",
+      "enum": [
+        "MAJOR",
+        "MINOR",
+        "PATCH",
+        "NONE"
+      ],
+      "type": "string"
+    },
+    "ChangeKind": {
+      "description": "The category of an itemized change, which decides the section it renders in.\n\nThe variants correspond one-to-one with the conventional-commit types, spelled\nout rather than abbreviated, so a parser reading conventional commits maps onto\nthem mechanically while a producer writing prose reads a vocabulary that needs\nno decoding. Whether a change is breaking is\ncarried by `ChangelogEntry.breaking` rather than by a variant, matching\nconventional commits' treatment of it as a marker rather than a type.\n\nA project typically renders `FEATURE`, `FIX`, `PERFORMANCE` and `REVERT`, and\nomits the rest from published notes.",
+      "enum": [
+        "FEATURE",
+        "FIX",
+        "PERFORMANCE",
+        "REVERT",
+        "REFACTOR",
+        "DOCUMENTATION",
+        "BUILD",
+        "CI",
+        "TEST",
+        "STYLE",
+        "CHORE"
+      ],
+      "type": "string"
+    },
+    "ChangeSource": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "__type": {
+                "const": "PullRequest"
+              }
+            },
+            "required": [
+              "__type"
+            ],
+            "type": "object"
+          },
+          "then": {
+            "$ref": "#/definitions/PullRequestSource"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "__type": {
+                "const": "Commit"
+              }
+            },
+            "required": [
+              "__type"
+            ],
+            "type": "object"
+          },
+          "then": {
+            "$ref": "#/definitions/CommitSource"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "__type": {
+                "const": "Issue"
+              }
+            },
+            "required": [
+              "__type"
+            ],
+            "type": "object"
+          },
+          "then": {
+            "$ref": "#/definitions/IssueSource"
+          }
+        }
+      ],
+      "description": "A reference to something that accounts for a change.",
+      "properties": {
+        "__type": {
+          "enum": [
+            "PullRequest",
+            "Commit",
+            "Issue"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "__type"
+      ],
+      "type": "object"
+    },
+    "Changelog": {
+      "description": "A release's changelog as structured data.\n\nThis is the contract between a producer that may vary between runs — a\nlanguage model, a command, a conventional-commit parser, or a person — and\nthe deterministic consumers that render it. Authoring may vary; rendering may\nnot. Every published artifact describing a release is rendered from one\ninstance, so no two artifacts can disagree.\n\n`proposed_bump` carries the producer's conclusion about release impact. It is\na proposal, never an authority: the release tooling computes the bump\nindependently and halts when the two disagree. Where a maintainer names the\nbump explicitly, the named bump governs and the proposal is advisory.",
+      "properties": {
+        "entries": {
+          "description": "The itemized record of what changed, in the order it should be rendered.\n\nRenderers group entries by `kind` and preserve this order within each\ngroup, so authoring order is presentation order.\n\nA breaking change is an entry with `breaking` set, carrying its own\n`migration`. There is no separate collection for them: a release-level\nbreaking note is an entry whose sources span the changes that caused it.",
+          "items": {
+            "$ref": "#/definitions/ChangelogEntry"
+          },
+          "type": "array"
+        },
+        "proposed_bump": {
+          "$ref": "#/definitions/Bump",
+          "description": "The release impact the producer concluded from the content.\n\nCompared against the bump the tooling computes. A disagreement halts the\nrelease for human confirmation; it is never resolved by preferring one\nside."
+        },
+        "schema_version": {
+          "description": "Version of this schema that the instance conforms to.\n\nConsumers reject an instance declaring a schema version they do not\nimplement rather than rendering it partially.",
+          "type": "string"
+        },
+        "summary": {
+          "description": "One or two paragraphs introducing the release in prose.\n\nThis is where a release earns readable notes: what changed in aggregate,\nwho should care, and what to do about it. Entries carry the itemized\nrecord; this carries the narrative.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "description": "A short headline for the release, at most one sentence.\n\nRendered above the entries where a target supports it. Omitted for\nreleases that carry no theme worth naming — most patch releases.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "description": "The resolved version this changelog describes, without a tag prefix — for\nexample `1.4.0`.\n\nLeft unset while a changelog is being authored, and filled in once the\nversion is resolved. Renderers require it, because a rendered section is\nheaded by the version it describes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "proposed_bump",
+        "entries"
+      ],
+      "type": "object"
+    },
+    "ChangelogEntry": {
+      "description": "A single itemized change.",
+      "properties": {
+        "breaking": {
+          "description": "Whether a consumer that upgrades is broken by this change.",
+          "type": "boolean"
+        },
+        "detail": {
+          "description": "Additional prose for a change that cannot be understood from its summary\nalone.\n\nRendered beneath the summary. Most entries need none.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "$ref": "#/definitions/ChangeKind",
+          "description": "What kind of change this is. Determines which section renders it."
+        },
+        "migration": {
+          "description": "What a consumer must do to adopt this change, where anything is required.\n\nRequired where `breaking` is set: a breaking change without migration\nguidance is an incident report rather than a release note. Also used\nwhere adoption is optional but non-obvious.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scope": {
+          "description": "The part of the product this change affects, in the project's own\nvocabulary — for example `transpilers/go` or `cli`.\n\nThe same notion as a conventional-commit scope. Rendered as a prefix\nwhere a target supports it, and unset where a change is not scoped to one\narea.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sources": {
+          "description": "Where this change came from — the pull requests, commits and issues that\ntogether account for it.\n\nRendered as links where the target supports it. An entry may cite several\nsources of different kinds, which is how one entry describes work that\narrived across more than one pull request.",
+          "items": {
+            "$ref": "#/definitions/ChangeSource"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "description": "One line stating the change from the reader's point of view.\n\nWritten as an outcome a consumer can recognize, not as the work that\nproduced it: \"closed decoders reject undeclared keys\", not \"refactored the\ndecoder\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "summary",
+        "breaking",
+        "sources"
+      ],
+      "type": "object"
+    },
+    "CommitRecord": {
+      "description": "The records the collectors produce.\n\nCollection is deliberately free of interpretation: these records carry what\ngit and the hosting platform said, parsed into fields but not given meaning.\nDeciding what a trailer means, or which records become changelog entries, is\nthe business of the components that consume them.",
+      "properties": {
+        "author_email": {
+          "description": "The commit author's email address, as git recorded it.",
+          "type": "string"
+        },
+        "author_name": {
+          "description": "The commit author's name, as git recorded it.",
+          "type": "string"
+        },
+        "body": {
+          "description": "The commit body — everything after the subject.\n\nWhere a repository squashes using the pull request description, this is\nthat description, which is how pull request prose reaches the release\nwithout the hosting platform being consulted.",
+          "type": "string"
+        },
+        "hash": {
+          "description": "The full commit hash.",
+          "type": "string"
+        },
+        "pull_request": {
+          "description": "The pull request number parsed out of the subject, where one is present.\n\nAbsent for a commit pushed directly to a release line.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/__Int"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject": {
+          "description": "The commit subject — its first line.\n\nFor a squash merge this is the pull request title, with the pull request\nreference the hosting platform appends still present.",
+          "type": "string"
+        },
+        "trailers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Trailers parsed from the body as key-value pairs.\n\nRecorded without interpretation. A release-type trailer means something\nto the bump classifier and nothing here.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "hash",
+        "subject",
+        "body",
+        "trailers",
+        "author_name",
+        "author_email"
+      ],
+      "type": "object"
+    },
+    "CommitSource": {
+      "description": "A commit that carried a change.",
+      "properties": {
+        "hash": {
+          "description": "The full commit hash. Renderers abbreviate it for display.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hash"
+      ],
+      "type": "object"
+    },
+    "IssueSource": {
+      "description": "An issue or work item a change resolves.",
+      "properties": {
+        "id": {
+          "description": "The identifier in the tracker's own form — for example `strata-8da` or\n`412`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "PullRequestRecord": {
+      "description": "The metadata a hosting platform holds about one pull request.\n\nCollected only for the fields a release consumes. A field absent from this\nrecord is a field the release process has no use for.",
+      "properties": {
+        "author": {
+          "description": "The account that authored the pull request.",
+          "type": "string"
+        },
+        "description": {
+          "description": "The pull request description, where it has one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head_branch": {
+          "description": "The branch the pull request was opened from.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "labels": {
+          "description": "The labels applied to the pull request.\n\nCollected because a project may use them, not because the release process\nrequires them: an impact signal that lives only on the hosting platform\ncannot be read from a clone, so it is never the primary signal.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "merge_commit": {
+          "description": "The commit the merge produced on the target branch, where the pull\nrequest has been merged.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "number": {
+          "$ref": "#/definitions/__Int",
+          "description": "The pull request number."
+        },
+        "title": {
+          "description": "The pull request title.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number",
+        "title",
+        "labels",
+        "author"
+      ],
+      "type": "object"
+    },
+    "PullRequestSource": {
+      "description": "A pull request that carried a change.",
+      "properties": {
+        "number": {
+          "$ref": "#/definitions/__Int",
+          "description": "The pull request number, as the hosting platform assigns it."
+        }
+      },
+      "required": [
+        "number"
+      ],
+      "type": "object"
+    },
+    "__Int": {
+      "maximum": 9007199254740991,
+      "minimum": -9007199254740991,
+      "type": "integer"
+    }
+  }
+}
