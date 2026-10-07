@@ -275,12 +275,12 @@ Bridge` delta; PROD = `Changelog Producer` delta (— MVP producers); CLCMD =
 ## Definition of Done
 
 - [ ] Every delta above is folded into its owning blueprint:
-  - [ ] [[module-release-core]] — Interface records the authoring settings
-  - [ ] [[component-changelog-corpus-builder]],
+  - [x] [[module-release-core]] — Interface records the authoring settings
+  - [x] [[component-changelog-corpus-builder]],
     [[component-changelog-authoring-bridge]],
     [[component-changelog-producer]] — Interfaces record the pinned rules
   - [ ] [[component-pr-metadata-collector]] — when PRM lands
-  - [ ] [[container-release-cli]] — Command Surface records
+  - [x] [[container-release-cli]] — Command Surface records
     `release changelog`
 - [ ] [[contract-changelog]] revision approved and its version updated
 - [ ] Every AC in the coverage table is verified at its declared level
