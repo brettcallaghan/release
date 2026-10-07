@@ -23,9 +23,9 @@ Turn an assembled changelog corpus into an authored one.
 
 ## Shape
 
-The shape is `schemas/changelog.strata`; the semantics are
-`specs/contracts/changelog-contract.md`. Read them rather than relying on a
-copy here. Write only fields the schema declares, and no rendered markdown in
+The shape is `references/changelog.strata`; the semantics are
+`references/changelog-contract.md`. Both ship with this skill, relative to its
+directory. Read them rather than relying on a copy here. Write only fields the schema declares, and no rendered markdown in
 `summary`.
 
 ## What you author

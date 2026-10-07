@@ -131,6 +131,26 @@ for p in ('plugin/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json'
     except ValueError as e:
         err(p, f"does not parse as JSON ({e})")
 
+# ---- 4. vendored copies match their sources byte for byte ------------------
+VENDORED = (
+    ('plugin/skills/changelog/references/changelog.strata', 'schemas/changelog.strata'),
+    ('plugin/skills/changelog/references/changelog-contract.md', 'specs/contracts/changelog-contract.md'),
+)
+for copy, source in VENDORED:
+    try:
+        with open(copy, 'rb') as f: a = f.read()
+    except OSError:
+        a = None
+    try:
+        with open(source, 'rb') as f: b = f.read()
+    except OSError:
+        err(source, "vendored source is missing")
+        continue
+    if a is None:
+        err(copy, f"missing; vendored copy of {source} — refresh with: cp -f {source} {copy}")
+    elif a != b:
+        err(copy, f"differs from {source} — refresh with: cp -f {source} {copy}")
+
 print("=== check-skills ===")
 for e in errors:   print(f"  ERROR {e}")
 for w in warnings: print(f"  WARN  {w}")
