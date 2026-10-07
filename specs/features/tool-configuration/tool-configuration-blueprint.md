@@ -5,7 +5,7 @@ description: How release core gains a validated configuration model and a
   the configuration.
 slug: feature-tool-configuration
 type: feature-blueprint
-status: in-progress
+status: retired
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 plan: release-0qc
@@ -225,15 +225,15 @@ CMDCFG = [[container-release-cli]] delta (— `release config`); WIRE =
 
 ## Definition of Done
 
-- [ ] Every delta above is folded into its owning blueprint:
-  - [ ] [[module-release-core]] — Interface records the configuration
+- [x] Every delta above is folded into its owning blueprint:
+  - [x] [[module-release-core]] — Interface records the configuration
     model, and Components lists the Delegated Command Runner
-  - [ ] [[container-release-cli]] — Configuration Loader and Command
+  - [x] [[container-release-cli]] — Configuration Loader and Command
     Surface record discovery, refusal and `release config`
-- [ ] Every AC in the coverage table is verified at its declared level
+- [x] Every AC in the coverage table is verified at its declared level
   and cited from its tests per the specs plugin's
   `shared/ac-traceability-standards.md`
-- [ ] This blueprint's status → retired
+- [x] This blueprint's status → retired
 
 ## Open Questions
 
