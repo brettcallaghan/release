@@ -136,11 +136,15 @@ for p in SKILLS:
                 f"the tail is truncated from context after a compaction")
 
 # ---- 2. .claude/skills symlinks resolve to a plugin skill -----------------
+PLUGIN_SKILLS = os.path.realpath('plugin/skills')
 for link in sorted(glob.glob('.claude/skills/*')):
     if os.path.islink(link):
         target = os.path.realpath(link)
         if not os.path.isfile(os.path.join(target, 'SKILL.md')):
             err(link, "symlink does not resolve to a directory holding SKILL.md")
+        elif os.path.commonpath([target, PLUGIN_SKILLS]) != PLUGIN_SKILLS:
+            err(link, f"symlink resolves outside plugin/skills/ ({target}); "
+                      f"a .claude/skills link must point at a plugin skill")
 
 # ---- 3. plugin and marketplace manifests are valid JSON --------------------
 import json
