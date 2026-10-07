@@ -1,0 +1,12 @@
+# Line endings in the working tree are LF on every platform.
+#
+# This repository's tests compare command output against committed
+# expected artifacts byte for byte (testdata/cases/**/expected/, testdata/help/), and
+# .github/workflows/cli.yml runs them on windows-latest, where Git's
+# default `core.autocrlf=true` would otherwise rewrite both the fixture
+# corpora and the expected artifacts on checkout. Pinning the working
+# tree to LF is what lets one set of expected bytes be the answer on all
+# three platforms.
+#
+# `text=auto` still lets Git detect binary content and leave it alone.
+* text=auto eol=lf

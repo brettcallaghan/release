@@ -1,0 +1,9 @@
+release computes the next version from git history, assembles and renders
+its changelog, and stages the release on a stage branch for review.
+
+Usage:
+  release [flags]
+
+Flags:
+  -h, --help      help for release
+  -V, --version   Print the tool's own version

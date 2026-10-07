@@ -1,0 +1,5 @@
+description = "a bare invocation names no command: usage goes to stderr, stdout stays empty, and the exit status is the invalid-arguments status"
+cites = ["contract-release-cli#guarantees"]
+args = []
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]

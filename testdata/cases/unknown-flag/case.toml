@@ -1,0 +1,5 @@
+description = "an unknown flag is an invalid argument: the error goes to stderr and the exit status is 2"
+cites = ["contract-release-cli#guarantees"]
+args = ["--no-such-flag"]
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]

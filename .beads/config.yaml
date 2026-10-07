@@ -1,0 +1,48 @@
+# Beads Configuration File
+# Settings can also be set via BD_* environment variables or command flags.
+# See `bd config --help` for the full key list.
+
+# JSONL auto-export: OFF. `.beads/*.jsonl` is gitignored and is not how issues
+# travel — the Dolt remote below is. Do not turn this back on: JSONL-as-sync is
+# an anti-pattern in beads' own docs, and the export is unstable under diff —
+# an import-then-export of an UNCHANGED tracker rewrites ~45% of records,
+# because dependencies re-serialize in a different order and comment ids are
+# re-minted, so tracking it buries real changes in ~1 MB of churn.
+#
+# `bd export > .beads/issues.jsonl` by hand gives a snapshot for a viewer or
+# for interchange. It is not a backup.
+export:
+    auto: false
+# The tracker: issues live in a Dolt database (prefix `release-`) synced to the
+# ordinary branch `beads/data` on this repository's git origin. There is no
+# JSONL fallback by design.
+#
+# KEEP IT SET. It is what makes `bd prime` emit the Dolt sync commands; unset,
+# bd tells every agent "No git remote configured. Issues are saved locally
+# only."
+#
+# This URL alone points at Dolt's DEFAULT ref, `refs/dolt/data`, which is NOT
+# where the data is and which a Claude Code cloud session cannot write. The
+# branch is set per clone by scripts/beads-setup.sh, because bd has no config
+# key for a ref. Never use `bd bootstrap` here: it clones from the default ref
+# and finds nothing.
+sync:
+    remote: "git+https://github.com/brettcallaghan/release.git"
+# Never re-import a JSONL found lying around: the Dolt remote is the source of
+# truth, and a stale export would overwrite newer rows.
+import:
+    auto: false
+# Off explicitly so no stray `.beads/backup/` copy appears; it never reaches
+# the remote either way.
+backup:
+    enabled: false
+# Pushing is the Stop hook's job (.claude/hooks/dolt-push.sh), once per turn.
+# bd's own auto-push is unsafe with more than one writer.
+dolt:
+    auto-push: false
+    auto-commit: "on"
+
+# Integration settings (access with 'bd config get/set')
+# Non-secret keys live in the database: jira.url, jira.project, linear.team_id,
+# github.org, github.repo. For secrets prefer env vars (LINEAR_API_KEY,
+# GITHUB_TOKEN) over storing them in this tracked file.

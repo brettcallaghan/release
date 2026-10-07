@@ -1,0 +1,5 @@
+description = "-V is the short form of --version; -v is reserved for --verbose"
+cites = ["contract-release-cli#global-flags"]
+args = ["-V"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]
