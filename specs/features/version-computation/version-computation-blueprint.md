@@ -4,7 +4,7 @@ description: How the release core gains semver, tag, commit, impact and
   version components, and how `release version` exposes them.
 slug: fb-version-computation
 type: feature-blueprint
-status: draft
+status: ready-for-review
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 frd: frd-version-computation
@@ -23,7 +23,8 @@ The pure components ([[component-semver-core]],
 [[component-bump-classifier]], [[component-version-calculator]]) take every
 policy value as an input; the two git readers ([[component-tag-reader]],
 [[component-commit-collector]]) are the only parts that touch a repository
-([[adr-005]]). Delta blocks in dependency order: SV, TR, CC, BC, VC, RES, CMD.
+([[adr-005]]). Delta blocks in dependency order: SV, CAN, TR, CC, BC, VC, RES,
+CMD. CAN is outside the MVP and its work order may be deferred.
 
 ## Element Deltas
 
@@ -50,15 +51,29 @@ vocabulary; this delta implements it.
   it SHALL NOT hold a default for either.
 - The component SHALL derive a prerelease version for a planned version
   and an ordinal `n` as `<planned>-rc.<n>`.
-- The component SHALL derive a canary version for a base version, a pull
-  request number and a commit hash as
-  `<base>-canary.<pr>.<hash7>`, where `<hash7>` is the first seven
-  characters of the hash in lower case.
 - The component SHALL order versions by Semantic Versioning precedence,
   including prerelease precedence, and SHALL ignore build metadata when
   ordering.
 
 **Anchors:** `internal/semver` (new). No existing code.
+
+### `Semver Core` in [[module-release-core]] (added — canary identifiers)
+
+**Intent:** Canary versions for arbitrary commits. Split from SV because
+canaries are not part of the MVP: the work order this block becomes may be
+deferred without holding up anything else in the feature.
+
+**Behavior:**
+- The component SHALL derive a canary version for a base version, an
+  optional pull request number and a commit hash as
+  `<base>-canary.<pr>.<hash7>`, or `<base>-canary.<hash7>` WHEN no pull
+  request is given.
+- `<hash7>` SHALL be the first seven characters of the hash in lower case,
+  prefixed with `g` WHEN those characters are all digits, so the
+  identifier is never a numeric identifier with a leading zero, which
+  Semantic Versioning forbids.
+
+**Anchors:** `internal/semver` (the SV delta's package).
 
 ### `Tag Reader` in [[module-release-core]] (added)
 
@@ -80,7 +95,8 @@ reachable from the target ref, implementing [[component-tag-reader]].
 - The component SHALL return, with the highest version, the name of the
   tag it was read from, so the commit range can start there.
 
-**Anchors:** `internal/gitread` (new). No existing code.
+**Anchors:** `internal/gitread` (new). No existing code. Git is reached by
+running the `git` binary ([[adr-006]]).
 
 ### `Commit Collector` in [[module-release-core]] (added)
 
@@ -120,8 +136,16 @@ entries, or commit signals, with everything that drove it, implementing
 - The component SHALL map a `Release-Type` trailer of `major`, `minor`,
   `patch` or `none` to that impact, case-insensitively.
 - The component SHALL map a conventional-commit subject type of `feat` to
-  minor and `fix` to patch, and a `!` immediately before the colon to
-  major.
+  minor; `fix`, `perf` and `refactor` to patch; and every other type to
+  no signal.
+- The component SHALL map a breaking-change marker to major: a `!`
+  immediately before the subject's colon, or a line in the body's final
+  paragraph beginning `BREAKING CHANGE:` or `BREAKING-CHANGE:`. The
+  component reads the footer from the body, because git's trailer rules
+  do not accept a key containing a space.
+- A `Release-Type: none` trailer SHALL indicate an impact of none and
+  SHALL NOT lower the impact any other signal indicates, on the same
+  commit or another: the highest impact wins.
 - The component SHALL map an authored changelog entry marked `breaking` to
   major and an entry of kind `FEATURE` to minor, and every other entry to
   patch.
@@ -174,8 +198,9 @@ orchestrator can reuse it later.
   absence), the impact, what determined it, and the next version or a
   no-release result.
 - The module SHALL supply the default policy: tag prefix `v`, stage
-  prefix `cut/`, `leaps` off, `pre1_remap` on, and the default enabled
-  signal set.
+  prefix `cut/`, `leaps` off, `pre1_remap` on, and every signal enabled:
+  the `Release-Type` trailer, the conventional-commit type, and the
+  breaking-change marker.
 - The operation SHALL NOT write to the repository.
 
 **Anchors:** `internal/` (new package for the operation is the
@@ -190,6 +215,9 @@ Output Renderer to the RES operation.
 **Behavior:**
 - The command SHALL accept `bump` as `major`, `minor` or `patch`, and
   `--target` and `--json`, exactly as [[contract-release-cli]] lists them.
+- The command SHALL compute with the RES default policy. Reading
+  configuration is the Configuration Loader's, which
+  [[frd-tool-configuration]] delivers and wires in later.
 - WHEN `--target` is absent, the command SHALL use the current branch.
 - The command SHALL answer with one mapping whose keys are `base` (string,
   or null when no tag is reachable), `impact`, `named` (bool),
@@ -230,7 +258,7 @@ feature implements it unchanged.
 
 ## Sequencing Constraints
 
-- The SV delta SHALL land before the TR, VC and CMD deltas.
+- The SV delta SHALL land before the CAN, TR, VC and CMD deltas.
 - The TR, CC, BC and VC deltas SHALL land before the RES delta.
 - The RES delta SHALL land before the CMD delta.
 - [[cli-output-standards]] SHALL be on the base branch before the CMD
@@ -241,7 +269,8 @@ feature implements it unchanged.
 
 ## AC Coverage
 
-Legend: SV = `Semver Core` delta; TR = `Tag Reader` delta; CC =
+Legend: SV = `Semver Core` delta; CAN = `Semver Core` delta (— canary
+identifiers); TR = `Tag Reader` delta; CC =
 `Commit Collector` delta; BC = `Bump Classifier` delta; VC =
 `Version Calculator` delta; RES = [[module-release-core]] delta (— version
 resolution operation); CMD = [[container-release-cli]] delta (—
@@ -271,13 +300,13 @@ resolution operation); CMD = [[container-release-cli]] delta (—
 | AC-VER-004.1 | **SV (proves)** | unit |
 | AC-VER-004.2 | **SV (proves)** | unit |
 | AC-VER-004.3 | **SV (proves)** | unit |
-| AC-VER-004.4 | **SV (proves)** | unit |
+| AC-VER-004.4 | SV, **CAN (proves)** | unit |
 | AC-VER-004.5 | **SV (proves)** | unit |
 | AC-VER-004.6 | **SV (proves)**, VC | unit |
 | AC-VER-004.7 | **SV (proves)**, VC | unit |
-| AC-VER-004.8 | **SV (proves)** | unit |
+| AC-VER-004.8 | SV, **CAN (proves)** | unit |
 | AC-VER-004.9 | **SV (proves)** | unit |
-| AC-VER-004.10 | **SV (proves)** | unit |
+| AC-VER-004.10 | SV, **CAN (proves)** | unit |
 
 ## Key Decisions
 
@@ -286,6 +315,8 @@ resolution operation); CMD = [[container-release-cli]] delta (—
 - [[adr-003]] — the bump is computed; why BC never reads `proposed_bump`.
 - [[adr-005]] — composable core with git I/O isolated; why SV, BC and VC
   are pure and RES composes them.
+- [[adr-006]] (new, ready-for-review) — git is reached through the `git`
+  binary; why TR and CC run `git` rather than a Go library.
 
 ## Definition of Done
 
@@ -303,6 +334,8 @@ resolution operation); CMD = [[container-release-cli]] delta (—
     operation and the default policy
   - [ ] [[container-release-cli]] — Command Surface records
     `release version`
+- [ ] [[adr-006]] status → approved, and referenced from
+  [[module-release-core]] Key Decisions
 - [ ] Every AC in the coverage table is verified at its declared level
   and cited from its tests per the
   specs plugin's `shared/ac-traceability-standards.md`
@@ -310,30 +343,7 @@ resolution operation); CMD = [[container-release-cli]] delta (—
 
 ## Open Questions
 
-- [ ] **Default enabled signals and the conventional types beyond `feat`
-  and `fix`.** Which signals are on by default; whether `perf`,
-  `refactor`, `revert` and the rest map to patch or to none; whether a
-  `BREAKING CHANGE:` footer counts as the breaking marker; and whether a
-  `Release-Type` trailer overrides the same commit's conventional type
-  (today "highest wins" would let `feat` beat `Release-Type: none`). The
-  bump classifier's Change Guidance requires precedence to be stated.
-  Blocks BC and RES. Decided by the project owner.
-- [ ] **A canary with no pull request, and an all-digit hash.**
-  AC-VER-004.4 derives a canary "for a commit" with no pull request, and
-  the only pinned form needs one. Separately, a seven-character hash of
-  digits with a leading zero (`0123456`) is not a valid semver numeric
-  identifier. Blocks SV. Decided by the project owner.
-- [ ] **How the git readers reach git.** Shelling out to the `git`
-  binary or using a Go library (go-git) — a real alternative with
-  dependency and fidelity trade-offs, so it wants an ADR. Blocks TR and
-  CC. Decided by the project owner.
-- [ ] **Configuration before the loader exists.** Tag prefix, leaps,
-  pre-1.0 remapping and signals are configuration, but the Configuration
-  Loader belongs to [[frd-tool-configuration]], which has no blueprint.
-  Proposed: CMD ships using RES's default policy and the current branch,
-  and tool-configuration wires the loader in later. The alternative is to
-  sequence CMD after that feature. Blocks CMD. Decided by the project
-  owner.
+None.
 
 ## References
 
