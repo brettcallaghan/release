@@ -1,0 +1,12 @@
+description = "no enabled signal since the base tag: the answer is still printed, next is null, and the exit status is 1"
+cites = ["AC-VER-002.4", "AC-VER-003.7", "contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "v2.0.0"],
+  ["commit", "-q", "--allow-empty", "-m", "docs: fix a typo"],
+  ["commit", "-q", "--allow-empty", "-m", "chore: tidy"],
+]
+args = ["version", "--target", "main"]
+exit_code = 1
+artifacts = ["stdout.txt", "stderr.txt"]

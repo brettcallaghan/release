@@ -77,3 +77,18 @@ func (r Repo) run(ctx context.Context, args ...string) ([]byte, error) {
 	}
 	return nil, fmt.Errorf("%w: %v", ErrGitUnavailable, err)
 }
+
+// DefaultBranch returns the ref origin/HEAD points to, read locally (for
+// example refs/remotes/origin/main). found is false, with a nil error, WHEN
+// origin/HEAD is unset; `git remote set-head origin --auto` sets it.
+func (r Repo) DefaultBranch(ctx context.Context) (ref string, found bool, err error) {
+	out, err := r.run(ctx, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
+	var gitErr *GitError
+	if errors.As(err, &gitErr) && gitErr.ExitCode == 1 {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return strings.TrimSpace(string(out)), true, nil
+}

@@ -1,0 +1,8 @@
+base: 1.8.0
+impact: minor
+named: false
+determined_by:
+  - hash: 27dad0f2b4fb5a79714b3599d309fbccef8a9420
+    subject: "feat: add a --target flag (#12)"
+    signal: conventional-type
+next: 1.9.0

@@ -85,5 +85,7 @@ func newRootCmd(s *streams) *cobra.Command {
 	// -V, not cobra's built-in -v: the contract reserves -v for --verbose.
 	root.Flags().BoolVarP(&showVersion, "version", "V", false, "Print the tool's own version")
 
+	root.AddCommand(newVersionCmd(s))
+
 	return root
 }

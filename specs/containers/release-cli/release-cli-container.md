@@ -68,6 +68,16 @@ computed version and its justification; `release changelog` assembles,
 authors and renders without staging; `release cut <major|minor|patch>` stages
 a release, with `--skip-notes` to stage without an authoring exchange.
 
+`release version [major|minor|patch] [--target <branch>] [--json]` calls the
+release core's version resolution operation with its default policy. Without
+`--target` it resolves the ref `origin/HEAD` points to, read locally
+(`refs/remotes/origin/<branch>`); IF `origin/HEAD` is unset, THEN it exits 2
+naming `git remote set-head origin --auto`. Its answer is one mapping with
+keys `base`, `impact`, `named`, `determined_by` (each `hash`, `subject`,
+`signal`) and `next`, in that order; it exits 1 after printing the answer
+WHEN no release is warranted or the policy refuses the version, and 2 for an
+invalid bump or a repository it cannot read.
+
 ```component
 title: Command Surface
 slug: component-command-surface

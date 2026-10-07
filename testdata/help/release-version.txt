@@ -1,0 +1,16 @@
+version answers with the base version, the resolved impact, what determined
+that impact, and the next version. It is read-only.
+
+bump is major, minor or patch, and names the impact instead of inferring
+it. Without a bump, the impact is inferred from the commits since the base
+version. Without --target, the release line is the branch origin/HEAD
+points to. Exits 1, after printing the answer, when no release is
+warranted or the version policy refuses the version.
+
+Usage:
+  release version [bump] [flags]
+
+Flags:
+  -h, --help            help for version
+      --json            Render the answer as JSON instead of YAML
+      --target branch   The release line to compute for: a branch (default: the branch origin/HEAD points to)

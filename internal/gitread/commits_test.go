@@ -3,6 +3,7 @@ package gitread
 import (
 	"context"
 	"errors"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -153,5 +154,29 @@ func TestParseCommitRejectsMalformedRecord(t *testing.T) {
 func TestPullRequestNumberOverflowIsAbsent(t *testing.T) {
 	if n := pullRequestNumber("x (#99999999999999999999)"); n != nil {
 		t.Errorf("got %d, want absent", *n)
+	}
+}
+
+func TestDefaultBranchIsWhereOriginHEADPoints(t *testing.T) {
+	f := newFixture(t)
+	f.commitMsg("one")
+	if _, found, err := f.repo().DefaultBranch(context.Background()); err != nil || found {
+		t.Fatalf("origin/HEAD unset: found = %v, err = %v; want not found, no error", found, err)
+	}
+	f.git("update-ref", "refs/remotes/origin/trunk", "HEAD")
+	f.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk")
+	ref, found, err := f.repo().DefaultBranch(context.Background())
+	if err != nil || !found || ref != "refs/remotes/origin/trunk" {
+		t.Fatalf("got %q, %v, %v; want refs/remotes/origin/trunk", ref, found, err)
+	}
+}
+
+func TestDefaultBranchOutsideARepositoryIsAnError(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	_, _, err := Repo{Dir: filepath.Join(t.TempDir(), "missing")}.DefaultBranch(context.Background())
+	if err == nil {
+		t.Fatal("want an error outside a repository")
 	}
 }

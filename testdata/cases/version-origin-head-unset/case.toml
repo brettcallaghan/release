@@ -1,0 +1,9 @@
+description = "without --target and with origin/HEAD unset there is no default branch: exit 2, naming git remote set-head origin --auto"
+cites = ["contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+]
+args = ["version"]
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]
