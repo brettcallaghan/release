@@ -43,9 +43,26 @@ for each entry kind and the order groups appear in.
   "Breaking changes".
 - The module SHALL refuse a `changelog.groups` entry whose `kind` is not a
   `ChangeKind` name, or a kind listed twice.
+- A declared `changelog.groups` SHALL replace the default list whole, so
+  a kind it omits does not render.
+- Headings SHALL be any UTF-8 text, emoji included, rendered verbatim.
+- This repository's own `release.toml` SHALL be added in this delta's
+  change, not before it, because the loader refuses keys it does not yet
+  define. It SHALL declare:
+
+  ```toml
+  [changelog]
+  breaking_heading = "💥 Breaking changes"
+  groups = [
+    { kind = "FEATURE", heading = "🚀 Features" },
+    { kind = "FIX", heading = "🪲 Bugs" },
+    { kind = "PERFORMANCE", heading = "Performance" },
+    { kind = "REVERT", heading = "Reverts" },
+  ]
+  ```
 
 **Anchors:** the configuration model the tool configuration feature adds
-to release core (its CFGM delta).
+to release core (its CFGM delta); `release.toml` at the repository root.
 
 ### `Changelog Renderer` in [[module-release-core]] (added)
 
