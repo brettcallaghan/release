@@ -5,7 +5,7 @@ description: How release core cuts a release as a stage branch and pull
   `release cut` drives it.
 slug: fb-release-staging
 type: feature-blueprint
-status: draft
+status: ready-for-review
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 frd: frd-release-staging
@@ -72,8 +72,15 @@ write is defined narrowly so that holds.
   `Release <version>`, and carry the release body under a `## Release
   Notes` heading.
 - The orchestrator SHALL open the pull request through the `gh` CLI.
-- IF a step in 9 fails, THEN the orchestrator SHALL report every write it
-  made and SHALL NOT undo them.
+- IF the push fails, THEN the orchestrator SHALL delete the local stage
+  branch it created in step 9, so a rerun is not refused by step 2, and
+  SHALL report the failure and the deletion.
+- IF opening the pull request fails, THEN the orchestrator SHALL report
+  every write it made, SHALL NOT delete the pushed branch, and SHALL print
+  the commands that finish (`gh pr create`) or discard
+  (`git push origin --delete <branch>`, `git branch -D <branch>`) the
+  release.
+- The orchestrator SHALL NOT delete or change anything on `origin`.
 - WHEN asked for a dry run, the orchestrator SHALL run steps 1 to 8 and
   report the writes of step 9 without making them.
 - The orchestrator SHALL NOT create a tag, publish, merge, or move the
@@ -170,11 +177,7 @@ stub `gh` on `PATH`, per the component's verification gate.
 
 ## Open Questions
 
-- [ ] **Undo after a failed write.** Proposed: report every write and undo
-  none, as swarm's ADR-026 does, so a half-pushed branch is visible
-  rather than half-cleaned. The alternative deletes the branch it created
-  when the push or pull request fails. Blocks ORCH. Decided by the project
-  owner.
+None.
 
 ## References
 
