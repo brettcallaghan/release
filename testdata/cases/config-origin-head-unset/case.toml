@@ -1,0 +1,9 @@
+description = "with no target configured and origin/HEAD unset, release config cannot name the target: exit 2, naming git remote set-head origin --auto"
+cites = ["contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+]
+args = ["config"]
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]

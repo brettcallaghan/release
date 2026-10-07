@@ -1,0 +1,15 @@
+target: main
+tag_prefix: b-
+stage_prefix: cut/
+release_branches: []
+release_paths: []
+leaps: false
+pre1_remap: true
+signals:
+  - release-type
+  - conventional-type
+  - breaking-marker
+commands:
+  validate: null
+  propagate: null
+  preflight: []

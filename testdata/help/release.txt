@@ -6,11 +6,14 @@ Usage:
   release [command]
 
 Available Commands:
+  config      Answer with the effective configuration and validate it
   help        Help about any command
   version     Resolve the version a release would carry, without writing anything
 
 Flags:
-  -h, --help      help for release
-  -V, --version   Print the tool's own version
+      --config file   Use this configuration file instead of discovering one
+  -h, --help          help for release
+  -C, --repo path     Operate on the repository at this path instead of the working directory
+  -V, --version       Print the tool's own version
 
 Use "release [command] --help" for more information about a command.

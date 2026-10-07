@@ -1,0 +1,9 @@
+description = "release.toml and config/release.toml both present without --config: refused, naming both"
+cites = ["contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+]
+args = ["config"]
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]

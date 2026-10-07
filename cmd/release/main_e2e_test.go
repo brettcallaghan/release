@@ -176,3 +176,70 @@ func TestNoReleaseExitsRefusedAtTheProcessBoundary(t *testing.T) {
 		t.Errorf("stdout =\n%s\nwant the JSON answer with next null", stdout)
 	}
 }
+
+// gitOut runs git in dir and returns its output.
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return string(out)
+}
+
+// AC: AC-CFG-002.3
+func TestAnInvalidConfigurationIsRefusedBeforeAnyWrite(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	dir := t.TempDir()
+	fixtureGit(t, dir, "init", "-q", "-b", "main")
+	fixtureGit(t, dir, "commit", "-q", "--allow-empty", "-m", "feat: something to release")
+	if err := os.WriteFile(filepath.Join(dir, "release.toml"), []byte("stage_prefix = \"\"\nskip_checks = true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := func() string {
+		return gitOut(t, dir, "for-each-ref") + gitOut(t, dir, "status", "--porcelain", "--untracked-files=all")
+	}
+	before := snapshot()
+
+	for _, args := range [][]string{{"version", "--target", "main"}, {"config"}, {"-C", dir, "config"}} {
+		stdout, stderr, code := runIn(t, dir, args...)
+		if code != 2 {
+			t.Errorf("%v: exit = %d, want 2\n%s", args, code, stderr)
+		}
+		if stdout != "" {
+			t.Errorf("%v: stdout must stay empty, got:\n%s", args, stdout)
+		}
+		if !strings.Contains(stderr, "stage_prefix is empty") || !strings.Contains(stderr, `"skip_checks"`) {
+			t.Errorf("%v: stderr lacks a reason:\n%s", args, stderr)
+		}
+	}
+	if after := snapshot(); after != before {
+		t.Errorf("the repository changed:\n--- before ---\n%s--- after ---\n%s", before, after)
+	}
+}
+
+// -C points every command, and configuration discovery, at another
+// repository.
+func TestRepoFlagSelectsTheRepository(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not on PATH")
+	}
+	dir := t.TempDir()
+	fixtureGit(t, dir, "init", "-q", "-b", "main")
+	fixtureGit(t, dir, "commit", "-q", "--allow-empty", "-m", "Initial commit")
+	fixtureGit(t, dir, "tag", "rel-2.0.0")
+	fixtureGit(t, dir, "commit", "-q", "--allow-empty", "-m", "fix: a fix")
+	if err := os.WriteFile(filepath.Join(dir, "release.toml"), []byte("target = \"main\"\ntag_prefix = \"rel-\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, code := runIn(t, t.TempDir(), "-C", dir, "version")
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0\n%s", code, stderr)
+	}
+	if !strings.Contains(stdout, "base: 2.0.0\n") || !strings.Contains(stdout, "next: 2.0.1\n") {
+		t.Errorf("stdout =\n%s\nwant base 2.0.0 and next 2.0.1 from the configured rel- prefix", stdout)
+	}
+}

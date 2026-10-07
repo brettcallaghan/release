@@ -1,0 +1,8 @@
+base: 1.0.0
+impact: minor
+named: false
+determined_by:
+  - hash: 85a6ec1f00f822b14d6f59efb86da9da3b663be5
+    subject: "feat: only on develop"
+    signal: conventional-type
+next: 1.1.0

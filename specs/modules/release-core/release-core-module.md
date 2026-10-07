@@ -76,8 +76,33 @@ the first time something outside this repository depends on it.
   result.
 - **Default policy:** `DefaultPolicy` — tag prefix `v`, stage prefix
   `cut/`, `leaps` off, `pre1_remap` on, and every commit signal enabled:
-  `release-type`, `conventional-type` and `breaking-marker`. It applies
-  until the Configuration Loader supplies a configured policy.
+  `release-type`, `conventional-type` and `breaking-marker`. The
+  configuration model extends it.
+- **Configuration model:** `internal/config`. `Config` holds every
+  repository-specific setting, and `Default` gives each its default:
+  `target` (the repository's default branch), `tag_prefix` `v`,
+  `stage_prefix` `cut/`, `release_branches` (globs, empty),
+  `release_paths` (empty), `leaps` off, `pre1_remap` on, `signals` (every
+  signal), `commands.validate` and `commands.propagate` (unset) and
+  `commands.preflight` (empty). Its version settings are `DefaultPolicy`'s,
+  and `Policy` turns a configuration into the resolution policy.
+  - `Validate` SHALL refuse an empty `stage_prefix`, a `signals` entry
+    naming no known signal, a malformed `release_branches` glob, and a
+    `release_branches` glob that can match any stage branch name: any name
+    made of `stage_prefix` followed by one or more version characters
+    (`0-9`, `a-z`, `A-Z`, `.`, `-`, `+`), whatever the version (RTS-009; Go
+    `path.Match`, where `*` does not cross `/`). The check is exact over
+    that set, so it may refuse a glob matching only a non-version name under
+    the prefix, such as `cut/latest`, but never misses a stage branch. It
+    SHALL return every reason found, not only the first.
+  - The model SHALL derive no constraint from the name in `target`, and
+    SHALL have no setting that disables a check the tooling performs.
+  - `TargetRef` SHALL answer the configured `target` when one is declared,
+    and otherwise the branch `origin/HEAD` points to, read locally; IF
+    `origin/HEAD` is unset, THEN it SHALL return `ErrNoDefaultBranch`, which
+    names `git remote set-head origin --auto`, and a front end exits 2.
+  - The model reads no file: finding and decoding one is the front end's
+    Configuration Loader.
 
 **Rationale for the first two:** a front end that has to parse the library's
 human-readable output is a front end that breaks when the wording changes, and
@@ -150,6 +175,11 @@ file.
 
 [[component-stage-orchestrator]] — the sequence that cuts a release, producing
 a stage branch and its pull request.
+
+### Delegated Command Runner
+
+[[component-delegated-command-runner]] — a repository's configured command
+run for a named release step, with its outcome reported.
 
 ## Pattern Guidance
 

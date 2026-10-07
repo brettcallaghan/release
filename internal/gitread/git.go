@@ -92,3 +92,17 @@ func (r Repo) DefaultBranch(ctx context.Context) (ref string, found bool, err er
 	}
 	return strings.TrimSpace(string(out)), true, nil
 }
+
+// Toplevel returns the root of the working tree containing Dir. found is
+// false, with a nil error, WHEN Dir is not inside a working tree.
+func (r Repo) Toplevel(ctx context.Context) (dir string, found bool, err error) {
+	out, err := r.run(ctx, "rev-parse", "--show-toplevel")
+	var gitErr *GitError
+	if errors.As(err, &gitErr) && gitErr.ExitCode == 128 {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return strings.TrimSpace(string(out)), true, nil
+}

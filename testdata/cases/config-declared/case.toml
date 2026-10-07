@@ -1,0 +1,9 @@
+description = "config/release.toml's declared values are answered over the defaults; a configured target needs no origin/HEAD"
+cites = ["AC-CFG-002.1", "contract-release-cli#release-config"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+]
+args = ["config"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

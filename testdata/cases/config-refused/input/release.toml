@@ -1,0 +1,4 @@
+stage_prefix = "release/"
+release_branches = ["release/*"]
+signals = ["conventional-type", "vibes"]
+skip_checks = true

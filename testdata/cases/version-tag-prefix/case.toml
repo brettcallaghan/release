@@ -1,0 +1,11 @@
+description = "release version reads tag_prefix from the configuration: the base is resolved from a rel-1.2.0 tag"
+cites = ["contract-release-cli#release-version-bump"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "rel-1.2.0"],
+  ["commit", "-q", "--allow-empty", "-m", "feat: after rel-1.2.0"],
+]
+args = ["version", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]
