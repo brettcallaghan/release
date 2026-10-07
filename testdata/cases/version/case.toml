@@ -1,0 +1,5 @@
+description = "--version prints the tool's own version to stdout and succeeds"
+cites = []
+args = ["--version"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

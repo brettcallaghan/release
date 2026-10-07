@@ -1,0 +1,6 @@
+Usage:
+  release [flags]
+
+Flags:
+  -h, --help      help for release
+  -V, --version   Print the tool's own version

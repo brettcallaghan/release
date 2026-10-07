@@ -1,0 +1,60 @@
+# Configuration this project declares FOR A SWARM RUN. Nothing in this
+# repository parses it; the readers ship in the `swarm` plugin
+# (brettcallaghan/swarm).
+#
+# `[[checks]]` is the quality bar for ONE COMMIT: what a bead runs before its
+# own close. scripts/ci.sh is the pre-push bar and .github/workflows/ is the
+# release bar. Anything that takes minutes belongs there, not here.
+#
+# Each check has two keys, `id` and `command`. `command` runs through `sh -c`
+# from the repository root. Order is execution order, and every check runs
+# even after one fails. Literal strings (single quotes) survive verbatim.
+
+[[checks]]
+id = "format"
+command = 'scripts/format-check'
+
+[[checks]]
+id = "vet"
+command = 'go vet ./...'
+
+[[checks]]
+id = "build"
+command = 'go build ./...'
+
+[[checks]]
+id = "test-go"
+command = 'go test ./...'
+
+# The corpus, checked by the Spec CLI from brettcallaghan/agent-plugins. It is
+# built by the session hook only when that repository is attached, so the
+# check SKIPs out loud rather than going red where it is absent.
+[[checks]]
+id = "corpus"
+command = 'command -v specs >/dev/null 2>&1 || { echo "corpus: SKIPPED (specs not on PATH)"; exit 0; }; specs check --strict'
+
+[models]
+# Capability tiers, least to most capable. Beads carry a tier in
+# `metadata.tier`; the coordinator resolves it here at dispatch.
+light = "haiku"
+standard = "sonnet"
+advanced = "opus"
+frontier = "fable"
+
+[run]
+# Run defaults for the authorization gate. Omit a key to take the skill
+# default, which is always the smaller action. Setting a key changes what is
+# confirmed, never whether it is.
+# pull_request = "draft"
+# move_foreign_beads = false
+# admit_review_findings = false
+# tier_escalation = "once"
+# review_budget = 2
+# merge_to_default = false
+# dispatch_failure_threshold = 3
+
+[retros]
+dir = "docs/retros"
+
+[review]
+skill = "code-review"

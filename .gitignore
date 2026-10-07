@@ -34,3 +34,30 @@ go.work.sum
 
 # Generated spec corpus index (see specs.toml)
 specs/specs.json
+
+# The coverage scripts match the `coverage.*` pattern above; they are source.
+!scripts/coverage.sh
+!scripts/coverage-report.py
+
+# Build and coverage output (scripts/coverage.sh writes build/coverage/).
+build/
+
+# macOS
+.DS_Store
+
+# Beads / Dolt runtime files. The tracker's data lives on the beads/data
+# branch; .beads/embeddeddolt/ is per-clone and rebuilt by
+# scripts/beads-setup.sh.
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*
+
+# Defensive: bd has been observed writing its global config to a literal
+# ./~/ instead of $HOME. The session hook sweeps it; ignore it regardless.
+/~/
+
+# Python bytecode from the repo's scripts.
+__pycache__/
+*.pyc
