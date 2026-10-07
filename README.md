@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-93.3%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-97.9%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,15 +48,16 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 27 / 30 | 90.0% |
-| Snapshot cases | 25 / 30 | 83.3% |
-| End-to-end (built binary) | 25 / 30 | 83.3% |
-| **All layers combined** | **28 / 30** | **93.3%** |
+| Unit tests | 136 / 140 | 97.1% |
+| Snapshot cases | 25 / 140 | 17.9% |
+| End-to-end (built binary) | 25 / 140 | 17.9% |
+| **All layers combined** | **137 / 140** | **97.9%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
 | `release/cmd/release` | 1 | 1 | 100.0% |
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
 | `release/internal/cli` | 21 | 20 | 95.2% |
-| **Total** | **30** | **28** | **93.3%** |
+| `release/internal/semver` | 110 | 109 | 99.1% |
+| **Total** | **140** | **137** | **97.9%** |
 <!-- coverage:table:end -->
