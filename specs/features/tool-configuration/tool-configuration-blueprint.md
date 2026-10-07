@@ -121,11 +121,14 @@ decode it into the module's configuration, validate, and refuse before any
 command runs.
 
 **Behavior:**
-- The loader SHALL read the file named by `--config` WHEN it is given, and
-  otherwise `release.toml`, a TOML file at the repository root, where
-  the repository root is that of `-C/--repo` or the working directory.
-- WHEN no configuration file exists and `--config` is not given, the loader
-  SHALL use the module defaults.
+- The loader SHALL read the file named by `--config` WHEN it is given.
+  Otherwise it SHALL look for a TOML file at `release.toml` and at
+  `config/release.toml`, both relative to the repository root, where the
+  repository root is that of `-C/--repo` or the working directory.
+- IF both `release.toml` and `config/release.toml` exist and `--config` is
+  not given, THEN the loader SHALL refuse, naming both paths.
+- WHEN neither file exists and `--config` is not given, the loader SHALL
+  use the module defaults.
 - IF `--config` names a file that does not exist, THEN the loader SHALL
   refuse.
 - The loader SHALL refuse a file containing a key the configuration does

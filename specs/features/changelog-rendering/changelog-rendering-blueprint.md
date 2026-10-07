@@ -46,9 +46,9 @@ for each entry kind and the order groups appear in.
 - A declared `changelog.groups` SHALL replace the default list whole, so
   a kind it omits does not render.
 - Headings SHALL be any UTF-8 text, emoji included, rendered verbatim.
-- This repository's own `release.toml` SHALL be added in this delta's
-  change, not before it, because the loader refuses keys it does not yet
-  define. It SHALL declare:
+- This repository's own `config/release.toml` SHALL be added in this
+  delta's change, not before it, because the loader refuses keys it does
+  not yet define. It SHALL declare:
 
   ```toml
   [changelog]
@@ -62,7 +62,7 @@ for each entry kind and the order groups appear in.
   ```
 
 **Anchors:** the configuration model the tool configuration feature adds
-to release core (its CFGM delta); `release.toml` at the repository root.
+to release core (its CFGM delta); `config/release.toml` in this repository.
 
 ### `Changelog Renderer` in [[module-release-core]] (added)
 
