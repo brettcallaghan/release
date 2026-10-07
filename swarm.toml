@@ -33,6 +33,13 @@ command = 'go test ./...'
 id = "corpus"
 command = 'command -v specs >/dev/null 2>&1 || { echo "corpus: SKIPPED (specs not on PATH)"; exit 0; }; specs check --strict'
 
+# Generated Go types and JSON Schema match schemas/*.strata. strata is
+# installed by the session hook only when STRATA_ACCESS_TOKEN is set, so the
+# check SKIPs out loud where it is absent.
+[[checks]]
+id = "schemas"
+command = 'command -v strata >/dev/null 2>&1 || { echo "schemas: SKIPPED (strata not on PATH)"; exit 0; }; scripts/generate-schemas.sh --check'
+
 [models]
 # Capability tiers, least to most capable. Beads carry a tier in
 # `metadata.tier`; the coordinator resolves it here at dispatch.

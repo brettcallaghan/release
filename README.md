@@ -62,4 +62,6 @@ A statement is covered if any layer reaches it.
 | `release/internal/semver` | 110 | 109 | 99.1% |
 | `release/internal/version` | 65 | 65 | 100.0% |
 | **Total** | **259** | **256** | **98.8%** |
+
+Generated code is excluded from these figures: 278 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
