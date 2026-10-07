@@ -219,11 +219,11 @@ Output Renderer to the RES operation.
   configuration is the Configuration Loader's, which
   [[frd-tool-configuration]] delivers and wires in later.
 - WHEN `--target` is absent, the command SHALL use the current branch.
-- The command SHALL answer with one mapping whose keys are `base` (string,
-  or null when no tag is reachable), `impact`, `named` (bool),
-  `determined_by` (a sequence of mappings with `hash`, `subject` and
-  `signal`), and `next` (string, or null when no release is warranted),
-  rendered as YAML by default and as JSON under `--json`, per
+- The command SHALL answer with one mapping whose keys, in this order,
+  are `base` (string, or null when no tag is reachable), `impact`, `named`
+  (bool), `determined_by` (a sequence of mappings with `hash`, `subject`
+  and `signal`), and `next` (string, or null when no release is
+  warranted), rendered as YAML by default and as JSON under `--json`, per
   [[cli-output-standards]].
 - WHEN no release is warranted, or the policy refuses the version, the
   command SHALL exit 1 after printing the answer.
@@ -261,8 +261,6 @@ feature implements it unchanged.
 - The SV delta SHALL land before the CAN, TR, VC and CMD deltas.
 - The TR, CC, BC and VC deltas SHALL land before the RES delta.
 - The RES delta SHALL land before the CMD delta.
-- [[cli-output-standards]] SHALL be on the base branch before the CMD
-  delta lands.
 - No lockstep-update rule in the owning blueprints' Change Guidance spans
   more than one delta block: derivation and inverse parse are both in SV,
   and no delta changes a record shape or a version-policy rule.
