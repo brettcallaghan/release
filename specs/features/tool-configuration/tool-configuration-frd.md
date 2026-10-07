@@ -109,7 +109,7 @@ Feature: Defaults and Refusals
 
     Examples:
       | setting      | default |
-      | stage prefix | stage/  |
+      | stage prefix | cut/    |
       | target branch | the repository's default branch |
 
   @AC-CFG-002.2 @negative

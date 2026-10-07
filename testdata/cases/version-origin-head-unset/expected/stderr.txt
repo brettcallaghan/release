@@ -1,0 +1,1 @@
+Error: no --target given and no target configured: origin/HEAD is unset, so the repository has no default branch; set it with: git remote set-head origin --auto

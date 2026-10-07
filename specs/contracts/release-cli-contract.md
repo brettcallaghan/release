@@ -8,7 +8,6 @@ status: approved
 updated_at: 2026-10-07T00:00:00Z
 provider: container-release-cli
 visibility: public
-consumers: []
 specs:
   - testdata/help/
 version: "1.1"
@@ -53,7 +52,7 @@ anything.
 
 | Flag | Meaning |
 |---|---|
-| `--target <branch>` | The release line to compute for. Defaults to the configured target, then the current branch |
+| `--target <branch>` | The release line to compute for. Defaults to the configured target, then the repository's default branch |
 | `--json` | Render the answer as JSON instead of YAML |
 
 Answers with the base version, the resolved impact, what drove that impact,

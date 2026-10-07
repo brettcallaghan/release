@@ -1,0 +1,5 @@
+description = "a bump other than major, minor or patch is an invalid argument: exit 2 with the error on stderr and nothing on stdout"
+cites = ["contract-release-cli#guarantees"]
+args = ["version", "huge"]
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]

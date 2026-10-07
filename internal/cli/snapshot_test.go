@@ -4,9 +4,16 @@
 // A case is pure data, with no Go code of its own:
 //
 //	testdata/cases/<name>/
-//	  case.toml   description, cites (acceptance criteria), args, exit_code, artifacts
+//	  case.toml   description, cites (acceptance criteria), git, args, exit_code, artifacts
 //	  input/      optional; copied to a scratch directory the run starts in
-//	  expected/   the artifacts case.toml declares, compared byte for byte
+//
+// `git` is a list of git invocations, each a list of arguments, run in the
+// scratch directory before the command to build a fixture repository. They
+// run isolated from the user's git configuration, with a fixed author,
+// committer and date, so the hashes they produce are the same on every run
+// and a case can snapshot them.
+//
+//	expected/   the artifacts case.toml declares, compared byte for byte
 //
 // Regenerate the expected side with scripts/regenerate-snapshots.sh, which
 // runs this same test with -update, so the generator and the harness cannot
@@ -18,6 +25,7 @@ import (
 	"flag"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -31,10 +39,11 @@ var update = flag.Bool("update", false, "rewrite the expected snapshot artifacts
 const casesDir = "../../testdata/cases"
 
 type caseManifest struct {
-	Description string   `toml:"description"`
-	Cites       []string `toml:"cites"`
-	Args        []string `toml:"args"`
-	ExitCode    int      `toml:"exit_code"`
+	Description string     `toml:"description"`
+	Cites       []string   `toml:"cites"`
+	Git         [][]string `toml:"git"`
+	Args        []string   `toml:"args"`
+	ExitCode    int        `toml:"exit_code"`
 
 	// Artifacts names every file under expected/ the case asserts against.
 	// checkAssertionCoverage reconciles it with expected/ in both
@@ -94,6 +103,9 @@ func runSnapshotCase(t *testing.T, dir string) {
 		if err := copyTree(input, work); err != nil {
 			t.Fatalf("copying input/: %v", err)
 		}
+	}
+	for _, args := range m.Git {
+		runFixtureGit(t, work, args)
 	}
 	t.Chdir(work)
 
@@ -206,6 +218,25 @@ func checkCitations(t *testing.T, m caseManifest) {
 		if !citation.MatchString(c) {
 			t.Errorf("case.toml cites %q, which is neither an AC id (AC-VER-001.2) nor a slug#anchor (contract-release-cli#guarantees)", c)
 		}
+	}
+}
+
+// fixtureEnv isolates a case's git invocations from the user's and the
+// system's configuration and pins every identity and date a hash covers.
+var fixtureEnv = []string{
+	"GIT_CONFIG_GLOBAL=" + os.DevNull,
+	"GIT_CONFIG_NOSYSTEM=1",
+	"GIT_AUTHOR_NAME=Fixture", "GIT_AUTHOR_EMAIL=fixture@example.com",
+	"GIT_COMMITTER_NAME=Fixture", "GIT_COMMITTER_EMAIL=fixture@example.com",
+	"GIT_AUTHOR_DATE=2026-01-01T00:00:00Z", "GIT_COMMITTER_DATE=2026-01-01T00:00:00Z",
+}
+
+func runFixtureGit(t *testing.T, dir string, args []string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(os.Environ(), fixtureEnv...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("case.toml git %v: %v\n%s", args, err, out)
 	}
 }
 

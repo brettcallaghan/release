@@ -6,9 +6,8 @@ slug: contract-changelog
 type: contract
 status: approved
 updated_at: 2026-10-07T00:00:00Z
-provider: container-release-cli
+provider: module-release-core
 visibility: public
-consumers: []
 specs:
   - schemas/changelog.strata
 version: "1.0"
@@ -59,6 +58,20 @@ changelog sections can, and have.
 
 ---
 
+An assembled corpus — one the provider built from collected records,
+before any producer has seen it — SHALL carry no `proposed_bump`.
+
+**Rationale:** A proposal derived mechanically from the same records the
+classifier reads would agree with it by construction, and the disagreement
+check below would never fire ([[adr-003]]).
+
+---
+
+The provider SHALL reject an authored corpus — one a producer returned —
+that carries no `proposed_bump`.
+
+---
+
 The provider SHALL treat `proposed_bump` as a proposal.
 
 ---
@@ -102,6 +115,31 @@ cannot be recorded apart from each other.
 
 ---
 
+The provider SHALL record in `sources` every adapter that contributed to
+an assembled corpus, with the range it read: `from` is the base commit's
+full hash, absent WHEN the release line has no release yet, and `to` is the
+head commit's full hash.
+
+---
+
+Producers SHALL carry `sources`, and every entry's `sources`, through
+authoring unchanged.
+
+**Rationale:** Provenance a producer can rewrite says what the producer
+claimed, not what the corpus was built from.
+
+---
+
+The provider SHALL set an entry's `derived` flag WHEN it derived the
+entry's `summary` from a commit subject, and SHALL clear it WHEN the summary
+is author-written prose carried from a release-notes block. A producer that
+replaces a derived summary with prose of its own SHALL clear the flag.
+
+**Rationale:** A reviewer of the release notes can then find every line
+nobody wrote.
+
+---
+
 Consumers SHALL tolerate unknown fields within a compatible
 `schema_version`.
 
@@ -133,6 +171,15 @@ A new enum variant is a compatible change only because consumers render
 an unrecognized `ChangeKind` into a default section rather than failing.
 That behaviour is itself a guarantee and SHALL NOT be removed without a
 major version change.
+
+### Amendments within 1.0
+
+Schema version 1.0 was amended in place before any release was made against
+it, by the changelog authoring feature: `Changelog.sources` (with
+`AdapterRun` and `Adapter`) and `ChangelogEntry.derived` were added as
+required fields, and `Changelog.proposed_bump` became optional so an
+assembled corpus can omit it. An instance written before the amendment does
+not validate. Every later change follows the policy above.
 
 ## Key Decisions
 

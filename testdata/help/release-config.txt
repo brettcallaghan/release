@@ -1,0 +1,15 @@
+config answers with the effective configuration: every setting, with the
+values the configuration file declares over the defaults. The file is
+release.toml or config/release.toml at the repository root, or the one
+--config names. Exits 2 when the configuration is refused.
+
+Usage:
+  release config [flags]
+
+Flags:
+  -h, --help   help for config
+      --json   Render the answer as JSON instead of YAML
+
+Global Flags:
+      --config file   Use this configuration file instead of discovering one
+  -C, --repo path     Operate on the repository at this path instead of the working directory

@@ -1,0 +1,32 @@
+target: main
+tag_prefix: v
+stage_prefix: cut/
+release_branches: []
+release_paths: []
+leaps: false
+pre1_remap: true
+signals:
+  - release-type
+  - conventional-type
+  - breaking-marker
+commands:
+  validate: null
+  propagate: null
+  preflight: []
+changelog:
+  groups:
+    - kind: FEATURE
+      heading: Features
+    - kind: FIX
+      heading: Fixes
+    - kind: PERFORMANCE
+      heading: Performance
+    - kind: REVERT
+      heading: Reverts
+  other_heading: Other changes
+  breaking_heading: Breaking changes
+  producer: claude
+  producer_command: null
+adapters:
+  pull_requests: false
+  diffs: false

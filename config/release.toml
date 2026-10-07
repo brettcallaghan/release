@@ -1,0 +1,8 @@
+[changelog]
+breaking_heading = "💥 Breaking changes"
+groups = [
+  { kind = "FEATURE", heading = "🚀 Features" },
+  { kind = "FIX", heading = "🪲 Bugs" },
+  { kind = "PERFORMANCE", heading = "Performance" },
+  { kind = "REVERT", heading = "Reverts" },
+]

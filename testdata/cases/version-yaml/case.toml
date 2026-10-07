@@ -1,0 +1,13 @@
+description = "release version answers in YAML: base from the highest reachable tag, the highest impact across the range, the commit that determined it, and the next version"
+cites = ["AC-VER-001.7", "AC-VER-002.2", "AC-VER-002.3", "contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "fix: handle empty input (#11)"],
+  ["commit", "-q", "--allow-empty", "-m", "feat: add a --target flag (#12)", "-m", "Lets a maintainer compute for any release line."],
+  ["commit", "-q", "--allow-empty", "-m", "docs: describe the flag"],
+]
+args = ["version", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Tag Reader"
+entity_name: Tag Reader
 description: Release tags reachable from a ref, parsed to versions and
   ordered, so the base version of a release line is a git query.
 slug: component-tag-reader
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/gitread
@@ -41,6 +41,13 @@ knowing anything about which branches carry which majors ([[adr-001]]).
   list of reachable release versions.
 - **Guarantees:**
   - The component SHALL consider only tags reachable from the named ref.
+  - The component SHALL consider a tag a release tag WHEN its name is the
+    configured tag prefix followed by a version, or is a bare version, and
+    that version carries no prerelease and no build metadata.
+  - WHEN two reachable release tags carry the same version, the component
+    SHALL return the one whose name carries the configured prefix.
+  - The component SHALL return, with the highest version, the name of the
+    tag it was read from.
   - The component SHALL ignore a tag that does not parse as a release tag
     rather than failing.
   - WHEN no release tag is reachable, the component SHALL report the absence
@@ -78,6 +85,8 @@ cherry-picks rather than merges between lines.
 
 - [[adr-001]] — the tooling is branch-agnostic; reachability distinguishes
   release lines without it.
+- [[adr-006]] — git is reached by running the `git` binary, so
+  reachability is exactly what `git for-each-ref --merged` reports.
 
 ## Open Questions
 

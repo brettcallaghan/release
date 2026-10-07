@@ -1,0 +1,9 @@
+description = "--config names the file to read, which settles two discoverable files"
+cites = ["contract-release-cli#global-flags"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+]
+args = ["--config", "config/release.toml", "config"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

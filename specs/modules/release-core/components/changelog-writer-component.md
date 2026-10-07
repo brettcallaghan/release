@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Changelog Writer"
+entity_name: Changelog Writer
 description: A rendered section placed into CHANGELOG.md idempotently,
   without disturbing the entries already there.
 slug: component-changelog-writer
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/changelogfile
@@ -39,8 +39,23 @@ version and replaces it rather than adding another.
 
 ## Interface
 
-- **Surface:** given a rendered section and a version, write
-  `CHANGELOG.md`.
+- **Surface:** `Write` takes a repository root, a version and a rendered
+  section, and writes `CHANGELOG.md` in that root.
+- **Section rule:** a line beginning `## ` whose first word, after an
+  optional `[` (with its closing `]`) and an optional `v`, parses as a
+  version starts that version's section, which runs to the next such line
+  or the end of the file. `## 1.9.0`, `## v1.9.0 (date)` and
+  `## [v1.9.0] - date` all start a 1.9.0 section; `## Unreleased` starts
+  none.
+  - A section for the same version is replaced in place: its bytes become
+    the new section, followed by one blank line when another section
+    follows.
+  - Otherwise the new section and one blank line are inserted immediately
+    before the first section, leaving the preamble above it untouched;
+    with no section, the section follows the preamble, after one blank
+    line, and an empty file takes the section alone.
+  - A file that does not exist is created as `# Changelog`, a blank line,
+    and the section.
 - **Guarantees:**
   - The component SHALL insert a new section above every existing section.
   - WHEN a section for the same version is already present, the component

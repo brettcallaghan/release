@@ -1,0 +1,11 @@
+description = "with no configuration file, release config answers every setting at its default, target being the branch origin/HEAD points to"
+cites = ["AC-CFG-002.1", "contract-release-cli#release-config"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["update-ref", "refs/remotes/origin/main", "HEAD"],
+  ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+]
+args = ["config"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

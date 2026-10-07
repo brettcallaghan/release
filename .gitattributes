@@ -10,3 +10,12 @@
 #
 # `text=auto` still lets Git detect binary content and leave it alone.
 * text=auto eol=lf
+
+# Output of scripts/generate-schemas.sh. Collapsed in diffs; regenerate,
+# never hand-edit.
+internal/schema/**        linguist-generated=true
+internal/releasemodel/**  linguist-generated=true
+
+# A changelog fixture whose CRLF line endings are the point: the writer must
+# preserve them byte for byte.
+internal/changelogfile/testdata/hand-edited.md  -text

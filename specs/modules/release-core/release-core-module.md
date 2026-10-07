@@ -1,5 +1,6 @@
 ---
 title: "Module Blueprint: Release Core"
+entity_name: Release Core
 description: The library that computes versions, assembles and renders
   changelogs, and stages releases — every component of the release process,
   behind one in-process interface.
@@ -9,11 +10,7 @@ status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
 visibility: internal
-contracts_provided:
-  - contract-changelog
 contracts_consumed: []
-contained_by:
-  - container-release-cli
 source_paths:
   - internal
 test_paths:
@@ -66,6 +63,76 @@ the first time something outside this repository depends on it.
     a caller can pass.
   - The module SHALL NOT terminate the process.
   - The module SHALL NOT call a language model.
+- **Version resolution:** `internal/resolve`. `Resolve` takes a repository
+  path, a target ref, an optional named bump, an optional graduation flag
+  and a policy, and returns the base version (or its absence) with its tag,
+  the impact, whether it was named, the commits that determined it with the
+  signal each indicated, and the next version, a no-release result or a
+  policy violation. It composes [[component-tag-reader]],
+  [[component-commit-collector]], [[component-bump-classifier]] and
+  [[component-version-calculator]], maps the classifier's bump onto the
+  calculator's own impact, and never writes to the repository. A repository
+  that cannot be read is an error; a refused or unwarranted release is a
+  result.
+- **Changelog operation:** `internal/changelog`. `Prepare` takes the
+  repository, a target ref, an optional named bump, the loaded
+  configuration, the producers by name, an optional corpus path, and the
+  redo and skip requests. It pins the target to its commit hash, so the
+  commits read, the range recorded and the cache key describe one head,
+  then resolves the version, assembles the corpus from
+  the range's commits ([[component-changelog-corpus-builder]]), exchanges it
+  ([[component-changelog-authoring-bridge]]), sets its `version`, and
+  renders it ([[component-changelog-renderer]]). An unwarranted release, and
+  a disagreement between the proposal and the computed impact with no bump
+  named, are results; it writes only the authoring cache, never the
+  changelog file.
+- **Default policy:** `DefaultPolicy` — tag prefix `v`, stage prefix
+  `cut/`, `leaps` off, `pre1_remap` on, and every commit signal enabled:
+  `release-type`, `conventional-type` and `breaking-marker`. The
+  configuration model extends it.
+- **Configuration model:** `internal/config`. `Config` holds every
+  repository-specific setting, and `Default` gives each its default:
+  `target` (the repository's default branch), `tag_prefix` `v`,
+  `stage_prefix` `cut/`, `release_branches` (globs, empty),
+  `release_paths` (empty), `leaps` off, `pre1_remap` on, `signals` (every
+  signal), `commands.validate` and `commands.propagate` (unset) and
+  `commands.preflight` (empty), and the `changelog` settings below. Its
+  version settings are `DefaultPolicy`'s, and `Policy` turns a
+  configuration into the resolution policy.
+  - `changelog.groups` is an ordered list of `{kind, heading}`, `kind` a
+    `ChangeKind` name; the default is `FEATURE` "Features", `FIX` "Fixes",
+    `PERFORMANCE` "Performance", `REVERT` "Reverts". A declared list
+    replaces the default whole, so a kind it omits does not render.
+    `changelog.other_heading` defaults to "Other changes" and
+    `changelog.breaking_heading` to "Breaking changes". Headings are any
+    UTF-8 text, emoji included, rendered verbatim.
+  - `changelog.producer` names the changelog producer the authoring bridge
+    invokes, `claude` (the default) or `command`;
+    `changelog.producer_command` is the command the `command` producer runs,
+    unset by default. `adapters.pull_requests` and `adapters.diffs` turn on
+    the optional changelog source adapters and default to `false`; the
+    commit adapter is always on and has no setting.
+  - `Validate` SHALL refuse an empty `stage_prefix`, a `signals` entry
+    naming no known signal, a `changelog.groups` kind that is not a
+    `ChangeKind` name or is listed twice, a malformed `release_branches`
+    glob, a `changelog.producer` naming no producer, the `command` producer
+    with no `changelog.producer_command`, `adapters.diffs = true` (no diff
+    adapter is implemented), `adapters.pull_requests = true` (until the pull
+    request adapter lands), and a `release_branches` glob that can match any stage branch
+    name: any name made of `stage_prefix` followed by one or more version
+    characters (`0-9`, `a-z`, `A-Z`, `.`, `-`, `+`), whatever the version (RTS-009; Go
+    `path.Match`, where `*` does not cross `/`). The check is exact over
+    that set, so it may refuse a glob matching only a non-version name under
+    the prefix, such as `cut/latest`, but never misses a stage branch. It
+    SHALL return every reason found, not only the first.
+  - The model SHALL derive no constraint from the name in `target`, and
+    SHALL have no setting that disables a check the tooling performs.
+  - `TargetRef` SHALL answer the configured `target` when one is declared,
+    and otherwise the branch `origin/HEAD` points to, read locally; IF
+    `origin/HEAD` is unset, THEN it SHALL return `ErrNoDefaultBranch`, which
+    names `git remote set-head origin --auto`, and a front end exits 2.
+  - The model reads no file: finding and decoding one is the front end's
+    Configuration Loader.
 
 **Rationale for the first two:** a front end that has to parse the library's
 human-readable output is a front end that breaks when the wording changes, and
@@ -138,6 +205,11 @@ file.
 
 [[component-stage-orchestrator]] — the sequence that cuts a release, producing
 a stage branch and its pull request.
+
+### Delegated Command Runner
+
+[[component-delegated-command-runner]] — a repository's configured command
+run for a named release step, with its outcome reported.
 
 ## Pattern Guidance
 
@@ -234,6 +306,7 @@ on a platform the tooling does not integrate with.
   proposes but never decides.
 - [[adr-005]] — the release process is a composable library behind a thin
   front end, which is what this module is.
+- [[adr-006]] — git is reached through the installed git binary.
 
 ## Open Questions
 

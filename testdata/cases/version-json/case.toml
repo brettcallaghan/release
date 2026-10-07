@@ -1,0 +1,13 @@
+description = "release version --json carries the same values in the same order as the YAML answer, as exactly one JSON object"
+cites = ["cli-output-standards#yaml-by-default-json-under-json", "contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "fix: handle empty input (#11)"],
+  ["commit", "-q", "--allow-empty", "-m", "feat: add a --target flag (#12)", "-m", "Lets a maintainer compute for any release line."],
+  ["commit", "-q", "--allow-empty", "-m", "docs: describe the flag"],
+]
+args = ["version", "--target", "main", "--json"]
+exit_code = 0
+artifacts = ["stdout.json", "stderr.txt"]

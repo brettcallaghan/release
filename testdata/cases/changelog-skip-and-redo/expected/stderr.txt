@@ -1,0 +1,1 @@
+Error: --skip-notes and --redo-notes cannot be combined: one skips authoring, the other repeats it

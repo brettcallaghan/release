@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Commit Collector"
+entity_name: Commit Collector
 description: Commits between two refs, with pull-request identity, trailers
   and descriptions parsed out of the commits themselves.
 slug: component-commit-collector
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/gitread
@@ -42,7 +42,16 @@ collector exists for what is missing, not for what is normal.
 ## Interface
 
 - **Surface:** an ordered `CommitRecord` per commit, as defined by
-  `schemas/collection.strata`.
+  `schemas/collection.strata`, for a base and a target ref.
+- **Range:** every commit reachable from the target ref and not from the
+  base tag, merge commits included, newest first as `git log` lists them.
+  WHEN there is no base tag, every commit reachable from the target ref.
+- **Pull-request number:** a subject ending ` (#<n>)` yields `n`; the
+  subject is left unchanged.
+- **Trailers:** git's own parse of the message's final paragraph
+  (`%(trailers:only,unfold)`, the `git interpret-trailers` rules), so a key
+  containing a space is never a trailer. WHEN a key repeats, its last value
+  is kept.
 - **Guarantees:**
   - The component SHALL extract a pull-request number from a squash commit
     subject where the hosting platform appended one.

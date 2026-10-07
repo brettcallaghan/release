@@ -1,0 +1,20 @@
+version: 1.9.0
+corpus_path: .git/release/corpus/c2aea8f44df5afe616009556bcfc6b1f729a44cb..53b6ea9aa35aa95ab7d00846da292db29f5ac460.json
+section: |-
+  ## 1.9.0
+
+  **Release lines on demand**
+
+  Compute for any line.
+
+  Nothing breaks.
+
+  ### Features
+
+  - A maintainer can compute a version for any release line — naïvely fast. (#12)
+
+    Pass `--target <branch>`.
+
+  ### Fixes
+
+  - **cli:** handle empty input (#11)

@@ -1,0 +1,58 @@
+name: checks
+
+# The plugin gates: are the `release` plugin's skills and manifests intact?
+# The Go gates live in cli.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # ready_for_review is not in the default set; without it, taking a pull
+    # request out of draft would not start the run that the draft skipped.
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin:
+    name: skills and plugin manifest
+    runs-on: ubuntu-latest
+    # Skipped at the job, not the trigger: a skipped job still reports a check
+    # run, which branch protection counts as satisfied.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pyyaml
+        run: python -m pip install pyyaml==6.0.2
+
+      # --strict exits 1 on a warning as well as an error.
+      - name: Skill invariants
+        run: scripts/check-skills.sh --strict
+
+      # Bumping this pin is a deliberate change.
+      - name: Install the Claude Code CLI
+        if: ${{ !cancelled() }}
+        run: npm install -g @anthropic-ai/claude-code@2.1.292
+
+      - name: Validate the plugin
+        if: ${{ !cancelled() }}
+        run: claude plugin validate plugin --strict
+
+      - name: Validate the marketplace
+        if: ${{ !cancelled() }}
+        run: claude plugin validate . --strict

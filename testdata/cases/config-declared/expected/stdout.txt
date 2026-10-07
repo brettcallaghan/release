@@ -1,0 +1,35 @@
+target: develop
+tag_prefix: rel-
+stage_prefix: cut/
+release_branches:
+  - release/*
+release_paths:
+  - cli
+leaps: true
+pre1_remap: true
+signals:
+  - release-type
+  - breaking-marker
+commands:
+  validate: make test
+  propagate: null
+  preflight:
+    - make lint
+    - make vet
+changelog:
+  groups:
+    - kind: FEATURE
+      heading: Features
+    - kind: FIX
+      heading: Fixes
+    - kind: PERFORMANCE
+      heading: Performance
+    - kind: REVERT
+      heading: Reverts
+  other_heading: Other changes
+  breaking_heading: Breaking changes
+  producer: claude
+  producer_command: null
+adapters:
+  pull_requests: false
+  diffs: false

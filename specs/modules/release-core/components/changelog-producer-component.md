@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Changelog Producer"
+entity_name: Changelog Producer
 description: The component type that receives a changelog corpus and returns
   an authored one — a language model, a command, a conventional-commit parser,
   or a person.
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: pattern
-contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:
@@ -85,13 +85,23 @@ authoring replaceable rather than merely configurable.
 
 **Instances:**
 
-- **Claude CLI producer** (`internal/authoring/producers/claude`) — **the
-  default.** Invokes the `claude` command on the workstation, passing the
-  corpus and reading the authored result back. Requires no API credential,
-  because it uses the session the maintainer already has.
-- **Command producer** (`internal/authoring/producers/command`) — runs a
-  configured command, passing the corpus on standard input and reading the
-  result from standard output. The escape hatch for any other model or tool.
+- **Claude CLI producer** (`claude`, `producers.Claude` in
+  `internal/authoring/producers`) — **the default.** Runs `claude -p` with a
+  prompt invoking the `release:changelog` skill (the `changelog` skill of
+  this repository's `release` plugin), the corpus as JSON on standard input,
+  and reads the authored corpus as JSON from standard output, unwrapping one
+  markdown code fence around the whole output if the model added one. Fails
+  on a non-zero exit or empty output. Refuses, naming the `claude` command,
+  WHEN it is not on `PATH`. Requires no API credential, because it uses the
+  session the maintainer already has.
+- **Command producer** (`command`, `producers.Command` in
+  `internal/authoring/producers`) — runs `changelog.producer_command`
+  through `sh -c` in the repository root, the corpus as JSON on standard
+  input, and reads the authored corpus as JSON from standard output. Fails
+  on a non-zero exit, reporting the command's standard error, or on empty
+  output. Refuses, naming the missing prerequisite, WHEN
+  `changelog.producer_command` is unset or `sh` is not on `PATH`. The
+  escape hatch for any other model or tool.
 - **Conventional-commit producer**
   (`internal/authoring/producers/conventional`) — derives entries from
   conventional-commit subjects with no model involved.
