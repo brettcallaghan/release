@@ -46,8 +46,13 @@ This feature SHALL comply with [[release-tooling-standards]].
   release-type trailer, a conventional-commit type, or a breaking-change
   marker.
 - **Leap** — an increment of a version component by more than one.
-- **Graduation** — the deliberate move from a version below 1.0.0 to
-  1.0.0.
+- **Graduation** — the deliberate move from a version below 1.0.0 to 1.0.0.
+- **Tag prefix** — the string a project prepends to a version when tagging,
+  `v` by default. It is not part of the version.
+- **Prerelease** — a preview of a version the project plans to publish, which
+  orders before it and graduates to it: `1.9.0-rc.1`.
+- **Canary** — an artifact for an arbitrary commit, which previews no planned
+  version and never graduates: `1.8.0-canary.412.a3f4b2c`.
 
 ## Requirements
 
@@ -89,10 +94,23 @@ Feature: Base Version Resolution
     Then the base version is 1.8.0
 
   @AC-VER-001.4
-  Scenario: A line with no release yet is reported distinctly
+  Scenario: A line with no release yet resolves to 0.0.0
     Given no release tag is reachable from the target branch
     When the tooling resolves the base version
-    Then the tooling reports that the line has no base version, rather than reporting an error
+    Then the base version is 0.0.0
+
+  @AC-VER-001.6
+  Scenario: The first release is computed like any other
+    Given no release tag is reachable from the target branch
+    When the tooling computes the next version for an impact of minor
+    Then the next version is 0.1.0
+
+  @AC-VER-001.7
+  Scenario: A tag is recognised with or without the configured prefix
+    Given the repository configures the tag prefix "v"
+    And the tag v1.8.0 is reachable from the target branch
+    When the tooling resolves the base version
+    Then the base version is 1.8.0
 
   @AC-VER-001.5 @negative
   Scenario: The branch name does not determine the major
@@ -170,9 +188,11 @@ Feature: Next Version Computation
   So that every rule the project has decided is enforced identically everywhere
 
   Two rules govern the result and both refuse rather than warn. One component
-  moves by one unless leaps are enabled, and below 1.0.0 the mapping shifts so
-  that breaking changes move the minor and reaching 1.0.0 needs an explicit
-  graduation. No rule is conditioned on which branch is being released from.
+  moves by one unless leaps are enabled, and below 1.0.0 exactly one mapping
+  shifts: a major bump moves the minor, so breaking changes stay inside the 0.x
+  series and reaching 1.0.0 needs an explicit graduation. Minor and patch bumps
+  behave below 1.0.0 as they do above it. No rule is conditioned on which branch
+  is being released from.
 
   @AC-VER-003.1
   Scenario Outline: An impact increments exactly one component by one
@@ -207,7 +227,7 @@ Feature: Next Version Computation
     Examples:
       | impact | version |
       | major  | 0.7.0   |
-      | minor  | 0.6.5   |
+      | minor  | 0.7.0   |
       | patch  | 0.6.5   |
 
   @AC-VER-003.5
@@ -253,9 +273,9 @@ Feature: Release Name Derivation
     Then the result is "<name>"
 
     Examples:
-      | form         | name          |
-      | tag name     | v1.9.0        |
-      | stage branch | stage/v1.9.0  |
+      | form         | name       |
+      | tag name     | v1.9.0     |
+      | stage branch | cut/1.9.0  |
 
   @AC-VER-004.2
   Scenario: A derived name parses back to its version
@@ -265,9 +285,15 @@ Feature: Release Name Derivation
 
   @AC-VER-004.3
   Scenario: The configured stage prefix is used
-    Given the repository configures the stage prefix "cut/"
+    Given the repository configures the stage prefix "release-prep/"
     When the tooling derives the stage branch name for version 1.9.0
-    Then the result is "cut/v1.9.0"
+    Then the result is "release-prep/1.9.0"
+
+  @AC-VER-004.9
+  Scenario: The configured tag prefix is used
+    Given the repository configures the tag prefix "" with no prefix string
+    When the tooling derives the tag name for version 1.9.0
+    Then the result is "1.9.0"
 
   @AC-VER-004.4
   Scenario: A canary identifier carries no planned version
@@ -275,15 +301,15 @@ Feature: Release Name Derivation
     Then the identifier is not a prerelease of any version the project plans to publish
 
   @AC-VER-004.5 @negative
-  Scenario: A version string carrying a tag prefix is rejected
-    When a version of "v1.9.0" is parsed as a version
+  Scenario: A tag prefix is not part of a version
+    When the string "v1.9.0" is parsed as a version rather than as a tag name
     Then the tooling does not accept it
 
   @AC-VER-004.6
-  Scenario: A prerelease identifier previews a planned version
-    Given a planned version of 1.9.0
-    When the tooling derives a prerelease identifier for it
-    Then the result is a prerelease of 1.9.0
+  Scenario: A prerelease names the version it previews and its ordinal
+    Given a planned version of 1.9.0 and a prerelease ordinal of 1
+    When the tooling derives a prerelease version
+    Then the result is "1.9.0-rc.1"
 
   @AC-VER-004.7
   Scenario: A prerelease orders before the version it previews
@@ -292,10 +318,21 @@ Feature: Release Name Derivation
     Then the prerelease orders before 1.9.0
 
   @AC-VER-004.8
-  Scenario: A canary identifier is unique to its commit
-    Given two different commits
-    When the tooling derives a canary identifier for each
-    Then the two identifiers differ
+  Scenario Outline: A canary names the current version, its pull request and its commit
+    Given the latest released version is 1.8.0
+    When the tooling derives a canary version for pull request "<pr>" at commit "<sha>"
+    Then the result is "<version>"
+
+    Examples:
+      | pr  | sha     | version                    |
+      | 412 | a3f4b2c | 1.8.0-canary.412.a3f4b2c   |
+      | 87  | 9de01ff | 1.8.0-canary.87.9de01ff    |
+
+  @AC-VER-004.10 @negative
+  Scenario: A canary does not preview a planned version
+    Given the latest released version is 1.8.0
+    When the tooling derives a canary version
+    Then the result is not a prerelease of any version the project plans to publish
 ```
 
 ## References

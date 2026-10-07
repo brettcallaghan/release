@@ -48,8 +48,10 @@ This feature SHALL comply with [[release-tooling-standards]] and
   body.
 - **Mechanically derived entry** — an entry the tooling produced from a
   commit subject because no author-written block existed for it.
-- **Authored corpus** — a corpus returned by an author, carrying prose and
-  a proposed impact.
+- **Authored corpus** — a corpus returned by a producer, carrying prose and a
+  proposed impact.
+- **Producer** — whatever authors a corpus: a language model, a configured
+  command, a conventional-commit parser, or a person editing a file.
 
 ## Requirements
 
@@ -67,7 +69,7 @@ Feature: Changelog Source Collection
 
   Squash merging puts most of this in git already: the commit subject carries
   the pull request title and its number, and where the repository squashes
-  using the description, the description is the commit body. The forge is
+  using the description, the description is the commit body. The hosting platform is
   consulted only for what the commits do not carry.
 
   @AC-CLOG-001.1
@@ -80,23 +82,23 @@ Feature: Changelog Source Collection
   Scenario: A pull request description carried in the commit body is collected
     Given a squash commit whose body is the pull request description
     When the tooling collects commit records
-    Then the record carries that description without consulting the forge
+    Then the record carries that description without consulting the hosting platform
 
   @AC-CLOG-001.3
-  Scenario: Missing descriptions are fetched from the forge
+  Scenario: Missing descriptions are fetched from the hosting platform
     Given a commit carrying a pull request number and no description in its body
     When the tooling collects changelog material
-    Then the tooling fetches the title and description for that pull request from the forge
+    Then the tooling fetches the title and description for that pull request from the hosting platform
 
   @AC-CLOG-001.4 @negative
   Scenario: Fetched metadata never overwrites what the commit carried
     Given a commit whose body already carries a pull request description
-    When the tooling collects changelog material with the forge reachable
+    When the tooling collects changelog material with the hosting platform reachable
     Then the tooling does not replace the description carried in the commit
 
   @AC-CLOG-001.5
-  Scenario: An unreachable forge degrades rather than failing
-    Given the forge is unreachable
+  Scenario: An unreachable hosting platform degrades rather than failing
+    Given the hosting platform is unreachable
     When the tooling collects changelog material
     Then the tooling returns the commit records unchanged and reports the degradation
 
@@ -171,11 +173,11 @@ Feature: Authoring Exchange
   I want the tooling to exchange a corpus with an author and check what returns
   So that generated prose is reviewed and a generated version number is impossible
 
-  The exchange is files, not calls. Whoever fills the corpus in — a skill
-  driving a model, a person in an editor — is outside the tooling, which is
-  why no adopter needs an API credential to cut a release. What returns is
-  validated against the schema and its proposed impact is compared against
-  the computed one.
+  The exchange is files, not calls. Producers are plugins and the default one
+  runs outside the tooling, which is why no adopter needs an API credential to
+  cut a release. What returns is validated against the schema and its proposed
+  impact is compared against the computed one. Authoring is slow and may be
+  paid for, so the result is cached against the commit range it describes.
 
   @AC-CLOG-003.1
   Scenario: A returned corpus is validated before anything reads it
@@ -219,6 +221,30 @@ Feature: Authoring Exchange
   Scenario: The tooling does not call a language model
     When the tooling performs an authoring exchange
     Then the tooling does not issue any request to a language model service
+
+  @AC-CLOG-003.8
+  Scenario: The configured producer is the one invoked
+    Given the repository configures a producer by name
+    When the tooling performs an authoring exchange
+    Then the tooling invokes that producer
+
+  @AC-CLOG-003.9
+  Scenario: An authored corpus is cached against its commit range
+    Given an authoring exchange has completed for a commit range
+    When the tooling performs an authoring exchange for the same range
+    Then the tooling reuses the cached corpus without invoking a producer
+
+  @AC-CLOG-003.10
+  Scenario: A cached corpus can be discarded
+    Given a cached corpus exists for the commit range being released
+    When the maintainer requests that authoring be redone
+    Then the tooling invokes the producer and replaces the cached corpus
+
+  @AC-CLOG-003.11
+  Scenario: Authoring can be skipped entirely
+    Given the maintainer requests a release without notes and names a bump
+    When the tooling reaches the authoring exchange
+    Then the tooling skips it and proceeds with the mechanically assembled corpus
 ```
 
 ## References

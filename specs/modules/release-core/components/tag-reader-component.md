@@ -10,9 +10,9 @@ kind: standard
 contracts_provided: []
 contracts_consumed: []
 source_paths:
-  - cli/release/internal/gitread
+  - internal/gitread
 test_paths:
-  - cli/release/internal/gitread
+  - internal/gitread
 ---
 
 # Tag Reader
@@ -31,10 +31,9 @@ knowing anything about which branches carry which majors ([[adr-001]]).
 - **Role:** the base version for a release line.
 - **Scope:** in — reachable tag enumeration, parsing, ordering; out —
   creating tags, and deciding the next version.
-- **Composed into:** [[container-release-cli]] — consumed by
-  [[component-version-calculator]] and
-  [[component-release-commit-verifier]]; see it for relationships.
-- **Source & tests:** `cli/release/internal/gitread`.
+- **Composed into:** [[module-release-core]] — consumed by
+  [[component-version-calculator]]; see it for relationships.
+- **Source & tests:** `internal/gitread`.
 
 ## Interface
 
@@ -87,5 +86,5 @@ None.
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
-- [[container-release-cli]] — the container this component is composed into
+- [[module-release-core]] — the module this component is composed into
 - [[frd-version-computation]] — the feature this component serves

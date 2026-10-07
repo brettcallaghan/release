@@ -61,8 +61,8 @@ model is never the sole authority on a version number.
 - A machine-readable impact signal becomes mandatory in the commit
   history: a release-type trailer, a conventional-commit type, or a
   breaking-change marker. Every accepted signal lives in git, so the
-  computation is reproducible from a clone — which rules out forge labels
-  as the primary signal, since they live outside it.
+  computation is reproducible from a clone — which rules out labels on the
+  hosting platform as the primary signal, since they live outside it.
 - A commit carrying the wrong signal still produces a deterministic but
   wrong version whenever the model's proposal happens to agree with it.
 - Two changelog artifacts exist — a terse changelog file and the prose

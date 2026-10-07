@@ -24,28 +24,28 @@ prepared as a branch holding one commit that touches only version manifests
 and the changelog, and a human reads the version and the notes in a diff
 small enough to actually read before anything is published.
 
-Verification is the other half. A branch name matching the stage prefix is
-something any contributor can create, so it records that a release was
-intended and proves nothing about whether the commit is one. The same
-verdict runs twice — as a check on the stage pull request, and as the gate
-delivery runs before publishing — from one implementation, so the two
-cannot drift apart.
+Verifying that the commit is well formed is the project's job rather than the
+tooling's, because which paths a release commit may touch differs by ecosystem
+and only the project knows them. The tooling confines its writes to the paths
+the project declared; the project's required checks confirm it did
+([[repository-release-policy]], RRP-029 through RRP-035).
 
 This milestone stops at the pull request. Tagging and publication are
-specified separately, which makes everything here non-destructive: a
-staging run that goes wrong produces a branch and a pull request to close.
+specified separately, which makes everything here non-destructive: a staging
+run that goes wrong produces a branch and a pull request to close.
 
 This feature SHALL comply with [[release-tooling-standards]].
 
 ## Terminology
 
-- **Stage branch** — a branch carrying the configured prefix and holding
-  exactly one commit.
+- **Stage branch** — a branch carrying the configured prefix, `cut/` by
+  default, whose first commit is the release commit. It normally holds only
+  that commit, and may hold more where the notes are corrected during review.
 - **Release commit** — a commit modifying only version manifests and the
   changelog.
 - **Target branch** — the release branch a stage branch is merged into.
-- **Verdict** — the result of checking a candidate release commit, naming
-  every failed check.
+- **Declared release paths** — the paths a project states a release commit
+  may modify.
 
 ## Requirements
 
@@ -66,19 +66,42 @@ Feature: Release Staging
   state behind for someone to clean up.
 
   @AC-STG-001.1
-  Scenario: Staging produces a single-commit branch from the target tip
-    When the maintainer stages a release against a release branch
-    Then the tooling creates a branch from that branch's tip holding exactly one commit
+  Scenario: Cutting produces a branch from the target tip whose first commit is the release commit
+    When the maintainer cuts a release against a release branch
+    Then the tooling creates a branch from that branch's tip whose first commit is the release commit
+
+  @AC-STG-001.10
+  Scenario: A correction committed during review does not invalidate the branch
+    Given a stage pull request to which a maintainer has added a commit correcting the notes
+    When the project's required checks run
+    Then the additional commit does not by itself make the stage branch invalid
+
+  @AC-STG-001.11
+  Scenario: A named bump settles the impact
+    Given the maintainer names a bump of minor
+    When the tooling cuts a release
+    Then the staged version increments the minor component and no impact is inferred
+
+  @AC-STG-001.12
+  Scenario: Cutting without notes skips the authoring exchange
+    Given the maintainer requests a release without notes and names a bump
+    When the tooling cuts a release
+    Then the tooling stages the release without invoking a changelog producer
 
   @AC-STG-001.2
-  Scenario: The release commit touches only manifests and the changelog
+  Scenario: The release commit touches only declared release paths
     When the tooling creates a release commit
-    Then the commit modifies only version manifests and the changelog
+    Then the commit modifies only paths the project declared as release paths
 
   @AC-STG-001.3
-  Scenario: The pull request carries the rendered release notes
+  Scenario: The pull request is titled for the version it releases
     When the tooling opens the stage pull request
-    Then the pull request body contains the rendered notes for the staged version
+    Then the pull request title names the version being released
+
+  @AC-STG-001.9
+  Scenario: The pull request body carries the rendered release notes
+    When the tooling opens the stage pull request
+    Then the pull request body contains the rendered notes for the staged version under a "Release Notes" heading
 
   @AC-STG-001.4
   Scenario: Nothing releasable means no branch
@@ -109,72 +132,11 @@ Feature: Release Staging
     Then the report names every change the tooling made
 ```
 
-### FEAT-STG-002: Release Commit Verification
-
-**Acceptance Criteria:**
-
-```gherkin
-@FEAT-STG-002
-Feature: Release Commit Verification
-
-  As a release engineer
-  I want a candidate release commit checked rather than trusted
-  So that a branch anyone can create cannot cause a publication
-
-  One implementation produces the verdict, and it runs both before the merge
-  as a pull request check and after it as the publication gate. Two
-  implementations would eventually disagree, and the disagreement would
-  surface as something that passed review and then failed to publish.
-
-  @AC-STG-002.1
-  Scenario: A well-formed release commit is accepted
-    Given a commit modifying only version manifests and the changelog, recording a version that matches its stage branch name and legally succeeds the latest tag reachable from the target branch
-    When the tooling verifies it
-    Then the verdict is that the commit is publishable
-
-  @AC-STG-002.2 @negative
-  Scenario: A commit touching source code is rejected
-    Given a commit on a stage branch that also modifies source files
-    When the tooling verifies it
-    Then the verdict rejects the commit
-
-  @AC-STG-002.3 @negative
-  Scenario: A version disagreeing with the branch name is rejected
-    Given a commit recording version 1.9.0 on a stage branch named for version 1.8.0
-    When the tooling verifies it
-    Then the verdict rejects the commit
-
-  @AC-STG-002.4 @negative
-  Scenario: A version that does not legally succeed the base is rejected
-    Given a commit recording version 1.7.0 on a branch whose latest reachable tag is 1.8.0
-    When the tooling verifies it
-    Then the verdict rejects the commit
-
-  @AC-STG-002.5
-  Scenario: Every failed check is reported
-    Given a commit failing more than one check
-    When the tooling verifies it
-    Then the verdict names every check that failed
-
-  @AC-STG-002.6
-  Scenario: The verdict is the same before and after the merge
-    Given a candidate release commit
-    When the tooling verifies it as a pull request check and again after it is merged
-    Then the two verdicts agree
-
-  @AC-STG-002.7 @negative
-  Scenario: The branch prefix alone does not establish publishability
-    Given a commit on a branch carrying the stage prefix that modifies source files
-    When the tooling verifies it
-    Then the verdict rejects the commit
-```
-
 ## References
 
 - [[adr-001]] — the release lines a stage branch may target
 - [[adr-002]] — stage branches as the release trigger, verified
   independently of the branch name
 - [[adr-003]] — disagreement over impact halts the release
-- [[component-stage-orchestrator]],
-  [[component-release-commit-verifier]] — the components realizing this
-  feature
+- [[repository-release-policy]] — the verification the project performs
+- [[component-stage-orchestrator]] — the component realizing this feature

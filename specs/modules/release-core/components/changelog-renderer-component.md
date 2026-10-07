@@ -11,18 +11,19 @@ contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:
-  - cli/release/internal/render
+  - internal/render
 test_paths:
-  - cli/release/internal/render
+  - internal/render
 ---
 
 # Changelog Renderer
 
 ## Overview
 
-Turns one corpus into markdown, once per target: a `CHANGELOG.md` section
-and a forge release body. Both renderings come from the same instance,
-which is what structurally prevents a release's two public descriptions
+Turns one corpus into markdown, once per target: a `CHANGELOG.md` section and
+a release body on the hosting platform. Both renderings come from the same
+instance, which is what structurally prevents a release's two public
+descriptions
 from disagreeing — a failure recorded as a cost in [[adr-003]] and removed
 here.
 
@@ -36,10 +37,10 @@ project can keep the changelog style it already publishes.
 - **Role:** markdown for every target, from one corpus.
 - **Scope:** in — grouping, ordering, formatting, per-target layout; out —
   authoring prose, writing files, and deciding a version.
-- **Composed into:** [[container-release-cli]] — consumed by
+- **Composed into:** [[module-release-core]] — consumed by
   [[component-changelog-writer]] and by release creation; see it for
   relationships.
-- **Source & tests:** `cli/release/internal/render`.
+- **Source & tests:** `internal/render`.
 
 ## Interface
 
@@ -98,6 +99,6 @@ None.
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
-- [[container-release-cli]] — the container this component is composed into
+- [[module-release-core]] — the module this component is composed into
 - [[contract-changelog]] — the corpus this component consumes
 - [[frd-changelog-rendering]] — the feature this component serves

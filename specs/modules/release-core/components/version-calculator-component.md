@@ -11,9 +11,9 @@ kind: standard
 contracts_provided: []
 contracts_consumed: []
 source_paths:
-  - cli/release/internal/version
+  - internal/version
 test_paths:
-  - cli/release/internal/version
+  - internal/version
 ---
 
 # Version Calculator
@@ -26,9 +26,11 @@ else.
 
 Three of them are easy to get wrong and expensive to get wrong. A version
 may increment a component by exactly one unless leaps are explicitly
-enabled. Below 1.0.0 the mapping shifts: patch and minor both increment
-the patch component, major increments the minor component, and reaching
-1.0.0 requires an explicit graduation rather than falling out of a bump.
+enabled. Below 1.0.0 one mapping shifts and only one: a major bump
+increments the minor component, so breaking changes stay inside the 0.x
+series. Minor and patch bumps behave below 1.0.0 exactly as above it, and
+reaching 1.0.0 requires an explicit graduation rather than falling out of a
+bump.
 
 It carries no rule about which branch it is computing for. Whether a
 branch may originate a major is the adopting project's policy, not
@@ -41,10 +43,10 @@ is a pure function, so it can be tested exhaustively without a repository.
 - **Scope:** in — applying impact to a base version under policy
   constraints; out — reading tags, classifying impact, and writing
   anything.
-- **Composed into:** [[container-release-cli]] — consumes
+- **Composed into:** [[module-release-core]] — consumes
   [[component-tag-reader]] and [[component-bump-classifier]]; see it for
   relationships.
-- **Source & tests:** `cli/release/internal/version`.
+- **Source & tests:** `internal/version`.
 
 ## Interface
 
@@ -53,16 +55,22 @@ is a pure function, so it can be tested exhaustively without a repository.
 - **Guarantees:**
   - The component SHALL increment exactly one version component by one
     unless leaps are enabled by policy.
-  - WHILE the base version is below 1.0.0, the component SHALL map an
-    impact of patch or minor to a patch increment, and an impact of major
-    to a minor increment.
+  - WHILE the base version is below 1.0.0, the component SHALL map an impact
+    of major to a minor increment by default.
+  - WHILE the base version is below 1.0.0, the component SHALL map an impact
+    of minor to a minor increment and an impact of patch to a patch
+    increment.
+  - WHEN no base version is supplied, the component SHALL compute from a base
+    of 0.0.0.
   - The component SHALL require an explicit graduation to produce 1.0.0.
   - The component SHALL derive a prerelease identifier for a planned
     version on request.
   - A prerelease version the component returns SHALL order before the
     version it previews.
   - WHEN the impact is none, the component SHALL report that no release is
-    warranted rather than returning a version.
+    warranted rather than returning a version. This is the path taken when a
+    maintainer names no bump and the producer concludes nothing releasable
+    landed.
   - The component SHALL be a pure function of its inputs.
   - The component SHALL NOT derive any constraint from the name of the
     branch it is computing for.
@@ -110,11 +118,10 @@ published. The violation is the result.
 
 ## Open Questions
 
-- [ ] Whether a project below 1.0.0 may declare a pre-1.0 mapping other
-  than the one in RTS-023 and RTS-024. Decided if an adopter asks.
+None.
 
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
-- [[container-release-cli]] — the container this component is composed into
+- [[module-release-core]] — the module this component is composed into
 - [[frd-version-computation]] — the feature this component serves

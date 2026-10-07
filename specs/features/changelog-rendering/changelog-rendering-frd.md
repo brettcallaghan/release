@@ -17,8 +17,9 @@ sources:
 ## Overview
 
 A release describes itself in more than one place — a section in
-`CHANGELOG.md`, a body on the forge release — and those descriptions have a
-habit of drifting apart when each is generated separately. Rendering every
+`CHANGELOG.md`, a release body on the hosting platform — and those
+descriptions have a habit of drifting apart when each is generated
+separately. Rendering every
 one of them from a single corpus in a single pass makes the drift
 impossible rather than merely discouraged.
 
@@ -33,10 +34,11 @@ This feature SHALL comply with [[release-tooling-standards]] and
 
 ## Terminology
 
-- **Target** — one rendering destination: the changelog file, or a forge
-  release body.
+- **Target** — one rendering destination: the changelog file, or a release
+  body on the hosting platform.
 - **Group** — a set of entries rendered together under one heading,
-  determined by entry kind.
+  determined by entry kind. Entries marked breaking form a group of their own
+  regardless of kind.
 - **Section** — the rendered markdown describing one release.
 
 ## Requirements
@@ -81,10 +83,10 @@ Feature: Deterministic Rendering
     Then the entry appears in a default group and the rendering succeeds
 
   @AC-REND-001.5
-  Scenario: Breaking changes are rendered as their own section
-    Given a corpus declaring a breaking change
+  Scenario: Entries marked breaking are rendered as their own section
+    Given a corpus containing an entry whose breaking flag is set and which carries migration guidance
     When the tooling renders it
-    Then the rendering contains a breaking-changes section carrying that change and its migration guidance
+    Then the rendering contains a breaking-changes section carrying that entry and its migration guidance
 
   @AC-REND-001.6 @negative
   Scenario: A corpus with no resolved version does not render

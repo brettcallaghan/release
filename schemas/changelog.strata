@@ -1,16 +1,16 @@
 """
 A release's changelog as structured data.
 
-This is the contract between a non-deterministic producer — a person or a
-language model reading commits, pull requests and diffs — and the
-deterministic consumers that render it. Authoring may vary between runs;
-rendering may not. Every published artifact (a `CHANGELOG.md` section, a
-forge release body) is rendered from one instance of this type, so no two
-artifacts describing the same release can disagree.
+This is the contract between a producer that may vary between runs — a
+language model, a command, a conventional-commit parser, or a person — and
+the deterministic consumers that render it. Authoring may vary; rendering may
+not. Every published artifact describing a release is rendered from one
+instance, so no two artifacts can disagree.
 
-`proposedBump` carries the author's conclusion about release impact. It is
+`proposed_bump` carries the producer's conclusion about release impact. It is
 a proposal, never an authority: the release tooling computes the bump
-independently from commit metadata and halts when the two disagree.
+independently and halts when the two disagree. Where a maintainer names the
+bump explicitly, the named bump governs and the proposal is advisory.
 """
 struct Changelog {
     """
@@ -19,24 +19,24 @@ struct Changelog {
     Consumers reject an instance declaring a schema version they do not
     implement rather than rendering it partially.
     """
-    schemaVersion: String
+    schema_version: String
 
     """
-    The release impact the author concluded from the content.
+    The release impact the producer concluded from the content.
 
-    Compared against the bump the tooling computes from commit metadata.
-    A disagreement halts the release for human confirmation; it is never
-    resolved by preferring one side.
+    Compared against the bump the tooling computes. A disagreement halts the
+    release for human confirmation; it is never resolved by preferring one
+    side.
     """
-    proposedBump: Bump
+    proposed_bump: Bump
 
     """
-    The resolved version this changelog describes, without a tag prefix —
-    for example `1.4.0`.
+    The resolved version this changelog describes, without a tag prefix — for
+    example `1.4.0`.
 
     Left unset while a changelog is being authored, and filled in once the
-    version is resolved. Renderers require it, because a rendered section
-    is headed by the version it describes.
+    version is resolved. Renderers require it, because a rendered section is
+    headed by the version it describes.
     """
     version: String?
 
@@ -62,26 +62,12 @@ struct Changelog {
 
     Renderers group entries by `kind` and preserve this order within each
     group, so authoring order is presentation order.
+
+    A breaking change is an entry with `breaking` set, carrying its own
+    `migration`. There is no separate collection for them: a release-level
+    breaking note is an entry whose sources span the changes that caused it.
     """
     entries: [ChangelogEntry]
-
-    """
-    Release-level breaking changes and the migrations they require.
-
-    Declared here, rather than only on the entries that cause them, so that
-    a migration spanning several changes can be described once. An entry may
-    still set its own `breaking` flag and carry a narrower migration note.
-    """
-    breakingChanges: [BreakingChange]
-
-    """
-    Which inputs this changelog was authored from.
-
-    Recorded so a reader can tell whether the notes were written from commit
-    subjects alone or from pull-request descriptions and diffs, and so a
-    regeneration can reproduce the same inputs.
-    """
-    sources: [ChangelogSource]
 }
 
 """
@@ -97,8 +83,8 @@ struct ChangelogEntry {
     One line stating the change from the reader's point of view.
 
     Written as an outcome a consumer can recognize, not as the work that
-    produced it: "closed decoders reject undeclared keys", not "refactored
-    the decoder".
+    produced it: "closed decoders reject undeclared keys", not "refactored the
+    decoder".
     """
     summary: String
 
@@ -106,102 +92,95 @@ struct ChangelogEntry {
     The part of the product this change affects, in the project's own
     vocabulary — for example `transpilers/go` or `cli`.
 
-    Rendered as a prefix where a target supports it. Unset where a change is
-    not scoped to one area.
+    The same notion as a conventional-commit scope. Rendered as a prefix
+    where a target supports it, and unset where a change is not scoped to one
+    area.
     """
     scope: String?
 
     """
-    Additional prose for a change that cannot be understood from its
-    summary alone.
+    Additional prose for a change that cannot be understood from its summary
+    alone.
 
     Rendered beneath the summary. Most entries need none.
     """
     detail: String?
 
     """
-    Whether this change alone breaks a consumer that upgrades.
-
-    An entry may be breaking without a corresponding `BreakingChange` on the
-    release, in which case `migration` carries the whole of the guidance.
+    Whether a consumer that upgrades is broken by this change.
     """
     breaking: Bool
 
     """
-    Pull request numbers this change arrived through.
-
-    Rendered as links where the target supports it.
-    """
-    pullRequests: [Int]
-
-    """
-    Commit identifiers this change arrived through.
-
-    Full hashes; renderers abbreviate. Carried for entries that reached the
-    release outside a pull request.
-    """
-    commits: [String]
-
-    """
-    Issue or work-item identifiers this change resolves, in the tracker's own
-    form — for example `strata-8da` or `#412`.
-    """
-    issues: [String]
-
-    """
     What a consumer must do to adopt this change, where anything is required.
 
-    Set only where `breaking` is true, or where adoption is optional but
-    non-obvious.
+    Required where `breaking` is set: a breaking change without migration
+    guidance is an incident report rather than a release note. Also used
+    where adoption is optional but non-obvious.
     """
     migration: String?
+
+    """
+    Where this change came from — the pull requests, commits and issues that
+    together account for it.
+
+    Rendered as links where the target supports it. An entry may cite several
+    sources of different kinds, which is how one entry describes work that
+    arrived across more than one pull request.
+    """
+    sources: [ChangeSource]
 }
 
 """
-A breaking change described at release level, spanning one or more entries.
+A reference to something that accounts for a change.
 """
-struct BreakingChange {
+union ChangeSource {
     """
-    One line stating what no longer works the way it did.
+    A pull request the change arrived through.
     """
-    summary: String
+    PullRequestSource
 
     """
-    What a consumer must do to upgrade.
-
-    Required: a breaking change without migration guidance is an incident
-    report, not a release note.
+    A commit the change arrived through, for work that reached the release
+    outside a pull request.
     """
-    migration: String
+    CommitSource
 
     """
-    Pull request numbers that together constitute this breaking change.
+    An issue or work item the change resolves.
     """
-    pullRequests: [Int]
+    IssueSource
 }
 
 """
-An input a changelog was authored from.
+A pull request that carried a change.
 """
-struct ChangelogSource {
+struct PullRequestSource {
     """
-    Which adapter produced the input — for example `git-commits`,
-    `forge-pull-requests` or `diff`.
+    The pull request number, as the hosting platform assigns it.
     """
-    adapter: String
+    number: Int
+}
 
+"""
+A commit that carried a change.
+"""
+struct CommitSource {
     """
-    The range or locator the adapter read, in the adapter's own form — for
-    example `v1.3.0..HEAD`.
+    The full commit hash. Renderers abbreviate it for display.
     """
-    reference: String
+    hash: String
+}
 
+"""
+An issue or work item a change resolves.
+"""
+struct IssueSource {
     """
-    How many records the adapter contributed.
-
-    Lets a reader tell an empty source from an absent one.
+    The identifier in the tracker's own form — for example `strata-8da` or
+    `412`.
     """
-    recordCount: Int
+    id: String
 }
 
 """
@@ -231,12 +210,21 @@ enum Bump {
 
 """
 The category of an itemized change, which decides the section it renders in.
+
+The variants are the conventional-commit types, so a parser reading
+conventional commits maps onto them without translation and a producer
+writing prose uses the same vocabulary. Whether a change is breaking is
+carried by `ChangelogEntry.breaking` rather than by a variant, matching
+conventional commits' treatment of it as a marker rather than a type.
+
+A project typically renders `FEAT`, `FIX`, `PERF` and `REVERT`, and omits the
+rest from published notes.
 """
 enum ChangeKind {
     """
-    New capability a consumer can use.
+    A new capability a consumer can use.
     """
-    FEATURE
+    FEAT
 
     """
     A correction to behaviour that was wrong.
@@ -246,25 +234,45 @@ enum ChangeKind {
     """
     A change whose observable effect is speed or resource use.
     """
-    PERFORMANCE
+    PERF
 
     """
-    A capability that has been withdrawn.
+    A change that reverts earlier work.
     """
-    REMOVAL
+    REVERT
 
     """
-    A documentation change a consumer would look for in release notes.
+    A change to behaviour-preserving structure.
     """
-    DOCUMENTATION
+    REFACTOR
 
     """
-    A dependency version change a consumer may need to know about.
+    A documentation change.
     """
-    DEPENDENCY
+    DOCS
 
     """
-    A change with no consumer-visible effect, recorded for completeness.
+    A change to the build system or to dependencies.
     """
-    INTERNAL
+    BUILD
+
+    """
+    A change to continuous integration configuration.
+    """
+    CI
+
+    """
+    A change to tests.
+    """
+    TEST
+
+    """
+    A formatting or style change with no behavioural effect.
+    """
+    STYLE
+
+    """
+    Maintenance work that fits no other category.
+    """
+    CHORE
 }

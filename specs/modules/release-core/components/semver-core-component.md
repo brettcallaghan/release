@@ -10,9 +10,9 @@ kind: standard
 contracts_provided: []
 contracts_consumed: []
 source_paths:
-  - cli/release/internal/semver
+  - internal/semver
 test_paths:
-  - cli/release/internal/semver
+  - internal/semver
 ---
 
 # Semver Core
@@ -26,17 +26,17 @@ prerelease identifier.
 
 Naming lives here rather than being spread across the components that need
 names, because a tag and the stage branch that produces it must agree by
-construction. [[component-release-commit-verifier]] cross-checks a branch
-name against a recorded version, and that check is only meaningful if one
+construction. A project's required checks cross-check a branch name against
+the version recorded in its commit, and that check is only meaningful if one
 component generated both forms.
 
 - **Role:** the version type, its ordering, and its derived names.
 - **Scope:** in — parsing, comparison, formatting, name derivation; out —
   deciding *which* version comes next, which is
   [[component-version-calculator]].
-- **Composed into:** [[container-release-cli]] — imported by nearly every
+- **Composed into:** [[module-release-core]] — imported by nearly every
   other component; see it for this component's relationships.
-- **Source & tests:** `cli/release/internal/semver`.
+- **Source & tests:** `internal/semver`.
 
 ## Interface
 
@@ -87,5 +87,5 @@ None.
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
-- [[container-release-cli]] — the container this component is composed into
+- [[module-release-core]] — the module this component is composed into
 - [[frd-version-computation]] — the feature this component serves

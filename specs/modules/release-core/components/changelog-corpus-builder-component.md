@@ -11,9 +11,9 @@ contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:
-  - cli/release/internal/corpus
+  - internal/corpus
 test_paths:
-  - cli/release/internal/corpus
+  - internal/corpus
 ---
 
 # Changelog Corpus Builder
@@ -32,17 +32,23 @@ small change written by someone who understood it. Merging those produces a
 corpus that an author edits rather than one they write from nothing, which
 is both cheaper and better.
 
-Three adapters are specified. The commit adapter is always enabled and is
-the floor. The pull-request adapter enriches. The diff adapter is
-opt-in because reading diffs is expensive and is only worth it where
-author-written notes are absent.
+Three adapters are specified, each with its own blueprint:
+
+- [[component-commit-collector]] — always enabled, and the floor. For a
+  squash-merging repository it already carries pull-request titles,
+  descriptions and numbers.
+- [[component-pr-metadata-collector]] — enriches from the hosting platform
+  where the commits do not carry what is needed. Deferred beyond the first
+  milestone.
+- [[component-diff-collector]] — opt-in and deferred, because reading diffs is
+  expensive and only pays where author-written notes are absent.
 
 - **Role:** the corpus an author receives.
 - **Scope:** in — adapter composition, note extraction, mechanical entry
   derivation; out — authoring prose, and rendering.
-- **Composed into:** [[container-release-cli]] — consumes the collectors,
+- **Composed into:** [[module-release-core]] — consumes the collectors,
   feeds [[component-changelog-authoring-bridge]]; see it for relationships.
-- **Source & tests:** `cli/release/internal/corpus`.
+- **Source & tests:** `internal/corpus`.
 
 ## Interface
 
@@ -60,7 +66,9 @@ author-written notes are absent.
     entry from the subject and mark it as mechanically derived.
   - The component SHALL enable the commit adapter unconditionally.
   - The component SHALL NOT enable the diff adapter unless configured.
-  - The component SHALL NOT set `proposedBump`.
+  - The component SHALL treat the enabled adapter set as configuration rather
+    than inferring it from the repository's state.
+  - The component SHALL NOT set `proposed_bump`.
 
 ## Cross-Cutting Standards
 
@@ -81,7 +89,7 @@ that silently rewrites another's output makes the provenance record false.
 
 ---
 
-The component SHALL NOT set `proposedBump`, which belongs to the author.
+The component SHALL NOT set `proposed_bump`, which belongs to the author.
 
 **Rationale:** A mechanically derived proposal would agree with the
 classifier by construction and defeat the disagreement check in
@@ -106,6 +114,6 @@ classifier by construction and defeat the disagreement check in
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
-- [[container-release-cli]] — the container this component is composed into
+- [[module-release-core]] — the module this component is composed into
 - [[contract-changelog]] — the corpus this component emits
 - [[frd-changelog-authoring]] — the feature this component serves

@@ -1,8 +1,8 @@
 ---
 title: "ADR-002: Stage Branches as the Release Trigger"
-description: A release is triggered by merging a single-commit branch
-  carrying the configured stage prefix into a release branch, with CD
-  verifying the commit independently of the branch name.
+description: A release is triggered by merging a branch carrying the
+  configured stage prefix into a release branch, with the project's required
+  checks verifying the commit independently of the branch name.
 slug: adr-002
 type: adr
 status: draft
@@ -37,13 +37,19 @@ the changelog before anything is published.
 
 ## Decision
 
-A release is triggered by merging a branch whose name carries the
-configured stage prefix — `stage/` by default, as in `stage/v1.8.0` —
-into a release branch. A stage branch is cut from its target's tip and
-contains exactly one commit, touching only version manifests and the
-changelog. Continuous delivery verifies that the merged commit is a
-well-formed release commit before publishing; the branch name is a
-signal, never an authorization.
+A release is triggered by merging a branch whose name carries the configured
+stage prefix — `cut/` by default, as in `cut/1.8.0` — into a release branch.
+A stage branch is cut from its target's tip and carries the release commit:
+version manifests and the changelog, no source code. It normally holds exactly
+one commit, and may hold more where the notes are corrected during review.
+
+The project's required checks verify that the merged commit is a well-formed
+release commit; the branch name is a signal, never an authorization. The
+tooling does not perform that verification, because what a release commit may
+legitimately touch differs by ecosystem and only the project knows it.
+
+Throughout these specifications the concept is a *stage branch*, whatever
+prefix a project configures for it.
 
 ## Alternatives Considered
 
@@ -67,9 +73,9 @@ signal, never an authorization.
   any other, and the stage PR that follows is identical to any release.
 
 **Negative:**
-- Continuous delivery must independently verify the merged commit's
-  shape, target, and version. Trusting the prefix would let any
-  contributor publish.
+- The project must independently verify the merged commit's shape, target
+  and version in its required checks. Trusting the prefix would let any
+  contributor publish, and the tooling does not do this for them.
 - A stage PR is invalidated whenever its target branch advances, so
   either branch protection must require the branch to be up to date or
   the tooling must regenerate the stage branch on target push.

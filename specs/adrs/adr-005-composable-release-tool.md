@@ -39,7 +39,7 @@ API credential and a per-call budget.
 Build a library of small, independently testable components behind a thin
 command surface. Version computation, bump classification, changelog
 assembly and rendering are pure functions of their inputs. Reading git and
-the forge, and writing branches and files, are separate components.
+the hosting platform, and writing branches and files, are separate components.
 
 Artifact construction and registry publication are out of scope: adopting
 repositories own those workflows. Language models run outside the tooling,
@@ -54,7 +54,7 @@ reproducible from a clone. Forge labels are not an accepted primary signal.
 | Option | Pros | Cons | Why rejected |
 |--------|------|------|--------------|
 | A monolithic release CLI owning the whole pipeline, publication included | One tool to install and configure<br>Adopters write no workflow<br>Matches what Auto offers | Publication is ecosystem-specific, so the tool would carry a plugin system for Cargo, npm, Homebrew, editor marketplaces and container registries<br>Requires registry credentials, and therefore becomes a credential-handling component<br>Duplicates what goreleaser, cargo-dist and existing repository workflows already do | The publication surface is larger than everything else combined and is already solved per ecosystem; owning it would dominate the tool's maintenance for no differentiating gain |
-| Reusable forge workflows only, with no binary | Nothing to install or distribute<br>Trivially adoptable by any repository on the same forge | Version computation cannot be unit-tested in workflow YAML, and it is the part where correctness matters most<br>Locks every adopter to one forge<br>Logic becomes unrunnable on a workstation, where staging happens | The correctness-critical logic would be the least tested code in the system |
+| Reusable platform workflows only, with no binary | Nothing to install or distribute<br>Trivially adoptable by any repository on the same hosting platform | Version computation cannot be unit-tested in workflow YAML, and it is the part where correctness matters most<br>Locks every adopter to one hosting platform<br>Logic becomes unrunnable on a workstation, where staging happens | The correctness-critical logic would be the least tested code in the system |
 | A skill only, with no code | No tool to maintain<br>Changelog authoring is already a skill<br>Fastest to a working release | A version number produced by a model is not reproducible from the repository, which [[adr-003]] forbids<br>No deterministic verification of a release commit is possible | A version is the one output that cannot be corrected after publication, so it cannot depend on model sampling |
 | A composable library behind a thin CLI, publication left to adopters | The correctness-critical components are pure and exhaustively testable<br>Adopters keep the build workflows and credentials they already have<br>Components can be recombined into a different release policy without forking<br>No model credential, no registry credential | A tool to maintain<br>Adopters write more workflow than a plugin ecosystem would require<br>Language-agnostic packaging — target matrices, checksum manifests, installer and formula generation — is deferred rather than designed | N/A — selected |
 

@@ -47,7 +47,7 @@ does not need, and costs a promotion step on every release.
 **RRP-002:** A project MAY release any major version from any branch.
 
 **Rationale:** The tooling does not interpret branch names
-([[release-tooling-standards]], RTS-036), so this is a genuine choice. A
+([[release-tooling-standards]], RTS-029), so this is a genuine choice. A
 project releasing its current major from a dedicated branch takes on
 maintaining that branch itself.
 
@@ -244,6 +244,55 @@ fix is built.
 
 ---
 
+## Verifying a Release Commit
+
+The release tooling does not verify a release commit. These checks are the
+project's, discharged by the checks required on a stage pull request, because
+what a release commit may legitimately touch differs by ecosystem and only the
+project knows it.
+
+**RRP-029:** A project SHALL declare the paths a release commit may modify.
+
+**Rationale:** Version numbers live in different files in every ecosystem, so
+the set cannot be inferred. Declaring it is what makes the next requirement
+checkable without anything understanding a manifest format.
+
+---
+
+**RRP-030:** A project's required checks SHALL verify that a release commit
+modifies only the paths it declared.
+
+---
+
+**RRP-031:** A project's required checks SHALL verify that the version
+recorded in a release commit matches the version named by its stage branch.
+
+---
+
+**RRP-032:** A project's required checks SHALL verify that a recorded version
+legally succeeds the latest release tag reachable from the target branch.
+
+---
+
+**RRP-033:** A project's required checks SHALL report every failed check
+rather than only the first.
+
+---
+
+**RRP-034:** A project SHALL NOT treat a stage branch prefix as evidence that
+a commit is a release commit.
+
+**Rationale:** Any contributor can create a branch matching the prefix. The
+prefix records that a release was intended; it is not an authorization to
+publish.
+
+---
+
+**RRP-035:** A project SHALL prevent a stage pull request from merging WHILE
+any required check fails.
+
+---
+
 ## Coordinated Disclosure
 
 **RRP-028:** WHEN a security fix applies to more than one supported release
@@ -280,8 +329,11 @@ not apply.
   of scope.
 - Readiness (RRP-016) carries the whole weight, because there is no support
   window to fall back on.
-- Correcting forward (RRP-025) is the only correction mechanism; there is
-  nothing to withdraw.
+- Correcting forward (RRP-025) is the only correction mechanism *for the
+  repository*: there is no published artifact to withdraw. A deployed
+  environment is a separate matter and may be corrected by rolling back to a
+  previously deployed revision, which changes what is running without
+  changing what the repository has released.
 
 A project of this kind may not need release tooling at all. Where it does,
 the staging mechanism is still useful for the changelog rather than for the

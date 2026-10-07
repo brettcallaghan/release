@@ -10,9 +10,9 @@ kind: standard
 contracts_provided: []
 contracts_consumed: []
 source_paths:
-  - cli/release/internal/changelogfile
+  - internal/changelogfile
 test_paths:
-  - cli/release/internal/changelogfile
+  - internal/changelogfile
 ---
 
 # Changelog Writer
@@ -33,9 +33,9 @@ version and replaces it rather than adding another.
 - **Scope:** in — locating the insertion point, replacing an existing
   section for the same version, creating the file; out — rendering, and
   committing.
-- **Composed into:** [[container-release-cli]] — consumes
+- **Composed into:** [[module-release-core]] — consumes
   [[component-changelog-renderer]]; see it for relationships.
-- **Source & tests:** `cli/release/internal/changelogfile`.
+- **Source & tests:** `internal/changelogfile`.
 
 ## Interface
 
@@ -86,5 +86,5 @@ None.
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
-- [[container-release-cli]] — the container this component is composed into
+- [[module-release-core]] — the module this component is composed into
 - [[frd-changelog-rendering]] — the feature this component serves

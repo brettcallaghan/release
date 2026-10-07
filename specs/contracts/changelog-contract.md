@@ -33,6 +33,7 @@ only thing those producers share.
 | Artifact | Location | Normative for |
 |----------|----------|---------------|
 | Strata schema | `schemas/changelog.strata` | Shape |
+| Collector records | `schemas/collection.strata` | Shape of the inputs a corpus is built from |
 | JSON Schema | generated: `strata build schemas/changelog.strata --target json-schema` | Shape, for validators |
 | This document | — | Semantics, operations, change policy |
 
@@ -41,7 +42,7 @@ language binding are generated from it and are never hand-edited.
 
 ## Guarantees
 
-WHEN an instance declares a `schemaVersion` a consumer does not
+WHEN an instance declares a `schema_version` a consumer does not
 implement, the consumer SHALL reject the instance.
 
 **Rationale:** Rendering an instance partially produces release notes
@@ -58,15 +59,15 @@ changelog sections can, and have.
 
 ---
 
-The provider SHALL treat `proposedBump` as a proposal.
+The provider SHALL treat `proposed_bump` as a proposal.
 
 ---
 
-The provider SHALL NOT derive a published version from `proposedBump`.
+The provider SHALL NOT derive a published version from `proposed_bump`.
 
 ---
 
-IF `proposedBump` disagrees with the bump computed from commit metadata,
+IF `proposed_bump` disagrees with the bump computed from commit metadata,
 THEN the provider SHALL halt and require human confirmation.
 
 **Rationale:** Disagreement usually means a change was mis-typed or
@@ -92,15 +93,17 @@ identical input.
 
 ---
 
-Producers SHALL set `migration` on every `BreakingChange`.
+Producers SHALL set `migration` on every entry whose `breaking` flag is set.
 
-**Rationale:** A breaking change without migration guidance is an
-incident report rather than a release note.
+**Rationale:** A breaking change without migration guidance is an incident
+report rather than a release note. There is no separate collection for
+breaking changes: an entry carries the flag and its own guidance, so the two
+cannot be recorded apart from each other.
 
 ---
 
 Consumers SHALL tolerate unknown fields within a compatible
-`schemaVersion`.
+`schema_version`.
 
 ## Operational Expectations
 
@@ -116,13 +119,13 @@ Consumers SHALL tolerate unknown fields within a compatible
 
 ## Versioning and Change Policy
 
-- **Versioning scheme:** semver on `schemaVersion`, carried in every
+- **Versioning scheme:** semver on `schema_version`, carried in every
   instance.
 - **Compatible changes:** the provider MAY add optional fields and
   MAY add enum variants without a major version change.
 - **Breaking changes:** WHEN a required field is added, removed or
-  re-typed, the provider SHALL increment the major `schemaVersion`.
-- **Deprecation:** WHEN a major `schemaVersion` is superseded, consumers
+  re-typed, the provider SHALL increment the major `schema_version`.
+- **Deprecation:** WHEN a major `schema_version` is superseded, consumers
   SHALL continue to accept the prior major for one release cycle of the
   tooling.
 
@@ -140,9 +143,9 @@ major version change.
 
 ## Open Questions
 
-- [ ] Whether `issues` should carry a tracker discriminator rather than
-  relying on the identifier's own form — decided when the first adopter
-  wires a second tracker.
+- [ ] Whether `IssueSource` should carry a tracker discriminator rather than
+  relying on the identifier's own form — decided when the first adopter wires
+  a second tracker.
 
 ## References
 
