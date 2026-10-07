@@ -61,7 +61,10 @@ for p in SKILLS:
     text = open(p).read()
     if not text.startswith('---\n'):
         err(p, "does not begin with a YAML frontmatter block"); continue
-    fm = text.split('---', 2)[1]
+    parts = re.split(r'^---[ \t]*\n', text, maxsplit=2, flags=re.M)
+    if len(parts) < 3:
+        err(p, "frontmatter block is not closed by a --- line"); continue
+    fm, body = parts[1], parts[2]
     if HAVE_YAML:
         try:
             d = yaml.safe_load(fm)
@@ -107,7 +110,6 @@ for p in SKILLS:
     # proportional to tokens, need no tokenizer (this must run in CI and on a
     # laptop with nothing installed), and at the ~4 bytes/token rule of thumb
     # for English prose plus markdown, 5,000 tokens is ~20,000 bytes.
-    body = text.split('---', 2)[2]
     n = len(body.encode('utf-8'))
     if n > BODY_BYTE_MAX:
         warn(p, f"body is {n} bytes (~{n // 4} tokens); above ~{BODY_BYTE_MAX} "
