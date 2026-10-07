@@ -1,0 +1,10 @@
+{
+  "name": "release",
+  "description": "Release tooling skills for the release CLI: author a release's changelog corpus from the assembled commit, pull request and diff records",
+  "version": "0.1.0",
+  "author": {
+    "name": "Brett Callaghan",
+    "email": "14969027+brettcallaghan@users.noreply.github.com"
+  },
+  "dependencies": ["specs@brettcallaghan"]
+}
