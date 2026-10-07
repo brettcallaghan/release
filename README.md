@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-97.6%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-97.0%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,14 +48,15 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,014 / 1,105 | 91.8% |
-| Snapshot cases | 563 / 1,105 | 51.0% |
-| End-to-end (built binary) | 435 / 1,105 | 39.4% |
-| **All layers combined** | **1,078 / 1,105** | **97.6%** |
+| Unit tests | 1,082 / 1,182 | 91.5% |
+| Snapshot cases | 563 / 1,182 | 47.6% |
+| End-to-end (built binary) | 435 / 1,182 | 36.8% |
+| **All layers combined** | **1,146 / 1,182** | **97.0%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
 | `release/cmd/release` | 1 | 1 | 100.0% |
+| `release/internal/authoring` | 66 | 58 | 87.9% |
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
 | `release/internal/bump` | 94 | 94 | 100.0% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
@@ -63,13 +64,13 @@ A statement is covered if any layer reaches it.
 | `release/internal/config` | 139 | 138 | 99.3% |
 | `release/internal/corpus` | 77 | 77 | 100.0% |
 | `release/internal/delegate` | 30 | 30 | 100.0% |
-| `release/internal/gitread` | 104 | 102 | 98.1% |
+| `release/internal/gitread` | 115 | 112 | 97.4% |
 | `release/internal/render` | 91 | 90 | 98.9% |
 | `release/internal/resolve` | 27 | 26 | 96.3% |
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/version` | 68 | 68 | 100.0% |
-| **Total** | **1,105** | **1,078** | **97.6%** |
+| **Total** | **1,182** | **1,146** | **97.0%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->

@@ -15,7 +15,7 @@ import (
 )
 
 // SchemaVersion is the changelog schema version an assembled corpus declares.
-const SchemaVersion = "1.0"
+const SchemaVersion = "1.0.0"
 
 // Range is the commit range the records were read from.
 type Range struct {

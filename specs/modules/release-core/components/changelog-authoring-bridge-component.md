@@ -82,6 +82,33 @@ corpus rather than paying for it twice.
     be skipped entirely.
   - The component SHALL NOT call a language model itself.
   - The component SHALL NOT require network access of its own.
+- **Operation:** `authoring.Exchange` takes the assembled corpus, the
+  computed impact, the configured producer name with the producers a
+  configuration may select, the cache path, and the redo and skip requests.
+  It answers with the accepted corpus, whether it was skipped, read from
+  the cache or authored, the proposed and computed impacts, and whether they
+  disagree.
+- **Pinned rules:**
+  - A producer receives the assembled corpus as indented JSON, HTML
+    characters unescaped, and returns the authored corpus as JSON.
+  - `Accept` rejects, before anything decodes the document for use, one
+    that is not a JSON object, one whose `schema_version` is not a version
+    or has a major other than 1, one that does not validate against the
+    generated JSON Schema, and one carrying no `proposed_bump`. A cached or
+    named corpus is accepted the same way as a returned one.
+  - The cache file is `<git common dir>/release/corpus/<from>..<to>.json`,
+    `from` and `to` the range's commit hashes and `from` `root` for a line
+    with no release. The common directory is `git rev-parse
+    --git-common-dir`, shared by every worktree. The file holds the
+    producer's output byte for byte.
+  - WHEN the cache file exists and redo was not requested, the bridge reads
+    it and invokes no producer. WHEN redo is requested, it invokes the
+    producer and replaces the file only after accepting the result, so a
+    failed redo keeps the earlier corpus.
+  - WHEN skip is requested, the bridge reads no cache, invokes no producer,
+    and returns the assembled corpus with no proposal and no disagreement.
+  - A disagreement is `proposed_bump` differing from the computed impact.
+    The bridge reports it and leaves the decision to its caller.
 
 ## Cross-Cutting Standards
 

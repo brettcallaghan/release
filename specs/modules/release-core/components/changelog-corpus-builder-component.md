@@ -72,7 +72,7 @@ Three adapters are specified, each with its own blueprint:
 - **Operation:** `corpus.Build` takes the commit records, the range they
   were read from (base and head commit hashes; no base for a line with no
   release) and the enabled adapter set, and returns a corpus declaring
-  `schema_version` 1.0, one entry per record in record order, and `sources`
+  `schema_version` 1.0.0, one entry per record in record order, and `sources`
   holding the commit adapter with that range. It refuses an enabled adapter
   that is not implemented rather than skipping it.
 - **Pinned rules:**

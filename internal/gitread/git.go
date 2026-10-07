@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -105,4 +106,28 @@ func (r Repo) Toplevel(ctx context.Context) (dir string, found bool, err error) 
 		return "", false, err
 	}
 	return strings.TrimSpace(string(out)), true, nil
+}
+
+// CommitHash returns the full hash of the commit rev names, peeling a tag to
+// the commit it points at.
+func (r Repo) CommitHash(ctx context.Context, rev string) (string, error) {
+	out, err := r.run(ctx, "rev-parse", "--verify", "--end-of-options", rev+"^{commit}")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// CommonDir returns the repository's common git directory as an absolute
+// path: the .git directory every worktree of the repository shares.
+func (r Repo) CommonDir(ctx context.Context) (string, error) {
+	out, err := r.run(ctx, "rev-parse", "--git-common-dir")
+	if err != nil {
+		return "", err
+	}
+	dir := strings.TrimSpace(string(out))
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(r.Dir, dir)
+	}
+	return filepath.Abs(dir)
 }
