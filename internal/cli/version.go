@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/brettcallaghan/release/internal/config"
 	"github.com/brettcallaghan/release/internal/gitread"
 	"github.com/brettcallaghan/release/internal/releasemodel"
 	"github.com/brettcallaghan/release/internal/resolve"
@@ -21,14 +22,9 @@ var namedBumps = map[string]releasemodel.Bump{
 	"patch": releasemodel.BumpPatch,
 }
 
-// errNoDefaultBranch is the refusal when --target is absent and origin/HEAD
-// names no branch to default to.
-var errNoDefaultBranch = errors.New("no --target given and origin/HEAD is unset, so the repository has no default branch; " +
-	"set it with: git remote set-head origin --auto")
-
 // newVersionCmd is `release version [bump]`: the version a release would
-// carry, resolved by the release core with its default policy. It writes
-// nothing.
+// carry, resolved by the release core with the loaded configuration's
+// policy. It writes nothing.
 func newVersionCmd(s *streams) *cobra.Command {
 	var (
 		target string
@@ -41,13 +37,13 @@ func newVersionCmd(s *streams) *cobra.Command {
 			"that impact, and the next version. It is read-only.\n\n" +
 			"bump is major, minor or patch, and names the impact instead of inferring\n" +
 			"it. Without a bump, the impact is inferred from the commits since the base\n" +
-			"version. Without --target, the release line is the branch origin/HEAD\n" +
-			"points to. Exits 1, after printing the answer, when no release is\n" +
-			"warranted or the version policy refuses the version.",
+			"version. Without --target, the release line is the configured target, or\n" +
+			"else the branch origin/HEAD points to. Exits 1, after printing the answer,\n" +
+			"when no release is warranted or the version policy refuses the version.",
 		Args:      cobra.MaximumNArgs(1),
 		ValidArgs: []string{"major", "minor", "patch"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			req := resolve.Request{Dir: ".", Target: target, Policy: resolve.DefaultPolicy()}
+			req := resolve.Request{Dir: s.root, Target: target, Policy: s.cfg.Policy()}
 			if len(args) == 1 {
 				b, ok := namedBumps[args[0]]
 				if !ok {
@@ -60,12 +56,12 @@ func newVersionCmd(s *streams) *cobra.Command {
 				ctx = context.Background()
 			}
 			if req.Target == "" {
-				ref, found, err := gitread.Repo{Dir: req.Dir}.DefaultBranch(ctx)
+				ref, err := s.cfg.TargetRef(ctx, gitread.Repo{Dir: req.Dir})
+				if errors.Is(err, config.ErrNoDefaultBranch) {
+					return fmt.Errorf("no --target given and no target configured: %w", err)
+				}
 				if err != nil {
 					return err
-				}
-				if !found {
-					return errNoDefaultBranch
 				}
 				req.Target = ref
 			}
@@ -90,7 +86,7 @@ func newVersionCmd(s *streams) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&target, "target", "", "The release line to compute for: a `branch` (default: the branch origin/HEAD points to)")
+	cmd.Flags().StringVar(&target, "target", "", "The release line to compute for: a `branch` (default: the configured target, else the branch origin/HEAD points to)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Render the answer as JSON instead of YAML")
 	return cmd
 }

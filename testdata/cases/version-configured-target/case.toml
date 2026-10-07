@@ -1,0 +1,15 @@
+description = "without --target, release version uses the configured target, not the branch origin/HEAD points to"
+cites = ["contract-release-cli#release-version-bump"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "v1.0.0"],
+  ["update-ref", "refs/remotes/origin/main", "HEAD"],
+  ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+  ["checkout", "-q", "-b", "develop"],
+  ["commit", "-q", "--allow-empty", "-m", "feat: only on develop"],
+  ["checkout", "-q", "main"],
+]
+args = ["version"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

@@ -3,6 +3,7 @@ package gitread
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -178,5 +179,25 @@ func TestDefaultBranchOutsideARepositoryIsAnError(t *testing.T) {
 	_, _, err := Repo{Dir: filepath.Join(t.TempDir(), "missing")}.DefaultBranch(context.Background())
 	if err == nil {
 		t.Fatal("want an error outside a repository")
+	}
+}
+
+func TestToplevelIsTheWorkingTreeRoot(t *testing.T) {
+	f := newFixture(t)
+	sub := filepath.Join(f.dir, "a", "b")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir, found, err := Repo{Dir: sub}.Toplevel(context.Background())
+	if err != nil || !found {
+		t.Fatalf("Toplevel = %q, %v, %v; want found", dir, found, err)
+	}
+	want, _ := filepath.EvalSymlinks(f.dir)
+	if got, _ := filepath.EvalSymlinks(dir); got != want {
+		t.Errorf("Toplevel = %q, want %q", got, want)
+	}
+
+	if _, found, err := (Repo{Dir: t.TempDir()}).Toplevel(context.Background()); err != nil || found {
+		t.Errorf("outside a working tree: found = %v, err = %v; want not found and no error", found, err)
 	}
 }

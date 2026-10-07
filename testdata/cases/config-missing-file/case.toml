@@ -1,0 +1,5 @@
+description = "--config naming a file that does not exist is refused with exit 2"
+cites = ["contract-release-cli#global-flags"]
+args = ["--config", "absent.toml", "config"]
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]

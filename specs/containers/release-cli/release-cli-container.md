@@ -69,14 +69,28 @@ authors and renders without staging; `release cut <major|minor|patch>` stages
 a release, with `--skip-notes` to stage without an authoring exchange.
 
 `release version [major|minor|patch] [--target <branch>] [--json]` calls the
-release core's version resolution operation with its default policy. Without
-`--target` it resolves the ref `origin/HEAD` points to, read locally
-(`refs/remotes/origin/<branch>`); IF `origin/HEAD` is unset, THEN it exits 2
+release core's version resolution operation with the loaded configuration's
+policy: its `tag_prefix`, `stage_prefix`, `leaps`, `pre1_remap` and
+`signals`. Without `--target` it resolves the configured `target`, and
+without one the ref `origin/HEAD` points to, read locally
+(`refs/remotes/origin/<branch>`); IF neither is available, THEN it exits 2
 naming `git remote set-head origin --auto`. Its answer is one mapping with
 keys `base`, `impact`, `named`, `determined_by` (each `hash`, `subject`,
 `signal`) and `next`, in that order; it exits 1 after printing the answer
 WHEN no release is warranted or the policy refuses the version, and 2 for an
 invalid bump or a repository it cannot read.
+
+`release config [--json]` answers with the effective configuration, declared
+values over the release core's defaults, as one mapping: `target`,
+`tag_prefix`, `stage_prefix`, `release_branches`, `release_paths`, `leaps`,
+`pre1_remap`, `signals`, and `commands` holding `validate`, `propagate` and
+`preflight`, in that order. An unset command is null and an empty list `[]`.
+`target` is the configured one, or else the branch `origin/HEAD` points to;
+IF neither is available, THEN it exits 2 naming
+`git remote set-head origin --auto`.
+
+The global flags `-C, --repo <path>` and `--config <path>` name the
+repository and the configuration file for every command.
 
 ```component
 title: Command Surface
@@ -88,6 +102,21 @@ description: Subcommand and flag definitions, argument validation, and the mappi
 
 Discovers the repository's release configuration, parses it, and refuses a
 configuration the tooling cannot accept before any command runs.
+
+- It runs as the root command's persistent pre-run, so it precedes every
+  subcommand's own work; the root itself, `help` and `--help` load nothing.
+- The repository root is the working tree containing `-C/--repo`, or the
+  working directory; outside a working tree it is that directory.
+- WHEN `--config` is given, it reads that file, and refuses one that does
+  not exist. Otherwise it looks for `release.toml` and
+  `config/release.toml` at the repository root: both present is refused,
+  naming both; neither present means the release core's defaults.
+- It decodes TOML over the release core's defaults, so a declared value,
+  lists included, replaces its default. A key the configuration does not
+  define is refused by name, which is also why no file can disable a check.
+- It then applies the release core's validation, and reports every reason
+  — unknown keys and validation refusals together — on standard error, and
+  the CLI exits 2 with nothing else run.
 
 ```component
 title: Configuration Loader

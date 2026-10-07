@@ -1,0 +1,9 @@
+description = "a refused configuration exits 2 with every reason on stderr and nothing on stdout"
+cites = ["AC-CFG-002.2", "AC-CFG-002.4", "contract-release-cli#guarantees"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+]
+args = ["config"]
+exit_code = 2
+artifacts = ["stdout.txt", "stderr.txt"]

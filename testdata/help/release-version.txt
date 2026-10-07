@@ -3,9 +3,9 @@ that impact, and the next version. It is read-only.
 
 bump is major, minor or patch, and names the impact instead of inferring
 it. Without a bump, the impact is inferred from the commits since the base
-version. Without --target, the release line is the branch origin/HEAD
-points to. Exits 1, after printing the answer, when no release is
-warranted or the version policy refuses the version.
+version. Without --target, the release line is the configured target, or
+else the branch origin/HEAD points to. Exits 1, after printing the answer,
+when no release is warranted or the version policy refuses the version.
 
 Usage:
   release version [bump] [flags]
@@ -13,4 +13,8 @@ Usage:
 Flags:
   -h, --help            help for version
       --json            Render the answer as JSON instead of YAML
-      --target branch   The release line to compute for: a branch (default: the branch origin/HEAD points to)
+      --target branch   The release line to compute for: a branch (default: the configured target, else the branch origin/HEAD points to)
+
+Global Flags:
+      --config file   Use this configuration file instead of discovering one
+  -C, --repo path     Operate on the repository at this path instead of the working directory

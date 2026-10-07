@@ -1,0 +1,10 @@
+target = "develop"
+tag_prefix = "rel-"
+release_branches = ["release/*"]
+release_paths = ["cli"]
+leaps = true
+signals = ["release-type", "breaking-marker"]
+
+[commands]
+validate = "make test"
+preflight = ["make lint", "make vet"]

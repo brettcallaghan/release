@@ -1,0 +1,11 @@
+description = "release config --json answers the defaults as JSON, unset commands as null and empty lists as []"
+cites = ["AC-CFG-002.1", "contract-release-cli#release-config"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["update-ref", "refs/remotes/origin/main", "HEAD"],
+  ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"],
+]
+args = ["config", "--json"]
+exit_code = 0
+artifacts = ["stdout.json", "stderr.txt"]

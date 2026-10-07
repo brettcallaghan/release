@@ -1,0 +1,18 @@
+target: develop
+tag_prefix: rel-
+stage_prefix: cut/
+release_branches:
+  - release/*
+release_paths:
+  - cli
+leaps: true
+pre1_remap: true
+signals:
+  - release-type
+  - breaking-marker
+commands:
+  validate: make test
+  propagate: null
+  preflight:
+    - make lint
+    - make vet
