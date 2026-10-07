@@ -256,8 +256,10 @@ func TestANonZeroExitFails(t *testing.T) {
 }
 
 func TestNoOutputFails(t *testing.T) {
-	if _, err := stubCommand(t, "silent").Produce(context.Background(), assembled()); err == nil || !strings.Contains(err.Error(), "no corpus") {
-		t.Errorf("err = %v, want a failure saying nothing came back", err)
+	_, err := stubCommand(t, "silent").Produce(context.Background(), assembled())
+	var f *Failure
+	if !errors.As(err, &f) || !strings.Contains(err.Error(), "no corpus") {
+		t.Errorf("err = %v, want a *Failure saying nothing came back", err)
 	}
 }
 

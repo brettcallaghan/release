@@ -84,8 +84,14 @@ type Result struct {
 // release or a disagreement is a Result.
 func Prepare(ctx context.Context, req Request) (Result, error) {
 	repo := gitread.Repo{Dir: req.Dir, Git: req.Git}
+	// Pin the target first: the commits read, the range recorded and the
+	// cache key must all describe one head, even if the branch moves.
+	head, err := repo.CommitHash(ctx, req.Target)
+	if err != nil {
+		return Result{}, err
+	}
 	res, err := resolve.Resolve(ctx, resolve.Request{
-		Dir: req.Dir, Git: req.Git, Target: req.Target, Named: req.Named, Policy: req.Config.Policy(),
+		Dir: req.Dir, Git: req.Git, Target: head, Named: req.Named, Policy: req.Config.Policy(),
 	})
 	if err != nil {
 		return Result{}, err
@@ -96,14 +102,11 @@ func Prepare(ctx context.Context, req Request) (Result, error) {
 		return out, nil
 	}
 
-	var rng corpus.Range
+	rng := corpus.Range{To: head}
 	if res.BaseTag != "" {
 		if rng.From, err = repo.CommitHash(ctx, res.BaseTag); err != nil {
 			return Result{}, err
 		}
-	}
-	if rng.To, err = repo.CommitHash(ctx, req.Target); err != nil {
-		return Result{}, err
 	}
 	assembled, err := corpus.Build(corpus.Input{Records: res.Commits, Range: rng, Adapters: req.Config.Adapters})
 	if err != nil {

@@ -96,11 +96,17 @@ corpus rather than paying for it twice.
     or has a major other than 1, one that does not validate against the
     generated JSON Schema, and one carrying no `proposed_bump`. A cached or
     named corpus is accepted the same way as a returned one.
+  - A returned, cached or named corpus whose corpus-level `sources` differ
+    from the assembled corpus's is rejected: a producer carries them
+    through, and a corpus for another range does not apply. Entry `sources`
+    are not compared, because a producer may merge entries.
   - The cache file is `<git common dir>/release/corpus/<from>..<to>.json`,
     `from` and `to` the range's commit hashes and `from` `root` for a line
     with no release. The common directory is `git rev-parse
     --git-common-dir`, shared by every worktree. The file holds the
-    producer's output byte for byte.
+    producer's output byte for byte, and is replaced by an atomic rename
+    of a fully written temporary file, so a failed write keeps the corpus
+    already there.
   - WHEN the cache file exists and redo was not requested, the bridge reads
     it and invokes no producer. WHEN redo is requested, it invokes the
     producer and replaces the file only after accepting the result, so a

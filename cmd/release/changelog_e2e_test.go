@@ -11,8 +11,9 @@ import (
 
 // changelogFixture is a repository released at v1.8.0 with a feature and a
 // fix since, configured with the command producer, whose command answers
-// with authored.json and records each run in runs.log. The configuration
-// and producer files are committed, so the tree is clean.
+// with .git/authored.json and records each run in .git/runs.log. The
+// configuration is committed and the producer's files live under .git, so
+// the tree is clean.
 func changelogFixture(t *testing.T, proposed string) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -20,13 +21,13 @@ func changelogFixture(t *testing.T, proposed string) string {
 	}
 	dir := t.TempDir()
 	fixtureGit(t, dir, "init", "-q", "-b", "main")
-	writeFile(t, dir, "release.toml", "[changelog]\nproducer = \"command\"\nproducer_command = \"echo run >> .git/runs.log; cat authored.json\"\n")
-	writeAuthored(t, dir, proposed, "Compute for any release line.")
+	writeFile(t, dir, "release.toml", "[changelog]\nproducer = \"command\"\nproducer_command = \"echo run >> .git/runs.log; cat .git/authored.json\"\n")
 	fixtureGit(t, dir, "add", ".")
 	fixtureGit(t, dir, "commit", "-q", "-m", "Initial commit")
 	fixtureGit(t, dir, "tag", "-a", "-m", "v1.8.0", "v1.8.0")
 	fixtureGit(t, dir, "commit", "-q", "--allow-empty", "-m", "feat: add a --target flag (#12)")
 	fixtureGit(t, dir, "commit", "-q", "--allow-empty", "-m", "fix(cli): handle empty input (#11)")
+	writeAuthored(t, dir, proposed, "Compute for any release line.")
 	return dir
 }
 
@@ -50,13 +51,16 @@ func writeAuthored(t *testing.T, dir, proposed, summary string) {
 			map[string]any{"kind": "FIX", "scope": "cli", "summary": "handle empty input", "breaking": false, "derived": true,
 				"sources": []any{map[string]any{"__type": "PullRequest", "number": 11}}},
 		},
-		"sources": []any{map[string]any{"adapter": "COMMITS", "to": strings.Repeat("0", 40)}},
+		// The range the assembled corpus records, which a producer carries.
+		"sources": []any{map[string]any{"adapter": "COMMITS",
+			"from": strings.TrimSpace(gitOut(t, dir, "rev-parse", "v1.8.0^{commit}")),
+			"to":   strings.TrimSpace(gitOut(t, dir, "rev-parse", "HEAD"))}},
 	}
 	data, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, dir, "authored.json", string(data))
+	writeFile(t, dir, filepath.Join(".git", "authored.json"), string(data))
 }
 
 // producerRuns is how many times the producer command has run.
@@ -165,7 +169,7 @@ func TestACachedCorpusCanBeDiscarded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authored, _ := os.ReadFile(filepath.Join(dir, "authored.json"))
+	authored, _ := os.ReadFile(filepath.Join(dir, ".git", "authored.json"))
 	if string(cached) != string(authored) {
 		t.Errorf("the cache was not replaced with the producer's new answer:\n%s", cached)
 	}

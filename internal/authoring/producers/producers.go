@@ -133,13 +133,19 @@ func unfence(out []byte) []byte {
 	return inner
 }
 
-// Failure is a producer process that ran and exited unsuccessfully.
+// Failure is a producer process that ran and failed: it exited
+// unsuccessfully, or exited 0 and wrote no corpus.
 type Failure struct {
 	ExitCode int
 	Stderr   string
+	// Reason, WHEN set, says why a process that exited 0 failed.
+	Reason string
 }
 
 func (f *Failure) Error() string {
+	if f.Reason != "" {
+		return f.Reason
+	}
 	msg := strings.TrimSpace(f.Stderr)
 	if msg == "" {
 		return fmt.Sprintf("exit status %d", f.ExitCode)
@@ -162,7 +168,7 @@ func run(ctx context.Context, dir string, stdin []byte, bin string, args ...stri
 		return nil, err
 	}
 	if len(bytes.TrimSpace(stdout.Bytes())) == 0 {
-		return nil, errors.New("it wrote no corpus to standard output")
+		return nil, &Failure{Stderr: stderr.String(), Reason: "it wrote no corpus to standard output"}
 	}
 	return stdout.Bytes(), nil
 }

@@ -117,6 +117,12 @@ func TestReleaseNotesBlock(t *testing.T) {
 			map[string]string{"Co-authored-by": "A <a@x>", "Release-Type": "minor"}, "Ships it.", "", true},
 		{"trailing prose kept", "## Release notes\n\nShips it.\n\nSee: the docs for more", nil, "Ships it.", "See: the docs for more", true},
 		{"breaking footer dropped", "## Release notes\n\nRenames a flag.\n\nBREAKING CHANGE: use --new", nil, "Renames a flag.", "", true},
+		{"folded trailer dropped", "## Release notes\n\nShips it.\n\nCo-authored-by: A\n  <a@x>",
+			map[string]string{"Co-authored-by": "A <a@x>"}, "Ships it.", "", true},
+		{"multi-line breaking footer dropped", "## Release notes\n\nRenames a flag.\n\nBREAKING CHANGE: use --new\ninstead of --old\nRelease-Type: major",
+			map[string]string{"Release-Type": "major"}, "Renames a flag.", "", true},
+		{"prose then trailer kept", "## Release notes\n\nShips it.\n\nThanks to\nRelease-Type: minor",
+			map[string]string{"Release-Type": "minor"}, "Ships it.", "Thanks to\nRelease-Type: minor", true},
 		{"only trailers", "## Release notes\n\nRelease-Type: patch", map[string]string{"Release-Type": "patch"}, "", "", false},
 		{"crlf", "## Release notes\r\n\r\nWindows prose.\r\n", nil, "Windows prose.", "", true},
 	}

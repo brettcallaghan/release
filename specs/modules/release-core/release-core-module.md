@@ -77,7 +77,9 @@ the first time something outside this repository depends on it.
 - **Changelog operation:** `internal/changelog`. `Prepare` takes the
   repository, a target ref, an optional named bump, the loaded
   configuration, the producers by name, an optional corpus path, and the
-  redo and skip requests. It resolves the version, assembles the corpus from
+  redo and skip requests. It pins the target to its commit hash, so the
+  commits read, the range recorded and the cache key describe one head,
+  then resolves the version, assembles the corpus from
   the range's commits ([[component-changelog-corpus-builder]]), exchanges it
   ([[component-changelog-authoring-bridge]]), sets its `version`, and
   renders it ([[component-changelog-renderer]]). An unwarranted release, and

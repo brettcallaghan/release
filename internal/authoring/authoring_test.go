@@ -359,3 +359,57 @@ func TestCachePathKeysOnTheRangeInTheCommonDir(t *testing.T) {
 		t.Errorf("CachePath with a base = %q", got)
 	}
 }
+
+func TestAlteredProvenanceIsRejected(t *testing.T) {
+	other := strings.Replace(string(authored("MINOR")), `"to": "`+head+`"`, `"to": "2222222222222222222222222222222222222222"`, 1)
+	dropped := strings.Replace(string(authored("MINOR")), `[{"adapter": "COMMITS", "to": "`+head+`"}]`, `[]`, 1)
+	for name, doc := range map[string]string{"another range": other, "dropped": dropped} {
+		t.Run(name, func(t *testing.T) {
+			if doc == string(authored("MINOR")) {
+				t.Fatal("the replacement did not apply")
+			}
+			req := request(t, &stub{out: []byte(doc)})
+			_, err := Exchange(context.Background(), req)
+			var rej *Rejection
+			if !errors.As(err, &rej) || !strings.Contains(rej.Reason, "sources") {
+				t.Fatalf("producer: err = %v, want a rejection naming sources", err)
+			}
+			if _, err := os.Stat(req.CachePath); !errors.Is(err, os.ErrNotExist) {
+				t.Error("a corpus with altered provenance was cached")
+			}
+
+			// The same document at the cache path is refused too.
+			if err := os.MkdirAll(filepath.Dir(req.CachePath), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(req.CachePath, []byte(doc), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			req.Producers = map[string]Producer{"stub": &stub{err: errors.New("must not be called")}}
+			if _, err := Exchange(context.Background(), req); !errors.As(err, &rej) {
+				t.Errorf("cache: err = %v, want a rejection", err)
+			}
+		})
+	}
+}
+
+func TestCacheWriteLeavesNoTemporaryFiles(t *testing.T) {
+	req := request(t, &stub{out: authored("MINOR")})
+	for i := 0; i < 2; i++ {
+		req.Redo = i == 1
+		if _, err := Exchange(context.Background(), req); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries, err := os.ReadDir(filepath.Dir(req.CachePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != filepath.Base(req.CachePath) {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("cache directory holds %q, want only the corpus", names)
+	}
+}

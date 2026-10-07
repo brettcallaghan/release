@@ -208,20 +208,32 @@ func lastParagraph(lines []string) int {
 	return 0
 }
 
-// metadataOnly reports a paragraph every line of which is a trailer git
-// parsed from the commit, or a breaking-change footer.
+// metadataOnly reports a paragraph made only of trailers git parsed from
+// the commit and breaking-change footers, with their continuation lines: an
+// indented line continues a trailer, as git folds them, and any line that is
+// not itself a footer continues a breaking-change footer, as
+// bump.BreakingNote reads it. A paragraph that begins as prose is not
+// metadata.
 func metadataOnly(para []string, trailers map[string]string) bool {
-	for _, l := range para {
+	inBreaking := false
+	for i, l := range para {
 		if strings.HasPrefix(l, "BREAKING CHANGE:") || strings.HasPrefix(l, "BREAKING-CHANGE:") {
+			inBreaking = true
 			continue
 		}
-		key, _, found := strings.Cut(l, ":")
-		if !found {
+		if key, _, found := strings.Cut(l, ":"); found {
+			if _, ok := trailers[key]; ok {
+				inBreaking = false
+				continue
+			}
+		}
+		if i == 0 {
 			return false
 		}
-		if _, ok := trailers[key]; !ok {
-			return false
+		if inBreaking || strings.HasPrefix(l, " ") || strings.HasPrefix(l, "\t") {
+			continue
 		}
+		return false
 	}
 	return true
 }

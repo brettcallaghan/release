@@ -107,6 +107,9 @@ func Exchange(ctx context.Context, req Request) (Result, error) {
 			if err != nil {
 				return Result{}, err
 			}
+			if err := sameProvenance(c, req.Assembled, req.CachePath); err != nil {
+				return Result{}, err
+			}
 			return compare(Cached, c, req.Computed), nil
 		case !errors.Is(err, os.ErrNotExist):
 			return Result{}, fmt.Errorf("reading the cached corpus: %w", err)
@@ -125,17 +128,63 @@ func Exchange(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("the %s producer failed: %w", req.Producer, err)
 	}
-	c, err := Accept(out, "the "+req.Producer+" producer")
+	source := "the " + req.Producer + " producer"
+	c, err := Accept(out, source)
 	if err != nil {
 		return Result{}, err
 	}
-	if err := os.MkdirAll(filepath.Dir(req.CachePath), 0o755); err != nil {
-		return Result{}, fmt.Errorf("caching the authored corpus: %w", err)
+	if err := sameProvenance(c, req.Assembled, source); err != nil {
+		return Result{}, err
 	}
-	if err := os.WriteFile(req.CachePath, out, 0o644); err != nil {
+	if err := writeAtomically(req.CachePath, out); err != nil {
 		return Result{}, fmt.Errorf("caching the authored corpus: %w", err)
 	}
 	return compare(Authored, c, req.Computed), nil
+}
+
+// sameProvenance rejects a corpus whose corpus-level sources differ from the
+// assembled corpus's: a producer carries them through unchanged, and a cached
+// or named corpus for another range is not this range's. Entry sources are
+// not compared, because a producer may merge entries and combine theirs.
+func sameProvenance(c, assembled releasemodel.Changelog, source string) error {
+	got, err := json.Marshal(c.Sources)
+	if err != nil {
+		return err
+	}
+	want, err := json.Marshal(assembled.Sources)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(got, want) {
+		return &Rejection{Source: source, Reason: fmt.Sprintf("its sources %s are not the assembled corpus's %s; "+
+			"a producer carries them through unchanged, and a corpus for another range does not apply", got, want)}
+	}
+	return nil
+}
+
+// writeAtomically replaces path with data only once data is fully written,
+// so a failed write never destroys the corpus already there.
+func writeAtomically(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 func compare(o Outcome, c releasemodel.Changelog, computed releasemodel.Bump) Result {
