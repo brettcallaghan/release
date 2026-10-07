@@ -223,8 +223,8 @@ func TestBreakingMarker(t *testing.T) {
 		{"x", "Prose mentioning BREAKING CHANGE: inline", false},
 		{"x", "breaking change: lowercase is not the footer", false},
 	} {
-		if got := breaking(commit("a", tc.subject, tc.body, nil)); got != tc.want {
-			t.Errorf("breaking(%q, %q) = %v, want %v", tc.subject, tc.body, got, tc.want)
+		if got := Breaking(commit("a", tc.subject, tc.body, nil)); got != tc.want {
+			t.Errorf("Breaking(%q, %q) = %v, want %v", tc.subject, tc.body, got, tc.want)
 		}
 	}
 }
@@ -270,6 +270,27 @@ func TestImportsOnlyReleasemodel(t *testing.T) {
 	for _, imp := range pkg.Imports {
 		if strings.HasPrefix(imp, "github.com/brettcallaghan/release/") && imp != "github.com/brettcallaghan/release/internal/releasemodel" {
 			t.Errorf("internal/bump imports %s; it is pure and may import only releasemodel", imp)
+		}
+	}
+}
+
+func TestBreakingNote(t *testing.T) {
+	cases := []struct {
+		body string
+		want string
+		ok   bool
+	}{
+		{"", "", false},
+		{"Some prose.", "", false},
+		{"Prose.\n\nBREAKING CHANGE: the --foo flag is gone; use --bar", "the --foo flag is gone; use --bar", true},
+		{"Prose.\n\nBREAKING-CHANGE: renamed\ncontinued here\nRefs: #12", "renamed\ncontinued here", true},
+		{"BREAKING CHANGE: early\n\nNot the final paragraph.", "", false},
+		{"Prose.\n\nBREAKING CHANGE: ", "", false},
+	}
+	for _, tc := range cases {
+		got, ok := BreakingNote(commit("a", "feat: x", tc.body, nil))
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("BreakingNote(%q) = %q, %v; want %q, %v", tc.body, got, ok, tc.want, tc.ok)
 		}
 	}
 }

@@ -69,6 +69,33 @@ Three adapters are specified, each with its own blueprint:
   - The component SHALL treat the enabled adapter set as configuration rather
     than inferring it from the repository's state.
   - The component SHALL NOT set `proposed_bump`.
+- **Operation:** `corpus.Build` takes the commit records, the range they
+  were read from (base and head commit hashes; no base for a line with no
+  release) and the enabled adapter set, and returns a corpus declaring
+  `schema_version` 1.0, one entry per record in record order, and `sources`
+  holding the commit adapter with that range. It refuses an enabled adapter
+  that is not implemented rather than skipping it.
+- **Pinned rules:**
+  - An author-written block is a level-two heading reading `Release notes`
+    (any letter case) in the body, running to the next `## ` heading or the
+    end of the body. Its first paragraph is the entry's `summary` and the
+    rest its `detail`, both verbatim except for the blank lines around them,
+    with `derived` false. WHEN the block runs to the end of the body, a final
+    paragraph made only of the commit's trailers and breaking-change footers
+    is left out; a block with no prose is no block.
+  - Otherwise the `summary` is the subject's description, with `derived`
+    true. A conventional-commit type maps to `kind` case-insensitively:
+    `feat` FEATURE, `fix` FIX, `perf` PERFORMANCE, `revert` REVERT,
+    `refactor` REFACTOR, `docs` DOCUMENTATION, `build` BUILD, `ci` CI,
+    `test` TEST, `style` STYLE, and any other type, or a subject that is not
+    conventional, CHORE. The conventional scope is `scope`. The summary is
+    the subject without its type prefix and its trailing ` (#<n>)`.
+  - `kind` and `scope` come from the subject whether or not a block exists.
+  - `breaking` is the bump classifier's breaking-change marker; `migration`
+    is the text of a `BREAKING CHANGE:` footer, with its continuation lines,
+    WHEN one exists.
+  - An entry's `sources` hold the pull request WHEN the record carries a
+    number, and the commit otherwise.
 
 ## Cross-Cutting Standards
 

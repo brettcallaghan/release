@@ -149,7 +149,7 @@ func commitImpact(c releasemodel.CommitRecord, enabled Signals) (b releasemodel.
 			b, sig, ok = cand, s, true
 		}
 	}
-	if enabled[SignalBreakingMarker] && breaking(c) {
+	if enabled[SignalBreakingMarker] && Breaking(c) {
 		consider(releasemodel.BumpMajor, SignalBreakingMarker)
 	}
 	if enabled[SignalReleaseType] {
@@ -220,11 +220,11 @@ func releaseType(trailers map[string]string) (releasemodel.Bump, bool) {
 	return best, found
 }
 
-// breaking reports a breaking-change marker: a "!" immediately before the
+// Breaking reports a breaking-change marker: a "!" immediately before the
 // subject's colon, or a line in the body's final paragraph beginning
 // BREAKING CHANGE: or BREAKING-CHANGE:. The footer is read from the body
 // because git's trailer rules reject a key containing a space.
-func breaking(c releasemodel.CommitRecord) bool {
+func Breaking(c releasemodel.CommitRecord) bool {
 	if m := conventionalSubject.FindStringSubmatch(c.Subject); m != nil && m[2] == "!" {
 		return true
 	}
@@ -234,6 +234,39 @@ func breaking(c releasemodel.CommitRecord) bool {
 		}
 	}
 	return false
+}
+
+// footerToken is the start of a conventional-commit footer or git trailer:
+// a token, a colon and a space.
+var footerToken = regexp.MustCompile(`^(?:[A-Za-z][A-Za-z0-9-]*|BREAKING CHANGE): `)
+
+// BreakingNote returns the text of a BREAKING CHANGE: or BREAKING-CHANGE:
+// footer in the body's final paragraph — the footer Breaking reads — with
+// any continuation lines up to the next footer. ok is false WHEN no such
+// footer exists, or its text is empty.
+func BreakingNote(c releasemodel.CommitRecord) (note string, ok bool) {
+	lines := strings.Split(finalParagraph(c.Body), "\n")
+	for i, line := range lines {
+		var rest string
+		switch {
+		case strings.HasPrefix(line, "BREAKING CHANGE:"):
+			rest = strings.TrimPrefix(line, "BREAKING CHANGE:")
+		case strings.HasPrefix(line, "BREAKING-CHANGE:"):
+			rest = strings.TrimPrefix(line, "BREAKING-CHANGE:")
+		default:
+			continue
+		}
+		parts := []string{strings.TrimSpace(rest)}
+		for _, more := range lines[i+1:] {
+			if footerToken.MatchString(more) {
+				break
+			}
+			parts = append(parts, strings.TrimRight(more, " \t"))
+		}
+		note = strings.TrimSpace(strings.Join(parts, "\n"))
+		return note, note != ""
+	}
+	return "", false
 }
 
 // finalParagraph is the body's last blank-line-separated paragraph.

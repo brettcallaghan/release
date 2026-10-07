@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-97.3%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-97.6%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,19 +48,20 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 922 / 1,013 | 91.0% |
-| Snapshot cases | 563 / 1,013 | 55.6% |
-| End-to-end (built binary) | 435 / 1,013 | 42.9% |
-| **All layers combined** | **986 / 1,013** | **97.3%** |
+| Unit tests | 1,014 / 1,105 | 91.8% |
+| Snapshot cases | 563 / 1,105 | 51.0% |
+| End-to-end (built binary) | 435 / 1,105 | 39.4% |
+| **All layers combined** | **1,078 / 1,105** | **97.6%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
 | `release/cmd/release` | 1 | 1 | 100.0% |
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
-| `release/internal/bump` | 79 | 79 | 100.0% |
+| `release/internal/bump` | 94 | 94 | 100.0% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
 | `release/internal/cli` | 274 | 258 | 94.2% |
 | `release/internal/config` | 139 | 138 | 99.3% |
+| `release/internal/corpus` | 77 | 77 | 100.0% |
 | `release/internal/delegate` | 30 | 30 | 100.0% |
 | `release/internal/gitread` | 104 | 102 | 98.1% |
 | `release/internal/render` | 91 | 90 | 98.9% |
@@ -68,7 +69,7 @@ A statement is covered if any layer reaches it.
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/version` | 68 | 68 | 100.0% |
-| **Total** | **1,013** | **986** | **97.3%** |
+| **Total** | **1,105** | **1,078** | **97.6%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
