@@ -15,3 +15,7 @@
 # never hand-edit.
 internal/schema/**        linguist-generated=true
 internal/releasemodel/**  linguist-generated=true
+
+# A changelog fixture whose CRLF line endings are the point: the writer must
+# preserve them byte for byte.
+internal/changelogfile/testdata/hand-edited.md  -text
