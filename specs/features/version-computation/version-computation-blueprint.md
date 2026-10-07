@@ -323,24 +323,29 @@ resolution operation); CMD = [[container-release-cli]] delta (—
 
 - [ ] Every delta above is folded into its owning blueprint:
   - [ ] [[component-semver-core]] — Interface records the `rc` and
-    canary forms and the leading-`v` refusal
-  - [ ] [[component-tag-reader]] — Interface records the release-tag rule
-  - [ ] [[component-commit-collector]] — Interface records the range and
+    canary forms and the leading-`v` refusal. The `rc` form and the
+    leading-`v` refusal are recorded; the canary form waits on the
+    deferred canary item
+  - [x] [[component-tag-reader]] — Interface records the release-tag rule
+  - [x] [[component-commit-collector]] — Interface records the range and
     trailer rules
-  - [ ] [[component-bump-classifier]] — Interface records the signal
+  - [x] [[component-bump-classifier]] — Interface records the signal
     mappings
-  - [ ] [[component-version-calculator]] — Interface records the
+  - [x] [[component-version-calculator]] — Interface records the
     graduation and proposed-version rules
-  - [ ] [[module-release-core]] — Interface records the version resolution
+  - [x] [[module-release-core]] — Interface records the version resolution
     operation and the default policy
-  - [ ] [[container-release-cli]] — Command Surface records
+  - [x] [[container-release-cli]] — Command Surface records
     `release version`
-- [ ] [[adr-006]] status → approved, and referenced from
+- [x] [[adr-006]] status → approved, and referenced from
   [[module-release-core]] Key Decisions
 - [ ] Every AC in the coverage table is verified at its declared level
   and cited from its tests per the
-  specs plugin's `shared/ac-traceability-standards.md`
-- [ ] This blueprint's status → retired
+  specs plugin's `shared/ac-traceability-standards.md`. All but
+  AC-VER-004.4, AC-VER-004.8 and AC-VER-004.10 are; those three are
+  proved by the deferred canary item
+- [ ] This blueprint's status → retired. Held at in-progress: the canary
+  identifiers item (CAN) is deferred outside the MVP
 
 ## Open Questions
 
