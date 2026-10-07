@@ -45,7 +45,7 @@ type caseManifest struct {
 
 // knownArtifacts maps each artifact name to the stream it captures. A run
 // has one standard output, so a case declares at most one stdout artifact:
-// stdout.txt for human-readable output, stdout.json for --json.
+// stdout.txt for the default YAML or a payload, stdout.json for --json.
 var knownArtifacts = map[string]string{
 	"stdout.txt":  "stdout",
 	"stdout.json": "stdout",
