@@ -46,10 +46,13 @@ jobs:
 
       # Bumping this pin is a deliberate change.
       - name: Install the Claude Code CLI
+        if: ${{ !cancelled() }}
         run: npm install -g @anthropic-ai/claude-code@2.1.292
 
       - name: Validate the plugin
+        if: ${{ !cancelled() }}
         run: claude plugin validate plugin --strict
 
       - name: Validate the marketplace
+        if: ${{ !cancelled() }}
         run: claude plugin validate . --strict
