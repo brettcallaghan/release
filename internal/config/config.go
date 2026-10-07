@@ -86,11 +86,23 @@ func (r *Refusal) Error() string {
 	return "configuration refused:\n  - " + strings.Join(r.Reasons, "\n  - ")
 }
 
-// collisionProbes are the versions whose stage branch names a release-branch
-// glob must not match (RTS-009): a release and a prerelease.
+// collisionProbes are stage branch versions a refusal names as an example
+// when the glob matches one: a release and a prerelease.
 var collisionProbes = []semver.Version{
 	{Major: 1, Minor: 2, Patch: 3},
 	{Major: 1, Minor: 2, Patch: 3, Prerelease: []string{"rc", "1"}},
+}
+
+// collisionExample names a probe stage branch the glob matches, or nothing
+// when the overlap lies elsewhere in the version space.
+func collisionExample(glob, stagePrefix string) string {
+	for _, v := range collisionProbes {
+		stage := semver.StageBranchName(stagePrefix, v)
+		if ok, _ := path.Match(glob, stage); ok {
+			return fmt.Sprintf(", such as %q", stage)
+		}
+	}
+	return ""
 }
 
 // Validate returns nil for a configuration the tooling can work with, and
@@ -107,17 +119,12 @@ func (c Config) Validate() error {
 		}
 	}
 	for _, glob := range c.ReleaseBranches {
-		for _, v := range collisionProbes {
-			stage := semver.StageBranchName(c.StagePrefix, v)
-			matched, err := path.Match(glob, stage)
-			if err != nil {
-				reasons = append(reasons, fmt.Sprintf("release_branches glob %q is malformed: %v", glob, err))
-				break
-			}
-			if matched {
-				reasons = append(reasons, fmt.Sprintf("release_branches glob %q matches the stage branch %q under stage_prefix %q (RTS-009)", glob, stage, c.StagePrefix))
-				break
-			}
+		if _, err := path.Match(glob, ""); err != nil {
+			reasons = append(reasons, fmt.Sprintf("release_branches glob %q is malformed: %v", glob, err))
+			continue
+		}
+		if c.StagePrefix != "" && matchesStageName(glob, c.StagePrefix) {
+			reasons = append(reasons, fmt.Sprintf("release_branches glob %q can match a stage branch under stage_prefix %q%s (RTS-009)", glob, c.StagePrefix, collisionExample(glob, c.StagePrefix)))
 		}
 	}
 	if len(reasons) > 0 {

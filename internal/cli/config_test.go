@@ -225,3 +225,16 @@ func gitFixture(t *testing.T) string {
 	runFixtureGit(t, dir, []string{"commit", "-q", "--allow-empty", "-m", "Initial commit"})
 	return dir
 }
+
+// A candidate that cannot be inspected is refused, never read as absent:
+// absent would silently fall back to the defaults or the other file.
+func TestACandidateThatCannotBeInspectedIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Symlink("release.toml", filepath.Join(dir, "release.toml")); err != nil {
+		t.Skipf("cannot create a symlink here: %v", err)
+	}
+	got := refusalReasons(t, func() error { _, err := load(t, dir, ""); return err }())
+	if len(got) != 1 || !strings.Contains(got[0], "release.toml cannot be inspected") {
+		t.Errorf("reasons = %v, want one naming release.toml", got)
+	}
+}

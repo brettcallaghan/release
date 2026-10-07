@@ -66,7 +66,15 @@ fb-tool-configuration`, plus this run's DoD verification.
    `release cut` (epic release-elu). It was proved with `release version`
    and `release config` at the process boundary plus an in-process probe
    command; the first real writer is not covered.
-4. The `specs` CLI was not available in the session, so the folds were
+4. Review of PR #7 found that the CFGM delta's collision rule is
+   unsound. Root cause: "The module SHALL refuse a configuration WHEN any
+   glob in `release_branches` matches the stage branch name of version
+   `1.2.3` or `1.2.3-rc.1` under the configured `stage_prefix` (RTS-009)."
+   With the default prefix, `release_branches = ["cut/2.*"]` passes that
+   rule but matches the stage branch `cut/2.0.0`. The implementation now
+   checks overlap with every name of the form `stage_prefix` plus version
+   characters, and `release-core-module.md` records it.
+5. The `specs` CLI was not available in the session, so the folds were
    not checked by `specs check --strict`.
 
 ## Proposals
@@ -101,24 +109,41 @@ existing e2e test as the participating proof.
 **Evidence.** Finding 3. A refusal path added inside `release cut` after
 its own first write would pass every current test.
 
+### P3 — Replace the two-probe collision rule with an overlap rule
+
+**Problem.** The CFGM delta tests a glob against the stage branches of
+two sample versions, `1.2.3` and `1.2.3-rc.1`, so any glob that misses
+both but matches another version passes (finding 4).
+
+**Change.** Replace the bullet with: "The module SHALL refuse a
+configuration WHEN any glob in `release_branches` can match a name made of
+`stage_prefix` followed by one or more version characters (`0-9`, `a-z`,
+`A-Z`, `.`, `-`, `+`) (RTS-009)." This records what the implementation
+does. Sampling more versions cannot close the gap; the rule has to be
+about the whole set.
+
+**Evidence.** Finding 4. The Stage Orchestrator relies on release-branch
+protections never applying to stage branches.
+
 ## Considered and Not Proposed
 
 - Global flags unowned (finding 1) — the loader bead added them and the
   container blueprint now records them, so no later feature meets the
   gap; recurrence is not plausible.
-- `specs check --strict` not run (finding 4) — environment, not
+- `specs check --strict` not run (finding 5) — environment, not
   documents.
 
 ## Non-Goals
 
 - No change to the implemented behaviour: P1 records what the code does,
-  and P2 adds a test to a feature not yet built.
+  P2 adds a test to a feature not yet built, and P3 records the overlap
+  rule the review fix introduced.
 
 ## Adoption
 
-The proposals are independent. P1 touches the tool configuration
-blueprint (now retired; amend in place or record in the container
-blueprint, which already says it). P2 touches the release staging
+The proposals are independent. P1 and P3 touch the tool configuration
+blueprint (now retired; amend in place, or rely on the container and
+module blueprints, which already record both). P2 touches the release staging
 blueprint and its groomed beads. Both are backward compatible: existing
 documents stay valid.
 

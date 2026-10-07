@@ -57,8 +57,14 @@ func loadConfig(ctx context.Context, repo, explicit string) (config.Config, stri
 	if explicit == "" {
 		var present []string
 		for _, c := range configCandidates {
-			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(c))); err == nil {
+			_, err := os.Stat(filepath.Join(root, filepath.FromSlash(c)))
+			if err == nil {
 				present = append(present, c)
+			} else if !os.IsNotExist(err) {
+				return config.Config{}, "", &configRefusal{
+					source:  c,
+					reasons: []string{fmt.Sprintf("%s cannot be inspected: %v", c, err)},
+				}
 			}
 		}
 		switch len(present) {

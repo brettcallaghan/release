@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path"
 	"reflect"
 	"strings"
 	"testing"
@@ -211,5 +212,60 @@ func git(t *testing.T, dir string, args ...string) {
 	)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+	}
+}
+
+// AC: AC-CFG-002.2
+func TestOverlapIsCheckedAcrossEveryVersionNotOnlyTheProbes(t *testing.T) {
+	cases := []struct {
+		glob    string
+		refused bool
+	}{
+		{"cut/2.*", true},                // matches cut/2.0.0, which no probe is
+		{"cut/[0-9]*", true},             // a class
+		{"cu?/1.*", true},                // ? over the prefix
+		{"[a-c]ut/*", true},              // a class over the prefix
+		{`cut\/*`, true},                 // an escaped literal
+		{"cut/*-rc.*", true},             // prerelease stage branches only
+		{"cut/latest", true},             // under the stage prefix, in version characters
+		{"cut/*/x", false},               // a version holds no slash
+		{"cut", false},                   // the prefix alone is no stage branch
+		{"cut/", false},                  // nor is the prefix with no version
+		{"release/*", false},             // another namespace
+		{"*", false},                     // * does not cross the prefix's slash
+		{"cut/_*", false},                // _ is no version character
+		{`cut/[^0-9a-zA-Z.+\-]*`, false}, // no version character
+	}
+	for _, tc := range cases {
+		c := Default()
+		c.ReleaseBranches = []string{tc.glob}
+		got := reasons(t, c)
+		if refused := len(got) > 0; refused != tc.refused {
+			t.Errorf("glob %q: refused = %v (%v), want %v", tc.glob, refused, got, tc.refused)
+		}
+	}
+}
+
+// Every stage branch a glob actually matches must be caught: the check may
+// over-refuse, never under-refuse.
+func TestOverlapCheckNeverMissesAMatchingStageBranch(t *testing.T) {
+	versions := []string{"0.1.0", "1.2.3", "2.0.0", "10.20.30", "1.2.3-rc.1", "3.0.0-beta.2", "1.0.0+build.7"}
+	globs := []string{"cut/2.*", "cut/1*", "cut/*.0", "*/3.*", "cut/?.?.?", "cut/[13]*", "cut/*+*", "cut/1?.*", "cut/*rc*", "c*/0.1.0"}
+	for _, g := range globs {
+		for _, v := range versions {
+			stage := "cut/" + v
+			if ok, _ := path.Match(g, stage); ok && !matchesStageName(g, "cut/") {
+				t.Errorf("glob %q matches %q but the check missed it", g, stage)
+			}
+		}
+	}
+}
+
+func TestARefusalNamesAnExampleWhenAProbeMatches(t *testing.T) {
+	c := Default()
+	c.ReleaseBranches = []string{"cut/1.*", "cut/2.*"}
+	got := reasons(t, c)
+	if len(got) != 2 || !strings.Contains(got[0], `such as "cut/1.2.3"`) || strings.Contains(got[1], "such as") {
+		t.Errorf("reasons = %v, want an example for cut/1.* and none for cut/2.*", got)
 	}
 }

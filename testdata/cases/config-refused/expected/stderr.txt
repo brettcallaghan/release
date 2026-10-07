@@ -1,4 +1,4 @@
 Error: configuration release.toml refused:
   - "skip_checks" is not a configuration setting
   - signals names "vibes", which is not a commit signal (want one of release-type, conventional-type, breaking-marker)
-  - release_branches glob "release/*" matches the stage branch "release/1.2.3" under stage_prefix "release/" (RTS-009)
+  - release_branches glob "release/*" can match a stage branch under stage_prefix "release/", such as "release/1.2.3" (RTS-009)

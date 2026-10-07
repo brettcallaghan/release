@@ -88,10 +88,13 @@ the first time something outside this repository depends on it.
   and `Policy` turns a configuration into the resolution policy.
   - `Validate` SHALL refuse an empty `stage_prefix`, a `signals` entry
     naming no known signal, a malformed `release_branches` glob, and a
-    `release_branches` glob matching the stage branch name of `1.2.3` or
-    `1.2.3-rc.1` under `stage_prefix` (RTS-009; Go `path.Match`, where `*`
-    does not cross `/`). It SHALL return every reason found, not only the
-    first.
+    `release_branches` glob that can match any stage branch name: any name
+    made of `stage_prefix` followed by one or more version characters
+    (`0-9`, `a-z`, `A-Z`, `.`, `-`, `+`), whatever the version (RTS-009; Go
+    `path.Match`, where `*` does not cross `/`). The check is exact over
+    that set, so it may refuse a glob matching only a non-version name under
+    the prefix, such as `cut/latest`, but never misses a stage branch. It
+    SHALL return every reason found, not only the first.
   - The model SHALL derive no constraint from the name in `target`, and
     SHALL have no setting that disables a check the tooling performs.
   - `TargetRef` SHALL answer the configured `target` when one is declared,
