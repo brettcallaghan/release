@@ -53,7 +53,7 @@ anything.
 
 | Flag | Meaning |
 |---|---|
-| `--target <branch>` | The release line to compute for. Defaults to the configured target, then the current branch |
+| `--target <branch>` | The release line to compute for. Defaults to the configured target, then the repository's default branch |
 | `--json` | Render the answer as JSON instead of YAML |
 
 Answers with the base version, the resolved impact, what drove that impact,

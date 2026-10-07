@@ -219,7 +219,9 @@ Output Renderer to the RES operation.
 - The command SHALL compute with the RES default policy. Reading
   configuration is the Configuration Loader's, which
   [[frd-tool-configuration]] delivers and wires in later.
-- WHEN `--target` is absent, the command SHALL use the current branch.
+- WHEN `--target` is absent, the command SHALL use the repository's
+  default branch, the branch `origin/HEAD` points to; IF `origin/HEAD` is
+  unset, THEN it SHALL exit 2 naming `git remote set-head origin --auto`.
 - The command SHALL answer with one mapping whose keys, in this order,
   are `base` (string, or null when no tag is reachable), `impact`, `named`
   (bool), `determined_by` (a sequence of mappings with `hash`, `subject`

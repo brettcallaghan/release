@@ -37,7 +37,15 @@ write is defined narrowly so that holds.
 **Behavior:**
 - A write SHALL mean creating or moving a ref, creating a commit, pushing,
   or opening a pull request. Files changed in the scratch checkout are not
-  writes; the scratch checkout is described in Open Questions.
+  writes.
+- The orchestrator SHALL first run `git fetch origin <target>` and pin the
+  release to that fetched `origin/<target>` commit. The version, the
+  commit range and the scratch checkout SHALL all use that one commit,
+  never the maintainer's current branch, `HEAD` or working tree.
+- The scratch checkout SHALL be a temporary detached `git worktree` at the
+  pinned commit, removed on every exit, success or failure. The
+  maintainer's working tree, index and current branch SHALL NOT change,
+  and uncommitted work in them SHALL NOT reach the release.
 - The orchestrator SHALL run these steps in this order, stopping at the
   first refusal or failure:
   1. resolve the version through the version computation feature's
@@ -49,13 +57,13 @@ write is defined narrowly so that holds.
   4. assemble the corpus and, unless notes are skipped, run the authoring
      bridge; halt WHEN it reports a disagreement and no bump was named;
   5. set the corpus `version` and render it;
-  6. in the scratch checkout at the target branch's tip, write the
+  6. in the scratch checkout at the pinned commit, write the
      changelog section, then run `commands.propagate`, which SHALL be
      configured;
   7. refuse WHEN any changed path is neither `CHANGELOG.md` nor listed in
      `release_paths`;
   8. run `commands.validate` WHEN configured;
-  9. write: create the stage branch at the target tip, commit the changes
+  9. write: create the stage branch at the pinned commit, commit the changes
      as its first commit with the message `Release <version>`, push it to
      `origin`, and open the pull request unless told not to.
 - IF notes are skipped and no bump is named, THEN the orchestrator SHALL
@@ -162,12 +170,6 @@ stub `gh` on `PATH`, per the component's verification gate.
 
 ## Open Questions
 
-- [ ] **Where the release is prepared.** Proposed: a temporary
-  `git worktree` at the target branch's tip, removed on every exit, so
-  the maintainer's working tree and current branch are never touched and
-  the propagate and validate commands run in a clean checkout. The
-  alternative is to require a clean working tree and prepare in place.
-  Blocks ORCH. Decided by the project owner.
 - [ ] **Undo after a failed write.** Proposed: report every write and undo
   none, as swarm's ADR-026 does, so a half-pushed branch is visible
   rather than half-cleaned. The alternative deletes the branch it created

@@ -5,7 +5,7 @@ description: How release core gains a validated configuration model and a
   the configuration.
 slug: fb-tool-configuration
 type: feature-blueprint
-status: draft
+status: ready-for-review
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 frd: frd-tool-configuration
@@ -41,7 +41,7 @@ added to the module rather than defining a second one.
 
   | Setting | Type | Default |
   |---|---|---|
-  | `target` | branch name | see Open Questions |
+  | `target` | branch name | the repository's default branch |
   | `tag_prefix` | string | `v` |
   | `stage_prefix` | string | `cut/` |
   | `release_branches` | list of globs | empty |
@@ -62,6 +62,9 @@ added to the module rather than defining a second one.
   names no known signal.
 - The module SHALL return every refusal reason found, not only the first.
 - The module SHALL derive no constraint from the name in `target`.
+- The repository's default branch SHALL be the branch `origin/HEAD` points
+  to; IF `origin/HEAD` is unset, THEN a command needing it SHALL refuse
+  with exit 2 and name `git remote set-head origin --auto` as the fix.
 - The configuration SHALL have no setting that disables a check the
   tooling performs.
 
@@ -101,8 +104,14 @@ feature's; this delta provides the runner and its failure semantics.
 - The runner SHALL NOT read from a terminal: the command's standard input
   is empty.
 
+- The runner SHALL run a configured command as a string through `sh -c`,
+  with the repository root as its working directory and the environment
+  inherited, as `swarm.toml` checks run in swarm and specs. The tooling's
+  own `git` and `gh` invocations are not configured commands and stay
+  argument lists ([[adr-006]]).
+
 **Anchors:** new package under `internal/` (the implementer's choice of
-name); see Open Questions for how a command string is executed.
+name).
 
 ### `Configuration Loader` in [[container-release-cli]] (added)
 
@@ -113,9 +122,8 @@ command runs.
 
 **Behavior:**
 - The loader SHALL read the file named by `--config` WHEN it is given, and
-  otherwise the repository-root configuration file named in Open Questions,
-  where the repository root is that of `-C/--repo` or the working
-  directory.
+  otherwise `release.toml`, a TOML file at the repository root, where
+  the repository root is that of `-C/--repo` or the working directory.
 - WHEN no configuration file exists and `--config` is not given, the loader
   SHALL use the module defaults.
 - IF `--config` names a file that does not exist, THEN the loader SHALL
@@ -128,7 +136,7 @@ command runs.
 
 **Anchors:** `internal/cli/root.go` (the root command, where a pre-run
 hook loads before any subcommand); `github.com/BurntSushi/toml` is already
-a module dependency if the file format is TOML.
+a module dependency.
 
 ### [[container-release-cli]] (modified — `release config`)
 
@@ -157,7 +165,7 @@ configuration instead.
 - `release version` SHALL compute with the loaded configuration's
   `tag_prefix`, `stage_prefix`, `leaps`, `pre1_remap` and `signals`.
 - WHEN `--target` is absent, `release version` SHALL use the configured
-  `target`, and otherwise the default that Open Questions settles.
+  `target`, and otherwise the repository's default branch.
 
 **Anchors:** the `release version` command in `internal/cli`.
 
@@ -225,23 +233,7 @@ CMDCFG = [[container-release-cli]] delta (— `release config`); WIRE =
 
 ## Open Questions
 
-- [ ] **Configuration file name and format.** Proposed: `release.toml` at
-  the repository root, in TOML like `swarm.toml`, recorded in an ADR. The
-  alternative is YAML, matching the output format. Blocks LOAD. Decided by
-  the project owner.
-- [ ] **Default target branch.** [[frd-tool-configuration]]
-  (AC-CFG-002.1) says the repository's default branch, but
-  [[contract-release-cli]] says `--target` falls back to the configured
-  target and then the current branch. Proposed: follow the FRD, take the
-  default branch from `origin/HEAD`, and correct the contract. Blocks CFGM
-  and WIRE. Decided by the project owner.
-- [ ] **How a configured command runs.** Proposed: a string run through
-  `sh -c` from the repository root, as `swarm.toml` checks are. The
-  alternative is an argument list with no shell, which avoids quoting
-  surprises but cannot use pipes or `&&`. swarm's ADR-025 takes the
-  argument-list side for every external command, and adopting it here is
-  still undecided, so this answer should agree with that one. Blocks RUN.
-  Decided by the project owner.
+None.
 
 ## References
 

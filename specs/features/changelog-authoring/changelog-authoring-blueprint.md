@@ -5,7 +5,7 @@ description: How release core assembles a changelog corpus from git,
   returns, and how `release changelog` drives it.
 slug: fb-changelog-authoring
 type: feature-blueprint
-status: draft
+status: ready-for-review
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 frd: frd-changelog-authoring
@@ -45,8 +45,8 @@ required.
   derived from a commit subject rather than author-written prose.
 - `Changelog.proposed_bump` SHALL become optional: absent on an assembled
   corpus, and required of a producer by the bridge.
-- The contract SHALL state each of these semantics and its version SHALL
-  change as Open Questions settles.
+- The contract SHALL state each of these semantics. `schema_version` SHALL
+  stay 1.0, amended in place: nothing has been released against it.
 
 **Anchors:** `schemas/changelog.strata`;
 `specs/contracts/changelog-contract.md`; the generated bindings (bead
@@ -59,7 +59,7 @@ the tool configuration feature defines.
 
 **Behavior:**
 - The configuration SHALL gain `changelog.producer` (a producer name,
-  default per Open Questions), `changelog.producer_command` (a command,
+  default `claude`), `changelog.producer_command` (a command,
   unset by default, required WHEN the producer is `command`), and
   `adapters.pull_requests` and `adapters.diffs` (bools, default `false`).
 - The module SHALL refuse `adapters.diffs = true` while no diff adapter is
@@ -77,9 +77,13 @@ commit adapter: commit records in, an assembled corpus out.
 **Behavior:**
 - The component SHALL emit one entry per commit record, in record order,
   and SHALL record the commit adapter in `sources` with the range it read.
-- WHEN a record's body carries an author-written block (format in Open
-  Questions), the entry SHALL take its summary, and its detail WHEN
-  present, from the block verbatim, with `derived` false.
+- An author-written block SHALL be a `## Release notes` heading in the
+  commit body (the pull request description, under squash merge),
+  running to the next `## ` heading or the end of the body; its first
+  paragraph is the summary and the rest is the detail.
+- WHEN a record's body carries an author-written block, the entry SHALL
+  take its summary, and its detail WHEN present, from the block verbatim,
+  with `derived` false.
 - Otherwise the entry SHALL be derived from the subject, with `derived`
   true: a conventional-commit type maps to `ChangeKind` (`feat` FEATURE,
   `fix` FIX, `perf` PERFORMANCE, `revert` REVERT, `refactor` REFACTOR,
@@ -146,13 +150,19 @@ configured producer, exchange the corpus, validate, compare, cache.
 ### `Changelog Producer` in [[module-release-core]] (added — MVP producers)
 
 **Intent:** The producers the MVP ships, each conforming to
-[[component-changelog-producer]]. Which ones, and how the default is
-invoked, are in Open Questions.
+[[component-changelog-producer]]: `command` and `claude`, with `claude` the
+default. `conventional` and `manual` are later work.
 
 **Behavior:**
 - The `command` producer SHALL run `changelog.producer_command` with the
   assembled corpus as JSON on standard input and read the authored corpus
   as JSON from standard output, failing on a non-zero exit.
+- The `claude` producer SHALL run `claude -p` with a prompt naming the
+  release plugin's changelog skill, the assembled corpus as JSON on
+  standard input, and SHALL read the authored corpus as JSON from
+  standard output, failing on a non-zero exit.
+- Tests SHALL exercise the `claude` producer against a stub `claude` on
+  `PATH`, never the real one.
 - Every producer SHALL refuse, naming the missing prerequisite, WHEN it
   cannot run.
 
@@ -201,8 +211,8 @@ resolve the version, assemble, author, render, and print or write.
 
 - release-8bt.2 — prerequisite: SCH regenerates the bindings and BR
   validates against the generated JSON Schema.
-- release-8bt.4 — out-of-scope: the Claude plugin that may host the
-  default producer's skill is that bead's; PROD only invokes a producer.
+- release-8bt.4 — out-of-scope: the Claude plugin that hosts the skill the
+  `claude` producer names is that bead's; PROD only invokes it.
 - release-cb2.4 — prerequisite: CB consumes the commit records that work
   order produces.
 - release-cb2.7 — prerequisite: CLCMD resolves the version through that
@@ -277,22 +287,7 @@ Bridge` delta; PROD = `Changelog Producer` delta (— MVP producers); CLCMD =
 
 ## Open Questions
 
-- [ ] **What an author-written block looks like.** Nothing defines how a
-  pull request description marks its release notes. Proposed: a
-  `## Release notes` heading in the body; its first paragraph is the
-  summary and the rest is the detail, and the block runs to the next `## `
-  heading or the end of the body. Blocks CB. Decided by the project owner.
-- [ ] **Which producers ship in the MVP, and how the default is invoked.**
-  Proposed: `command` and `claude` in the MVP, with `claude` the default,
-  invoked as `claude -p` with a prompt naming a skill from the release
-  plugin (bead release-8bt.4) and the corpus on standard input, reading
-  the authored corpus from standard output. `conventional` and `manual`
-  later. Blocks PROD and the ACFG default. Decided by the project owner.
-- [ ] **How the schema change is versioned.** Making `proposed_bump`
-  optional re-types a required field, which the contract calls a major
-  change. Nothing has shipped against 1.0, so the proposal is to amend
-  `schema_version` 1.0 in place rather than publish 2.0. Blocks SCH.
-  Decided by the project owner.
+None.
 
 ## References
 
