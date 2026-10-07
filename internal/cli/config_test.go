@@ -238,3 +238,62 @@ func TestACandidateThatCannotBeInspectedIsRefused(t *testing.T) {
 		t.Errorf("reasons = %v, want one naming release.toml", got)
 	}
 }
+
+func TestADeclaredChangelogGroupListReplacesTheDefaultWhole(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "release.toml", "[changelog]\nother_heading = \"Misc\"\ngroups = [{ kind = \"FIX\", heading = \"Bugs\" }]\n")
+	cfg, err := load(t, dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := config.Changelog{
+		Groups:          []config.ChangelogGroup{{Kind: "FIX", Heading: "Bugs"}},
+		OtherHeading:    "Misc",
+		BreakingHeading: "Breaking changes",
+	}
+	if !reflect.DeepEqual(cfg.Changelog, want) {
+		t.Errorf("changelog = %+v\nwant %+v", cfg.Changelog, want)
+	}
+}
+
+func TestAnUnknownKeyInAChangelogGroupIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "release.toml", "[changelog]\ngroups = [{ kind = \"FIX\", title = \"Bugs\" }]\n")
+	got := refusalReasons(t, func() error { _, err := load(t, dir, ""); return err }())
+	if len(got) != 1 || !strings.Contains(got[0], "changelog.groups.title") {
+		t.Errorf("reasons = %v, want one naming changelog.groups.title", got)
+	}
+}
+
+func TestAnUnknownChangelogKindInTheFileIsRefused(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "release.toml", "[changelog]\ngroups = [{ kind = \"feature\", heading = \"Features\" }]\n")
+	got := refusalReasons(t, func() error { _, err := load(t, dir, ""); return err }())
+	if len(got) != 1 || !strings.Contains(got[0], `"feature"`) {
+		t.Errorf("reasons = %v, want one naming feature", got)
+	}
+}
+
+// This repository's own configuration loads, with its emoji headings.
+func TestThisRepositorysConfigurationLoads(t *testing.T) {
+	cfg, root, err := loadConfig(context.Background(), "../..", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "config", "release.toml")); err != nil {
+		t.Fatalf("config/release.toml: %v", err)
+	}
+	want := config.Changelog{
+		Groups: []config.ChangelogGroup{
+			{Kind: "FEATURE", Heading: "🚀 Features"},
+			{Kind: "FIX", Heading: "🪲 Bugs"},
+			{Kind: "PERFORMANCE", Heading: "Performance"},
+			{Kind: "REVERT", Heading: "Reverts"},
+		},
+		OtherHeading:    "Other changes",
+		BreakingHeading: "💥 Breaking changes",
+	}
+	if !reflect.DeepEqual(cfg.Changelog, want) {
+		t.Errorf("changelog = %+v\nwant %+v", cfg.Changelog, want)
+	}
+}

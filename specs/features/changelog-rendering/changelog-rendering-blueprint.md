@@ -4,7 +4,7 @@ description: How release core renders one changelog corpus into every
   target in one pure pass, and places the changelog section idempotently.
 slug: feature-changelog-rendering
 type: feature-blueprint
-status: in-progress
+status: retired
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 plan: release-fgl
@@ -195,16 +195,16 @@ Legend: HEAD = [[module-release-core]] delta (— changelog headings); RND =
 
 ## Definition of Done
 
-- [ ] Every delta above is folded into its owning blueprint:
-  - [ ] [[module-release-core]] — Interface records the `changelog`
+- [x] Every delta above is folded into its owning blueprint:
+  - [x] [[module-release-core]] — Interface records the `changelog`
     settings
-  - [ ] [[component-changelog-renderer]] — Interface records the layout
-  - [ ] [[component-changelog-writer]] — Interface records the section
+  - [x] [[component-changelog-renderer]] — Interface records the layout
+  - [x] [[component-changelog-writer]] — Interface records the section
     rule and the created file's shape
-- [ ] Every AC in the coverage table is verified at its declared level
+- [x] Every AC in the coverage table is verified at its declared level
   and cited from its tests per the specs plugin's
   `shared/ac-traceability-standards.md`
-- [ ] This blueprint's status → retired
+- [x] This blueprint's status → retired
 
 ## Open Questions
 

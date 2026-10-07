@@ -18,6 +18,7 @@ import (
 
 	"github.com/brettcallaghan/release/internal/bump"
 	"github.com/brettcallaghan/release/internal/gitread"
+	"github.com/brettcallaghan/release/internal/releasemodel"
 	"github.com/brettcallaghan/release/internal/resolve"
 	"github.com/brettcallaghan/release/internal/semver"
 )
@@ -34,6 +35,51 @@ type Commands struct {
 	Preflight []string `toml:"preflight"`
 }
 
+// ChangelogGroup is one rendered changelog group: the entries of one kind,
+// under a heading.
+type ChangelogGroup struct {
+	Kind    releasemodel.ChangeKind `toml:"kind"`
+	Heading string                  `toml:"heading"`
+}
+
+// Changelog is how a rendered changelog is grouped and headed. Headings are
+// any UTF-8 text, emoji included, rendered verbatim.
+type Changelog struct {
+	// Groups are rendered in this order. A declared list replaces the
+	// default whole, so a kind it omits does not render.
+	Groups []ChangelogGroup `toml:"groups"`
+	// OtherHeading heads entries whose kind the renderer does not know.
+	OtherHeading string `toml:"other_heading"`
+	// BreakingHeading heads every entry marked breaking.
+	BreakingHeading string `toml:"breaking_heading"`
+}
+
+// ChangeKinds is every change kind the release core knows, in the order
+// schemas/changelog.strata declares them.
+var ChangeKinds = []releasemodel.ChangeKind{
+	releasemodel.ChangeKindFeature,
+	releasemodel.ChangeKindFix,
+	releasemodel.ChangeKindPerformance,
+	releasemodel.ChangeKindRevert,
+	releasemodel.ChangeKindRefactor,
+	releasemodel.ChangeKindDocumentation,
+	releasemodel.ChangeKindBuild,
+	releasemodel.ChangeKindCi,
+	releasemodel.ChangeKindTest,
+	releasemodel.ChangeKindStyle,
+	releasemodel.ChangeKindChore,
+}
+
+// KnownChangeKind reports whether k is one of ChangeKinds.
+func KnownChangeKind(k releasemodel.ChangeKind) bool {
+	for _, known := range ChangeKinds {
+		if k == known {
+			return true
+		}
+	}
+	return false
+}
+
 // Config is the tooling's configuration. The toml tags are the setting
 // names a configuration file declares.
 type Config struct {
@@ -47,8 +93,9 @@ type Config struct {
 	Leaps           bool     `toml:"leaps"`
 	Pre1Remap       bool     `toml:"pre1_remap"`
 	// Signals are the commit signal names the classifier reads.
-	Signals  []string `toml:"signals"`
-	Commands Commands `toml:"commands"`
+	Signals   []string  `toml:"signals"`
+	Commands  Commands  `toml:"commands"`
+	Changelog Changelog `toml:"changelog"`
 }
 
 // signalOrder is every commit signal, in the order the default lists them.
@@ -73,6 +120,16 @@ func Default() Config {
 		Pre1Remap:       p.Version.Pre1Remap,
 		Signals:         signals,
 		Commands:        Commands{Preflight: []string{}},
+		Changelog: Changelog{
+			Groups: []ChangelogGroup{
+				{Kind: releasemodel.ChangeKindFeature, Heading: "Features"},
+				{Kind: releasemodel.ChangeKindFix, Heading: "Fixes"},
+				{Kind: releasemodel.ChangeKindPerformance, Heading: "Performance"},
+				{Kind: releasemodel.ChangeKindRevert, Heading: "Reverts"},
+			},
+			OtherHeading:    "Other changes",
+			BreakingHeading: "Breaking changes",
+		},
 	}
 }
 
@@ -127,10 +184,28 @@ func (c Config) Validate() error {
 			reasons = append(reasons, fmt.Sprintf("release_branches glob %q can match a stage branch under stage_prefix %q%s (RTS-009)", glob, c.StagePrefix, collisionExample(glob, c.StagePrefix)))
 		}
 	}
+	seen := map[releasemodel.ChangeKind]bool{}
+	for _, g := range c.Changelog.Groups {
+		switch {
+		case !KnownChangeKind(g.Kind):
+			reasons = append(reasons, fmt.Sprintf("changelog.groups names kind %q, which is not a change kind (want one of %s)", g.Kind, kindList()))
+		case seen[g.Kind]:
+			reasons = append(reasons, fmt.Sprintf("changelog.groups lists kind %q more than once", g.Kind))
+		}
+		seen[g.Kind] = true
+	}
 	if len(reasons) > 0 {
 		return &Refusal{Reasons: reasons}
 	}
 	return nil
+}
+
+func kindList() string {
+	names := make([]string, len(ChangeKinds))
+	for i, k := range ChangeKinds {
+		names[i] = string(k)
+	}
+	return strings.Join(names, ", ")
 }
 
 func signalList() string {

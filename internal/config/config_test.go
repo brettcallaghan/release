@@ -46,6 +46,16 @@ func TestUnconfiguredValuesTakeTheirDocumentedDefaults(t *testing.T) {
 		Pre1Remap:       true,
 		Signals:         []string{"release-type", "conventional-type", "breaking-marker"},
 		Commands:        Commands{Preflight: []string{}},
+		Changelog: Changelog{
+			Groups: []ChangelogGroup{
+				{Kind: "FEATURE", Heading: "Features"},
+				{Kind: "FIX", Heading: "Fixes"},
+				{Kind: "PERFORMANCE", Heading: "Performance"},
+				{Kind: "REVERT", Heading: "Reverts"},
+			},
+			OtherHeading:    "Other changes",
+			BreakingHeading: "Breaking changes",
+		},
 	}
 	if !reflect.DeepEqual(d, want) {
 		t.Errorf("Default() = %+v\nwant %+v", d, want)
@@ -267,5 +277,43 @@ func TestARefusalNamesAnExampleWhenAProbeMatches(t *testing.T) {
 	got := reasons(t, c)
 	if len(got) != 2 || !strings.Contains(got[0], `such as "cut/1.2.3"`) || strings.Contains(got[1], "such as") {
 		t.Errorf("reasons = %v, want an example for cut/1.* and none for cut/2.*", got)
+	}
+}
+
+func TestAnUnknownChangelogKindIsRefused(t *testing.T) {
+	c := Default()
+	c.Changelog.Groups = []ChangelogGroup{{Kind: "SECURITY", Heading: "Security"}}
+	got := reasons(t, c)
+	if len(got) != 1 || !strings.Contains(got[0], `"SECURITY"`) || !strings.Contains(got[0], "not a change kind") {
+		t.Errorf("reasons = %q, want one naming SECURITY as not a change kind", got)
+	}
+}
+
+func TestAChangelogKindListedTwiceIsRefused(t *testing.T) {
+	c := Default()
+	c.Changelog.Groups = []ChangelogGroup{
+		{Kind: "FIX", Heading: "Fixes"},
+		{Kind: "FEATURE", Heading: "Features"},
+		{Kind: "FIX", Heading: "Bugs"},
+	}
+	got := reasons(t, c)
+	if len(got) != 1 || !strings.Contains(got[0], `"FIX"`) || !strings.Contains(got[0], "more than once") {
+		t.Errorf("reasons = %q, want one naming FIX as listed more than once", got)
+	}
+}
+
+func TestEveryChangeKindIsKnown(t *testing.T) {
+	for _, k := range ChangeKinds {
+		if !KnownChangeKind(k) {
+			t.Errorf("KnownChangeKind(%q) = false", k)
+		}
+		c := Default()
+		c.Changelog.Groups = []ChangelogGroup{{Kind: k, Heading: "h"}}
+		if err := c.Validate(); err != nil {
+			t.Errorf("a group of kind %q is refused: %v", k, err)
+		}
+	}
+	if KnownChangeKind("feature") {
+		t.Error("kinds are case-sensitive; feature is not FEATURE")
 	}
 }
