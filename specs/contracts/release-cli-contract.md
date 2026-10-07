@@ -8,7 +8,6 @@ status: approved
 updated_at: 2026-10-07T00:00:00Z
 provider: container-release-cli
 visibility: public
-consumers: []
 specs:
   - testdata/help/
 version: "1.1"

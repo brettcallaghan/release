@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Changelog Authoring Bridge"
+entity_name: Changelog Authoring Bridge
 description: The seam across which a selected producer receives a changelog
   corpus and returns an authored one, with the returned corpus validated
   against the schema and its proposed impact checked.
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:

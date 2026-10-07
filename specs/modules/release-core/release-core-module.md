@@ -1,5 +1,6 @@
 ---
 title: "Module Blueprint: Release Core"
+entity_name: Release Core
 description: The library that computes versions, assembles and renders
   changelogs, and stages releases — every component of the release process,
   behind one in-process interface.
@@ -9,11 +10,7 @@ status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
 visibility: internal
-contracts_provided:
-  - contract-changelog
 contracts_consumed: []
-contained_by:
-  - container-release-cli
 source_paths:
   - internal
 test_paths:

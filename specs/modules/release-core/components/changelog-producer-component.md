@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Changelog Producer"
+entity_name: Changelog Producer
 description: The component type that receives a changelog corpus and returns
   an authored one — a language model, a command, a conventional-commit parser,
   or a person.
@@ -8,7 +9,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: pattern
-contracts_provided: []
 contracts_consumed:
   - contract-changelog
 source_paths:

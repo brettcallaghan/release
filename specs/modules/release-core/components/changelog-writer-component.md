@@ -1,5 +1,6 @@
 ---
 title: "Component Blueprint: Changelog Writer"
+entity_name: Changelog Writer
 description: A rendered section placed into CHANGELOG.md idempotently,
   without disturbing the entries already there.
 slug: component-changelog-writer
@@ -7,7 +8,6 @@ type: component-blueprint
 status: approved
 updated_at: 2026-10-07T00:00:00Z
 kind: standard
-contracts_provided: []
 contracts_consumed: []
 source_paths:
   - internal/changelogfile

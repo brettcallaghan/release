@@ -3,7 +3,7 @@ title: "Feature Blueprint: Release Staging"
 description: How release core cuts a release as a stage branch and pull
   request, with every failable check before the first write, and how
   `release cut` drives it.
-slug: fb-release-staging
+slug: feature-release-staging
 type: feature-blueprint
 status: in-progress
 updated_at: 2026-10-07T00:00:00Z
@@ -185,6 +185,6 @@ None.
 - `shared/c4-standards.md` — the module and component definitions these
   deltas are written against
 - [[frd-release-staging]] — the requirements this realizes
-- [[fb-version-computation]], [[fb-tool-configuration]],
-  [[fb-changelog-rendering]], [[fb-changelog-authoring]] — the features
+- [[feature-version-computation]], [[feature-tool-configuration]],
+  [[feature-changelog-rendering]], [[feature-changelog-authoring]] — the features
   this composes

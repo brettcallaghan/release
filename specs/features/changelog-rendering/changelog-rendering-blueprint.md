@@ -2,7 +2,7 @@
 title: "Feature Blueprint: Changelog Rendering"
 description: How release core renders one changelog corpus into every
   target in one pure pass, and places the changelog section idempotently.
-slug: fb-changelog-rendering
+slug: feature-changelog-rendering
 type: feature-blueprint
 status: in-progress
 updated_at: 2026-10-07T00:00:00Z
@@ -216,4 +216,4 @@ None.
   deltas are written against
 - [[frd-changelog-rendering]] — the requirements this realizes
 - [[contract-changelog]] — the corpus consumed
-- [[fb-tool-configuration]] — the configuration model HEAD extends
+- [[feature-tool-configuration]] — the configuration model HEAD extends

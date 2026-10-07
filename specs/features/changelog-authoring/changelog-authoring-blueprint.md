@@ -3,7 +3,7 @@ title: "Feature Blueprint: Changelog Authoring"
 description: How release core assembles a changelog corpus from git,
   exchanges it with an out-of-process producer, validates and caches what
   returns, and how `release changelog` drives it.
-slug: fb-changelog-authoring
+slug: feature-changelog-authoring
 type: feature-blueprint
 status: in-progress
 updated_at: 2026-10-07T00:00:00Z
@@ -298,5 +298,5 @@ None.
   deltas are written against
 - [[frd-changelog-authoring]] — the requirements this realizes
 - [[contract-changelog]] — the corpus revised and exchanged
-- [[fb-version-computation]], [[fb-tool-configuration]],
-  [[fb-changelog-rendering]] — the features this builds on
+- [[feature-version-computation]], [[feature-tool-configuration]],
+  [[feature-changelog-rendering]] — the features this builds on

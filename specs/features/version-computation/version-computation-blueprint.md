@@ -2,7 +2,7 @@
 title: "Feature Blueprint: Version Computation"
 description: How the release core gains semver, tag, commit, impact and
   version components, and how `release version` exposes them.
-slug: fb-version-computation
+slug: feature-version-computation
 type: feature-blueprint
 status: in-progress
 updated_at: 2026-10-07T00:00:00Z
