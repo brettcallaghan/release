@@ -44,7 +44,29 @@ project can keep the changelog style it already publishes.
 
 ## Interface
 
-- **Surface:** given a corpus and a target, return rendered markdown.
+- **Surface:** `Render` takes a corpus, the `changelog` settings and an
+  optional repository web URL, and returns every target together from that
+  one corpus value: the changelog section and the release body.
+- **Layout:** the section is a `## <version>` heading with no date, then
+  the title in bold and the summary when present, then the breaking-changes
+  group, each configured group in configured order, and the other group,
+  each group a `### <heading>` and a list. The release body is the section
+  without its heading line and the blank line after it.
+  - An entry is one list item: `**<scope>:** ` when scoped, the summary,
+    and its sources in parentheses; `detail` and then `Migration:
+    <migration>` follow as indented paragraphs when set, and a blank line
+    ends an item carrying them.
+  - A breaking entry renders only in the breaking-changes group, whatever
+    its kind. An entry of a kind the component does not know renders in the
+    other group; an entry of a known kind absent from `changelog.groups`
+    does not render. A group with no entries renders no heading.
+  - With a repository web URL, a pull request renders as
+    `[#<n>](<url>/pull/<n>)` and a commit as
+    `[<hash7>](<url>/commit/<hash>)`; without one, as `#<n>` and
+    `<hash7>`. An issue renders as its id.
+  - Output uses `\n` line endings and ends with exactly one newline; a
+    corpus with no title, summary or entries renders only the heading, and
+    an empty body.
 - **Guarantees:**
   - The component SHALL produce byte-identical output for identical input.
   - The component SHALL render every target from one corpus instance.
@@ -54,7 +76,8 @@ project can keep the changelog style it already publishes.
     component SHALL render it into a default group rather than failing.
   - The component SHALL render a breaking-changes section whenever the
     corpus declares one.
-  - IF `version` is unset, THEN the component SHALL refuse to render.
+  - IF `version` is unset, or `schema_version` has a major other than 1,
+    THEN the component SHALL refuse to render.
   - The component SHALL NOT read the filesystem, git, or the network.
 
 ## Cross-Cutting Standards
