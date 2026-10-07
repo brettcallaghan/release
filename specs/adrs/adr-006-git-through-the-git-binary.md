@@ -4,13 +4,13 @@ description: The release core reads and writes repositories by running the
   installed `git` command, not through a Go reimplementation of git.
 slug: adr-006
 type: adr
-status: ready-for-review
+status: approved
 updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-006: Git Through the Git Binary
 
-**Status:** ready-for-review
+**Status:** approved
 **Date:** 2026-10-07
 
 ## Context

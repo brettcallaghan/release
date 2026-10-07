@@ -4,10 +4,11 @@ description: How the release core gains semver, tag, commit, impact and
   version components, and how `release version` exposes them.
 slug: fb-version-computation
 type: feature-blueprint
-status: ready-for-review
+status: in-progress
 updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 frd: frd-version-computation
+plan: release-cb2
 ---
 
 # Version Computation
@@ -313,7 +314,7 @@ resolution operation); CMD = [[container-release-cli]] delta (—
 - [[adr-003]] — the bump is computed; why BC never reads `proposed_bump`.
 - [[adr-005]] — composable core with git I/O isolated; why SV, BC and VC
   are pure and RES composes them.
-- [[adr-006]] (new, ready-for-review) — git is reached through the `git`
+- [[adr-006]] (new) — git is reached through the `git`
   binary; why TR and CC run `git` rather than a Go library.
 
 ## Definition of Done
