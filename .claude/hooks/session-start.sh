@@ -82,6 +82,9 @@ if command -v bd >/dev/null 2>&1; then
   log "bd ready: $(bd --version 2>/dev/null | grep -o 'version [0-9.]*' | head -1)"
 else
   log "WARNING: bd unavailable — grooming and orchestration skills will not run"
+  # Fatal at the end of the hook: without bd the tracker block below is
+  # skipped, and nothing else would stop the session reporting ready.
+  BB_DOLT_FATAL="bd is not installed"
 fi
 
 # --- 2. Beads telemetry and database ----------------------------------------
@@ -137,7 +140,9 @@ if command -v bd >/dev/null 2>&1; then
   if [ -z "$BB_DOLT_FATAL" ] && [ -d .beads/embeddeddolt ]; then
     # Read the prefix positively: under `pipefail` a transient `bd config list`
     # failure is indistinguishable from "the prefix is wrong".
-    _prefix="$(bd config list 2>/dev/null | sed -n 's/^[[:space:]]*issue_prefix = //p' | head -1)" || _prefix=""
+    _config="$(bd config list 2>/dev/null)" || _config=""
+    _prefix="$(sed -n 's/^[[:space:]]*issue_prefix = //p' <<<"$_config")"
+    _prefix="${_prefix%%$'\n'*}"
     if [ -z "$_prefix" ]; then
       log "note: could not read the tracker prefix — skipping the namespace guard"
     elif [ "$_prefix" != "release" ]; then

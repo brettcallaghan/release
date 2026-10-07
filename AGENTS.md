@@ -165,7 +165,8 @@ cross-compile and the busybox smoke test live in `.github/workflows/cli.yml`.
   to Go code is not finished until the script has run and the README diff is
   committed with it. Use the Go version in `go.mod`; another toolchain moves
   the statement counts.
-- **Every snapshot case cites the acceptance criteria it verifies** in
+- **Every snapshot case cites what it verifies** (an AC id, or a
+  `slug#anchor` for a contract section) in
   `cites`, so a criterion with no case is findable.
 
 ## How beads persist in THIS project

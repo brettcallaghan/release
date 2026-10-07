@@ -1,6 +1,9 @@
 # Dolt database (managed by Dolt, not git)
 dolt/
 embeddeddolt/
+# A database from an earlier tracker, moved aside (not deleted) by the
+# SessionStart hook because it may hold unpushed beads.
+embeddeddolt.stale.*/
 proxieddb/
 
 # Swarm run artifacts (per-run scratch: collision-edge files, plan documents)
@@ -83,7 +86,7 @@ bd.db
 *.gate.lock*
 
 # JSONL exports are NOT tracked. The Dolt remote
-# (origin refs/dolt/data) is the source of truth; these are local snapshots for
+# (origin's beads/data branch) is the source of truth; these are local snapshots for
 # viewers and interchange only. Tracking them made a 1.1 MB generated file
 # churn ~45% of its records into every bead commit, and invited the
 # JSONL-as-sync anti-pattern beads' own docs warn against.

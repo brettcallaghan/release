@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"testing"
 
@@ -86,6 +87,7 @@ func runSnapshotCase(t *testing.T, dir string) {
 	if m.Description == "" {
 		t.Error("case.toml has no description")
 	}
+	checkCitations(t, m)
 
 	work := t.TempDir()
 	if input := filepath.Join(dir, "input"); exists(t, input) {
@@ -183,6 +185,26 @@ func checkAssertionCoverage(t *testing.T, dir string, m caseManifest) {
 	for name := range present {
 		if !slices.Contains(m.Artifacts, name) {
 			t.Errorf("expected/%s exists but case.toml does not declare it, so nothing reads it", name)
+		}
+	}
+}
+
+// citation is what a case may cite: an FRD acceptance criterion
+// (AC-VER-001.2) or a section of a corpus document by slug and anchor
+// (contract-release-cli#guarantees), for behaviour a contract specifies
+// without numbered criteria.
+var citation = regexp.MustCompile(`^(AC-[A-Z0-9]+-[0-9]+\.[0-9]+|[a-z0-9]+(-[a-z0-9]+)*#[a-z0-9]+(-[a-z0-9]+)*)$`)
+
+// checkCitations requires every case to name what it verifies, so a
+// criterion with no case is findable by searching testdata/cases.
+func checkCitations(t *testing.T, m caseManifest) {
+	t.Helper()
+	if len(m.Cites) == 0 {
+		t.Error("case.toml cites nothing; name the acceptance criteria or contract section the case verifies")
+	}
+	for _, c := range m.Cites {
+		if !citation.MatchString(c) {
+			t.Errorf("case.toml cites %q, which is neither an AC id (AC-VER-001.2) nor a slug#anchor (contract-release-cli#guarantees)", c)
 		}
 	}
 }

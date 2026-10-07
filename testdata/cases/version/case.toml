@@ -1,5 +1,5 @@
 description = "--version prints the tool's own version to stdout and succeeds"
-cites = []
+cites = ["contract-release-cli#global-flags"]
 args = ["--version"]
 exit_code = 0
 artifacts = ["stdout.txt", "stderr.txt"]
