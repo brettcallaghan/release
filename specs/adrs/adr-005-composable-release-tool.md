@@ -5,13 +5,13 @@ description: The release tooling is built as small, independently testable
   registry publication left to adopting repositories.
 slug: adr-005
 type: adr
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-005: A Composable Library With a Thin CLI
 
-**Status:** draft
+**Status:** approved
 **Date:** 2026-10-06
 
 ## Context

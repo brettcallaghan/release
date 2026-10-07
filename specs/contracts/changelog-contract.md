@@ -4,8 +4,8 @@ description: The structured representation of a release's changelog, written
   by an authoring producer and consumed by deterministic renderers.
 slug: contract-changelog
 type: contract
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 provider: container-release-cli
 visibility: public
 consumers: []

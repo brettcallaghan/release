@@ -5,13 +5,13 @@ description: The version bump is computed from commit metadata; a language
   the release for human confirmation.
 slug: adr-003
 type: adr
-status: draft
-updated_at: 2026-09-25T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-003: Deterministic Bump Computation with Authored Prose
 
-**Status:** draft
+**Status:** approved
 **Date:** 2026-09-25
 
 ## Context

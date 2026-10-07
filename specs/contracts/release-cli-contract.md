@@ -4,8 +4,8 @@ description: The commands, arguments, flags, output and exit codes the release
   command-line tool vends to maintainers and to the scripts that drive it.
 slug: contract-release-cli
 type: contract
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 provider: container-release-cli
 visibility: public
 consumers: []
@@ -86,7 +86,7 @@ writes the release commit onto a stage branch, and opens its pull request.
 | `--redo-notes` | Discard any cached corpus and author again |
 | `--no-pull-request` | Create the stage branch and stop; open no pull request |
 | `--dry-run` | Report every intended action and change nothing |
-| `--yes` | Do not prompt before writing |
+| `--yes` | Do not prompt before writing. Only meaningful interactively |
 | `--json` | Emit the outcome as one JSON object |
 
 The only command that writes to the repository or the hosting platform.
@@ -168,6 +168,11 @@ WHERE `--dry-run` is given, the provider SHALL make no change of any kind.
 
 ---
 
+WHILE standard input is a terminal, the provider SHALL prompt before the first
+write performed by `release cut`.
+
+---
+
 The provider SHALL NOT prompt WHILE standard input is not a terminal.
 
 **Rationale:** A command that blocks on a prompt in continuous delivery hangs
@@ -217,10 +222,9 @@ undiagnosable, and the usual cause is one mis-marked change.
 
 ## Open Questions
 
-- [ ] Whether `release cut` should default to prompting. Prompting is safer
-  for a maintainer and useless in continuous delivery, and the terminal check
-  above makes `--yes` unnecessary in the latter — so the question is only
-  about the interactive default.
+None. `release cut` prompts before its first write when standard input is a
+terminal, and `--yes` suppresses the prompt. Non-interactive invocations never
+prompt, so no automation needs the flag.
 
 ## References
 

@@ -1,11 +1,12 @@
 ---
 title: "Component Blueprint: Diff Collector"
-description: The code diff between two refs, collected as changelog material
-  for releases where the commits and pull requests do not say enough.
+description: "Not part of the MVP. The code diff between two refs, collected
+  as changelog material for releases where the commits and pull requests do not
+  say enough."
 slug: component-diff-collector
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed: []

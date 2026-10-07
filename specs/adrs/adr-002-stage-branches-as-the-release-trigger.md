@@ -5,13 +5,13 @@ description: A release is triggered by merging a branch carrying the
   checks verifying the commit independently of the branch name.
 slug: adr-002
 type: adr
-status: draft
-updated_at: 2026-09-25T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-002: Stage Branches as the Release Trigger
 
-**Status:** draft
+**Status:** approved
 **Date:** 2026-09-25
 
 ## Context

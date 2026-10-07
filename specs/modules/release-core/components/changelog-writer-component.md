@@ -4,8 +4,8 @@ description: A rendered section placed into CHANGELOG.md idempotently,
   without disturbing the entries already there.
 slug: component-changelog-writer
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed: []

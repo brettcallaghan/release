@@ -1,12 +1,12 @@
 ---
 title: "Component Blueprint: Pull Request Metadata Collector"
-description: Pull-request metadata fetched from the hosting platform for one
-  pull request or a list of them — title, description, author, labels and
-  branch.
+description: "Not part of the MVP. Pull-request metadata fetched from the
+  hosting platform for one pull request or a list — title, description,
+  author, labels and branch."
 slug: component-pr-metadata-collector
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed: []

@@ -5,13 +5,13 @@ description: The tooling accepts any branch as a release line and does not
   project makes and maintains.
 slug: adr-001
 type: adr
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-001: Release Lines Are Policy, Not Tooling
 
-**Status:** draft
+**Status:** approved
 **Date:** 2026-10-06
 
 ## Context

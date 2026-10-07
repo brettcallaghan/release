@@ -4,8 +4,8 @@ description: The command-line front end to the release core library — its
   command surface, configuration loading, and output.
 slug: container-release-cli
 type: container-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 contracts_provided:
   - contract-release-cli
 contracts_consumed: []

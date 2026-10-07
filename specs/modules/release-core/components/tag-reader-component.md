@@ -4,8 +4,8 @@ description: Release tags reachable from a ref, parsed to versions and
   ordered, so the base version of a release line is a git query.
 slug: component-tag-reader
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed: []

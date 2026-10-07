@@ -4,8 +4,8 @@ description: Collected commit and pull-request records assembled into a
   changelog corpus, merging author-written notes where they exist.
 slug: component-changelog-corpus-builder
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed:
@@ -107,9 +107,10 @@ classifier by construction and defeat the disagreement check in
 
 ## Open Questions
 
-- [ ] Which marker delimits an author-written release-notes block in a
-  commit body. Affects the authoring skill and the repository settings
-  guide, so it is decided once for all three.
+None. A `## Release Notes` heading delimits the block, matching the
+convention Auto established and the heading the stage pull request already
+uses for its own notes. The block runs to the next heading of the same level
+or to the end of the body.
 
 ## References
 

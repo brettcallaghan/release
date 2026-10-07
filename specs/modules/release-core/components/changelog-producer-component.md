@@ -5,8 +5,8 @@ description: The component type that receives a changelog corpus and returns
   or a person.
 slug: component-changelog-producer
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: pattern
 contracts_provided: []
 contracts_consumed:
@@ -25,13 +25,17 @@ The plug point behind [[component-changelog-authoring-bridge]]. A producer
 receives an assembled corpus and returns an authored one: prose written,
 entries grouped and summarised, a bump proposed.
 
-There are several ways to author a changelog and no reason to privilege one.
-A language model reading pull-request descriptions and diffs is the baseline.
-A command lets a project drive whatever it already has. A
-conventional-commit parser needs no model at all and is the right choice for
-a project whose commit discipline already carries the information. A person
-editing the corpus in a text editor is a producer too, and is what a
-maintainer falls back to when a release needs correcting by hand.
+There are several ways to author a changelog. A language model reading
+pull-request descriptions is the default, reached by invoking the `claude`
+command on the maintainer's workstation — the same mechanism Strata's existing
+release script already uses, which is why it is the one producer this project
+knows it can rely on.
+
+The others exist because that one is not always right. A command lets a project
+drive whatever it already has. A conventional-commit parser needs no model at
+all and suits a project whose commit discipline already carries the
+information. A person editing the corpus in a text editor is a producer too,
+and is the fallback when a release needs correcting by hand.
 
 The bridge knows none of them apart. Every producer is reached the same way
 and every returned corpus is validated the same way, which is what makes
@@ -55,6 +59,8 @@ authoring replaceable rather than merely configurable.
   - A producer SHALL preserve the sources of every entry it carries forward.
   - A producer SHALL NOT set `version`.
   - A producer SHALL NOT write to the repository.
+  - IF a producer's prerequisite is unavailable, THEN it SHALL refuse and name
+    the prerequisite rather than degrading silently.
 
 ## Pattern Guidance
 
@@ -79,11 +85,13 @@ authoring replaceable rather than merely configurable.
 
 **Instances:**
 
-- **Model producer** (`internal/authoring/producers/model`) — invokes an
-  external language-model session on the workstation. The baseline.
+- **Claude CLI producer** (`internal/authoring/producers/claude`) — **the
+  default.** Invokes the `claude` command on the workstation, passing the
+  corpus and reading the authored result back. Requires no API credential,
+  because it uses the session the maintainer already has.
 - **Command producer** (`internal/authoring/producers/command`) — runs a
   configured command, passing the corpus on standard input and reading the
-  result from standard output.
+  result from standard output. The escape hatch for any other model or tool.
 - **Conventional-commit producer**
   (`internal/authoring/producers/conventional`) — derives entries from
   conventional-commit subjects with no model involved.
@@ -123,9 +131,10 @@ which producer a project selected.
 
 ## Open Questions
 
-- [ ] Which producer is the default when a project configures none. The model
-  producer is the obvious answer but requires a model to be available, which
-  makes a first run fail on a machine without one.
+None. The Claude CLI producer is the default. A machine without the `claude`
+command gets a refusal naming the producer and the alternatives, rather than a
+silent fallback that would make release notes depend on which tools happened to
+be installed.
 
 ## References
 

@@ -5,8 +5,8 @@ description: Collecting commit and pull-request metadata, assembling it
   external author whose proposed impact is checked rather than trusted.
 slug: frd-changelog-authoring
 type: frd
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 sources:
   - adr-003
   - adr-005

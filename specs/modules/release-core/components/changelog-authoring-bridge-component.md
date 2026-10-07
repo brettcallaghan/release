@@ -5,8 +5,8 @@ description: The seam across which a selected producer receives a changelog
   against the schema and its proposed impact checked.
 slug: component-changelog-authoring-bridge
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed:
@@ -139,9 +139,11 @@ of a failed staging cost again, which is the expense it exists to prevent.
 
 ## Open Questions
 
-- [ ] Whether the cache lives inside the repository or outside it. Inside, it
-  survives a clean checkout and risks being committed; outside, it is
-  invisible to a reviewer wondering why re-staging was instant.
+None. The cache lives inside the repository under a path the project
+gitignores. That keeps it discoverable by a maintainer wondering why
+re-cutting was instant, keeps it out of commits, and means a clean checkout
+starts empty — which is the correct behaviour, since a fresh clone has no
+authored corpus to trust.
 
 ## References
 

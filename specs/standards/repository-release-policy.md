@@ -6,8 +6,8 @@ description: The release choices a project makes for itself — which
   artifacts.
 slug: repository-release-policy
 type: standards
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 version: "0.1"
 ---
 

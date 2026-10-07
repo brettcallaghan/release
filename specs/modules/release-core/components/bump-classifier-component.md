@@ -5,8 +5,8 @@ description: Release impact computed deterministically from a named bump, an
   reported alongside it.
 slug: component-bump-classifier
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed: []
@@ -30,8 +30,8 @@ Sources are tried in precedence order:
    inferred, always.
 2. **An authored changelog** — the baseline path. Each entry carries a `kind`
    and a `breaking` flag, and the mapping from those to an impact is a pure
-   function: any breaking entry means major, otherwise any `FEAT` means minor,
-   otherwise patch. The entries may have been written by a language model; the
+   function: any breaking entry means major, otherwise any `FEATURE` means
+   minor, otherwise patch. The entries may have been written by a language model; the
    mapping over them is arithmetic, so the result is reproducible from the
    corpus.
 3. **Conventional commits** — a type in the commit subject (`feat`, `fix` and

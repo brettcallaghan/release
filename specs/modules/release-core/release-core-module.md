@@ -5,8 +5,8 @@ description: The library that computes versions, assembles and renders
   behind one in-process interface.
 slug: module-release-core
 type: module-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 visibility: internal
 contracts_provided:
@@ -90,12 +90,14 @@ identity and trailers parsed from them.
 ### Pull Request Metadata Collector
 
 [[component-pr-metadata-collector]] — pull-request metadata fetched from the
-hosting platform. Deferred beyond the first milestone.
+hosting platform. **Not part of the MVP:** every adopting repository
+squash-merges, so this metadata already reaches the release through git.
 
 ### Diff Collector
 
 [[component-diff-collector]] — code diffs between two refs, as changelog
-material. Opt-in and deferred beyond the first milestone.
+material. **Not part of the MVP:** author-written notes make it unnecessary,
+and it is the only adapter whose cost scales with how much changed.
 
 ### Bump Classifier
 

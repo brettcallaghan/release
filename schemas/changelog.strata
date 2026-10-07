@@ -138,18 +138,18 @@ union ChangeSource {
     """
     A pull request the change arrived through.
     """
-    PullRequestSource
+    PullRequest: PullRequestSource
 
     """
     A commit the change arrived through, for work that reached the release
     outside a pull request.
     """
-    CommitSource
+    Commit: CommitSource
 
     """
     An issue or work item the change resolves.
     """
-    IssueSource
+    Issue: IssueSource
 }
 
 """
@@ -211,20 +211,21 @@ enum Bump {
 """
 The category of an itemized change, which decides the section it renders in.
 
-The variants are the conventional-commit types, so a parser reading
-conventional commits maps onto them without translation and a producer
-writing prose uses the same vocabulary. Whether a change is breaking is
+The variants correspond one-to-one with the conventional-commit types, spelled
+out rather than abbreviated, so a parser reading conventional commits maps onto
+them mechanically while a producer writing prose reads a vocabulary that needs
+no decoding. Whether a change is breaking is
 carried by `ChangelogEntry.breaking` rather than by a variant, matching
 conventional commits' treatment of it as a marker rather than a type.
 
-A project typically renders `FEAT`, `FIX`, `PERF` and `REVERT`, and omits the
-rest from published notes.
+A project typically renders `FEATURE`, `FIX`, `PERFORMANCE` and `REVERT`, and
+omits the rest from published notes.
 """
 enum ChangeKind {
     """
     A new capability a consumer can use.
     """
-    FEAT
+    FEATURE
 
     """
     A correction to behaviour that was wrong.
@@ -234,7 +235,7 @@ enum ChangeKind {
     """
     A change whose observable effect is speed or resource use.
     """
-    PERF
+    PERFORMANCE
 
     """
     A change that reverts earlier work.
@@ -249,7 +250,7 @@ enum ChangeKind {
     """
     A documentation change.
     """
-    DOCS
+    DOCUMENTATION
 
     """
     A change to the build system or to dependencies.

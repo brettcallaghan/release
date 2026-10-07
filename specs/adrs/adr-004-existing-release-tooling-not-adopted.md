@@ -5,13 +5,13 @@ description: The field survey behind building rather than adopting — what
   provide, and the reason each is rejected.
 slug: adr-004
 type: adr
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-004: Existing Release Tooling Is Not Adopted
 
-**Status:** draft
+**Status:** approved
 **Date:** 2026-10-06
 
 ## Context

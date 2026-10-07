@@ -5,8 +5,8 @@ description: How a project publishes and withdraws a release — declared
   channel coverage, and channel state.
 slug: cli-distribution-policy
 type: standards
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 version: "0.2"
 ---
 

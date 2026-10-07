@@ -5,8 +5,8 @@ description: The sequence that cuts a release — producing a stage branch and
   hosting platform.
 slug: component-stage-orchestrator
 type: component-blueprint
-status: draft
-updated_at: 2026-10-06T00:00:00Z
+status: approved
+updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_provided: []
 contracts_consumed:
