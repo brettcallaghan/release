@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,187 / 1,399 | 84.8% |
-| Snapshot cases | 919 / 1,399 | 65.7% |
-| End-to-end (built binary) | 733 / 1,399 | 52.4% |
-| **All layers combined** | **1,332 / 1,399** | **95.2%** |
+| Unit tests | 1,200 / 1,410 | 85.1% |
+| Snapshot cases | 921 / 1,410 | 65.3% |
+| End-to-end (built binary) | 735 / 1,410 | 52.1% |
+| **All layers combined** | **1,342 / 1,410** | **95.2%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -62,7 +62,7 @@ A statement is covered if any layer reaches it.
 | `release/internal/bump` | 94 | 94 | 100.0% |
 | `release/internal/changelog` | 49 | 41 | 83.7% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
-| `release/internal/cli` | 341 | 312 | 91.5% |
+| `release/internal/cli` | 352 | 322 | 91.5% |
 | `release/internal/config` | 139 | 138 | 99.3% |
 | `release/internal/corpus` | 83 | 82 | 98.8% |
 | `release/internal/delegate` | 30 | 30 | 100.0% |
@@ -72,7 +72,7 @@ A statement is covered if any layer reaches it.
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/version` | 68 | 68 | 100.0% |
-| **Total** | **1,399** | **1,332** | **95.2%** |
+| **Total** | **1,410** | **1,342** | **95.2%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->

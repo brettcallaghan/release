@@ -156,11 +156,33 @@ func (s *streams) answer(asJSON bool, a yMap) error {
 
 // display is a path as an answer reports it: relative to the repository
 // root, with forward slashes, WHEN it lies inside the root, and otherwise as
-// given.
+// given. Both sides are compared with symbolic links resolved, because git
+// reports the root resolved (macOS's /var is /private/var) while a path the
+// user named is not.
 func (s *streams) display(path string) string {
-	rel, err := filepath.Rel(s.root, path)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if rel, ok := within(s.root, path); ok {
+		return rel
+	}
+	root, err := filepath.EvalSymlinks(s.root)
+	if err != nil {
 		return path
 	}
-	return filepath.ToSlash(rel)
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return path
+	}
+	if rel, ok := within(root, resolved); ok {
+		return rel
+	}
+	return path
+}
+
+// within is path relative to root, with forward slashes, and whether path
+// lies inside root.
+func within(root, path string) (string, bool) {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return filepath.ToSlash(rel), true
 }
