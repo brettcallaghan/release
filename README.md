@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-97.0%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-96.9%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,15 +48,16 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,082 / 1,182 | 91.5% |
-| Snapshot cases | 563 / 1,182 | 47.6% |
-| End-to-end (built binary) | 435 / 1,182 | 36.8% |
-| **All layers combined** | **1,146 / 1,182** | **97.0%** |
+| Unit tests | 1,134 / 1,236 | 91.7% |
+| Snapshot cases | 563 / 1,236 | 45.6% |
+| End-to-end (built binary) | 435 / 1,236 | 35.2% |
+| **All layers combined** | **1,198 / 1,236** | **96.9%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
 | `release/cmd/release` | 1 | 1 | 100.0% |
 | `release/internal/authoring` | 66 | 58 | 87.9% |
+| `release/internal/authoring/producers` | 54 | 52 | 96.3% |
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
 | `release/internal/bump` | 94 | 94 | 100.0% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
@@ -70,7 +71,7 @@ A statement is covered if any layer reaches it.
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/version` | 68 | 68 | 100.0% |
-| **Total** | **1,182** | **1,146** | **97.0%** |
+| **Total** | **1,236** | **1,198** | **96.9%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
