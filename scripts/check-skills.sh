@@ -75,10 +75,10 @@ for p in SKILLS:
             err(p, "frontmatter is not a mapping"); continue
     else:
         d = {}
-        for m in re.finditer(r'^([a-z_]+):[ ]*(.*)$', fm, re.M):
+        for m in re.finditer(r'^([A-Za-z0-9_-]+):[ ]*(.*)$', fm, re.M):
             d[m.group(1)] = m.group(2).strip().strip('"')
         for ln in fm.strip().split('\n'):
-            if ln and not ln.startswith(' ') and not re.match(r'^[a-z_]+:', ln):
+            if ln and not ln.startswith(' ') and not re.match(r'^[A-Za-z0-9_-]+:', ln):
                 err(p, f"frontmatter line is neither a key nor an indented "
                        f"continuation: {ln[:60]!r}")
 
