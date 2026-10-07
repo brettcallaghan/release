@@ -132,7 +132,7 @@ rendering per target.
 [[component-changelog-writer]] — a rendered section placed into the changelog
 file.
 
-### Cut Orchestrator
+### Stage Orchestrator
 
 [[component-stage-orchestrator]] — the sequence that cuts a release, producing
 a stage branch and its pull request.
@@ -235,9 +235,10 @@ on a platform the tooling does not integrate with.
 
 ## Open Questions
 
-- [ ] Whether an HTTP service or a tool-calling server is a near-term second
-  consumer. It does not change this module's design, but it decides how soon
-  the interface has to stop changing freely. Decided by the project owner.
+None. No second consumer is near-term, so the interface may keep changing
+freely while this module is `internal`. The separation from the command
+surface is kept because it costs nothing now and would be expensive to
+introduce later, not because a second front end is planned.
 
 ## References
 

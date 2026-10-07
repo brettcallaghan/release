@@ -134,7 +134,7 @@ of a failed staging cost again, which is the expense it exists to prevent.
 ## Key Decisions
 
 - [[adr-003]] — a proposal is compared, never trusted.
-- [[adr-005]] — changelog authoring is a replaceable step rather than a render
+- [[adr-004]] — changelog authoring is a replaceable step rather than a render
   template.
 
 ## Open Questions

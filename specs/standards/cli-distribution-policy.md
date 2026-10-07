@@ -24,8 +24,10 @@ after a release is tagged.
 They begin at the tag. The branching and versioning rules that produce it
 are in [[release-tooling-standards]] and [[repository-release-policy]].
 
-Requirements carry stable identifiers so that reviews and workflows can
-cite them individually. A retired identifier is never reused.
+Requirements carry stable identifiers so that tests, blueprints and reviews
+can cite them individually. An identifier is never renumbered once assigned,
+and a retired identifier is never reused: nothing validates a requirement
+citation, so renumbering breaks references silently.
 
 ---
 

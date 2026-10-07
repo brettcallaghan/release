@@ -47,7 +47,8 @@ which exchanges a changelog corpus as a file and never calls one.
 
 Impact signals are read from git — a release-type trailer, a
 conventional-commit type, a breaking-change marker — so that a version is
-reproducible from a clone. Forge labels are not an accepted primary signal.
+reproducible from a clone. Labels on the hosting platform are not an
+accepted primary signal.
 
 ## Alternatives Considered
 
@@ -80,8 +81,9 @@ reproducible from a clone. Forge labels are not an accepted primary signal.
 - Staging requires a workstation, because the authoring exchange needs a
   model that is not available in continuous delivery. An unattended release
   path does not exist and is not specified.
-- Forge labels are unavailable as the primary impact signal, so adopters who
-  prefer labels must carry the signal into the commit instead.
+- Labels on the hosting platform are unavailable as the primary impact
+  signal, so adopters who prefer labels must carry the signal into the commit
+  instead.
 - Splitting one pipeline into many components costs more interface surface
   than a single procedure would, and every seam is somewhere a future change
   has to stay consistent across two documents.

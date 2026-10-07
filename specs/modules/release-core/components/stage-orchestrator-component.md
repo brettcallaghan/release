@@ -1,5 +1,5 @@
 ---
-title: "Component Blueprint: Cut Orchestrator"
+title: "Component Blueprint: Stage Orchestrator"
 description: The sequence that cuts a release — producing a stage branch and
   its pull request — and the only component that writes to a repository or a
   hosting platform.
@@ -17,7 +17,7 @@ test_paths:
   - internal/cut
 ---
 
-# Cut Orchestrator
+# Stage Orchestrator
 
 ## Overview
 

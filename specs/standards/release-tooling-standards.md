@@ -26,8 +26,10 @@ not interpret its name. Any branch may be a release line, and which
 branches a project uses for which majors is policy the tool neither knows
 nor enforces.
 
-Requirements carry stable identifiers so that tests and blueprints can
-cite them individually. A retired identifier is never reused.
+Requirements carry stable identifiers so that tests, blueprints and reviews
+can cite them individually. An identifier is never renumbered once assigned,
+and a retired identifier is never reused: nothing validates a requirement
+citation, so renumbering breaks references silently.
 
 ---
 
@@ -61,24 +63,30 @@ targets.
 
 ---
 
-**RTS-005:** A stage branch SHALL contain exactly one commit.
-
-**Rationale:** A single commit makes squash, merge and rebase produce
-identical history, so the merge method cannot silently change what a
-release contains.
+**RTS-005:** The first commit on a stage branch SHALL be the release commit.
 
 ---
 
-**RTS-006:** A release commit SHALL modify only version manifests and the
+**RTS-006:** A stage branch MAY carry further commits that modify only
+declared release paths.
+
+**Rationale:** A maintainer correcting the notes during review adds a commit,
+and treating that as malformed would make the review surface unusable for the
+one thing it exists for. What must hold is the path constraint, not the commit
+count.
+
+---
+
+**RTS-007:** A release commit SHALL modify only version manifests and the
 changelog.
 
 ---
 
-**RTS-007:** A release commit SHALL NOT modify source code.
+**RTS-008:** A release commit SHALL NOT modify source code.
 
 ---
 
-**RTS-008:** The release tooling SHALL reject a configured stage prefix
+**RTS-009:** The release tooling SHALL reject a configured stage prefix
 that the repository's release-branch pattern also matches.
 
 **Rationale:** Branch protection rules and workflow filters are written as
@@ -89,7 +97,7 @@ stage branches or fire a release from a protected-branch push.
 
 ## Version Computation
 
-**RTS-009:** The release tooling SHALL compute the base version from the
+**RTS-010:** The release tooling SHALL compute the base version from the
 latest release tag reachable from the target branch.
 
 **Rationale:** Reachability already separates release lines — a branch cut
@@ -98,12 +106,12 @@ and no per-major query is needed.
 
 ---
 
-**RTS-010:** The release tooling SHALL compute the version bump
+**RTS-011:** The release tooling SHALL compute the version bump
 deterministically from commit metadata.
 
 ---
 
-**RTS-011:** The release tooling SHALL NOT require a bump signal that lives
+**RTS-012:** The release tooling SHALL NOT require a bump signal that lives
 outside the repository's git history.
 
 **Rationale:** A version must be derivable from a clone, so that it is
@@ -111,12 +119,12 @@ reproducible offline and checkable by a reviewer who has nothing else.
 
 ---
 
-**RTS-012:** The release tooling SHALL NOT derive a version number from a
+**RTS-013:** The release tooling SHALL NOT derive a version number from a
 language model's output.
 
 ---
 
-**RTS-013:** WHEN an authored proposal disagrees with the computed bump,
+**RTS-014:** WHEN an authored proposal disagrees with the computed bump,
 the release tooling SHALL halt and require human confirmation.
 
 **Rationale:** Disagreement usually means a change was mis-typed or
@@ -125,17 +133,17 @@ detect on its own ([[adr-003]]).
 
 ---
 
-**RTS-014:** The release tooling SHALL increment exactly one version
+**RTS-015:** The release tooling SHALL increment exactly one version
 component by one unless leaps are enabled by configuration.
 
 ---
 
-**RTS-015:** WHERE leaps are enabled by configuration, the release tooling
+**RTS-016:** WHERE leaps are enabled by configuration, the release tooling
 SHALL accept a version that increments a component by more than one.
 
 ---
 
-**RTS-016:** WHILE the base version is below 1.0.0, the release tooling
+**RTS-017:** WHILE the base version is below 1.0.0, the release tooling
 SHALL map a bump of major to a minor increment by default.
 
 **Rationale:** Semantic versioning leaves pre-1.0 increments under-specified.
@@ -146,35 +154,35 @@ exactly as above it.
 
 ---
 
-**RTS-017:** WHERE a project configures the pre-1.0 remapping off, the
+**RTS-018:** WHERE a project configures the pre-1.0 remapping off, the
 release tooling SHALL map a bump of major to a major increment below
 1.0.0.
 
 ---
 
-**RTS-018:** The release tooling SHALL require an explicit graduation to
+**RTS-019:** The release tooling SHALL require an explicit graduation to
 produce version 1.0.0.
 
 ---
 
-**RTS-019:** WHERE no releasable change exists since the latest reachable
+**RTS-020:** WHERE no releasable change exists since the latest reachable
 tag, the release tooling SHALL refuse to create a stage branch.
 
 ---
 
 ## Prereleases and Canaries
 
-**RTS-020:** The release tooling SHALL derive a prerelease identifier for a
+**RTS-021:** The release tooling SHALL derive a prerelease identifier for a
 planned version on request.
 
 ---
 
-**RTS-021:** A prerelease version SHALL order before the version it
+**RTS-022:** A prerelease version SHALL order before the version it
 previews.
 
 ---
 
-**RTS-022:** A canary identifier SHALL NOT be a prerelease of a version the
+**RTS-023:** A canary identifier SHALL NOT be a prerelease of a version the
 project plans to publish.
 
 **Rationale:** A canary is an artifact for an arbitrary commit, not a
@@ -183,39 +191,39 @@ identifier implies a graduation path it does not have.
 
 ---
 
-**RTS-023:** The release tooling SHALL derive a canary identifier that is
+**RTS-024:** The release tooling SHALL derive a canary identifier that is
 unique to the commit it describes.
 
 ---
 
 ## Configuration
 
-**RTS-024:** The release tooling SHALL express repository-specific
+**RTS-025:** The release tooling SHALL express repository-specific
 behaviour as configuration rather than as repository-specific code paths.
 
 ---
 
-**RTS-025:** The release tooling SHALL accept a configured command for
+**RTS-026:** The release tooling SHALL accept a configured command for
 validating a release.
 
 ---
 
-**RTS-026:** The release tooling SHALL accept a configured command for
+**RTS-027:** The release tooling SHALL accept a configured command for
 propagating a version across a repository's manifests.
 
 ---
 
-**RTS-027:** The release tooling SHALL accept configured preflight
+**RTS-028:** The release tooling SHALL accept configured preflight
 commands.
 
 ---
 
-**RTS-028:** The release tooling SHALL accept a configured stage-branch
+**RTS-029:** The release tooling SHALL accept a configured stage-branch
 prefix.
 
 ---
 
-**RTS-029:** The release tooling SHALL NOT interpret the name of a target
+**RTS-030:** The release tooling SHALL NOT interpret the name of a target
 branch.
 
 **Rationale:** Any branch may be a release line. A tool that reads meaning
@@ -223,7 +231,7 @@ into a branch name imposes a topology its adopters did not choose.
 
 ---
 
-**RTS-030:** WHEN no release tag is reachable from the target branch, the
+**RTS-031:** WHEN no release tag is reachable from the target branch, the
 release tooling SHALL treat the base version as 0.0.0.
 
 **Rationale:** A project's first release is otherwise a special case running
@@ -233,7 +241,7 @@ minor bump 0.1.0, and an explicit graduation 1.0.0.
 
 ---
 
-**RTS-031:** The release tooling SHALL accept a configured tag prefix,
+**RTS-032:** The release tooling SHALL accept a configured tag prefix,
 defaulting to `v`.
 
 **Rationale:** `v1.2.3` is the prevailing convention and the one the adopting
@@ -242,7 +250,7 @@ a project that tags bare versions is not excluded.
 
 ---
 
-**RTS-032:** The release tooling SHALL accept a configured list of paths a
+**RTS-033:** The release tooling SHALL accept a configured list of paths a
 release commit may modify.
 
 **Rationale:** Which files carry a version differs by ecosystem and by

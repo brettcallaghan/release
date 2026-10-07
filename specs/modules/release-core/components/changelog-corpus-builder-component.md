@@ -102,7 +102,7 @@ classifier by construction and defeat the disagreement check in
 ## Key Decisions
 
 - [[adr-003]] — authored prose proposes impact; this component does not.
-- [[adr-005]] — changelog authoring is a replaceable step, which is why
+- [[adr-004]] — changelog authoring is a replaceable step, which is why
   this component stops at a structured corpus.
 
 ## Open Questions

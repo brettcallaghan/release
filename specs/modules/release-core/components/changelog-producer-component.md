@@ -118,7 +118,7 @@ which producer a project selected.
 ## Key Decisions
 
 - [[adr-003]] — authored prose proposes impact; computation decides it.
-- [[adr-005]] — changelog authoring is a replaceable step rather than a
+- [[adr-004]] — changelog authoring is a replaceable step rather than a
   render template.
 
 ## Open Questions

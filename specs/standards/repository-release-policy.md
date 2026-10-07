@@ -27,8 +27,10 @@ The Archetypes section collects defaults for recognisable kinds of project.
 A project that fits one can adopt its defaults rather than deciding each
 requirement from scratch.
 
-Requirements carry stable identifiers so that reviews and blueprints can
-cite them individually. A retired identifier is never reused.
+Requirements carry stable identifiers so that tests, blueprints and reviews
+can cite them individually. An identifier is never renumbered once assigned,
+and a retired identifier is never reused: nothing validates a requirement
+citation, so renumbering breaks references silently.
 
 ---
 
@@ -47,7 +49,7 @@ does not need, and costs a promotion step on every release.
 **RRP-002:** A project MAY release any major version from any branch.
 
 **Rationale:** The tooling does not interpret branch names
-([[release-tooling-standards]], RTS-029), so this is a genuine choice. A
+([[release-tooling-standards]], RTS-030), so this is a genuine choice. A
 project releasing its current major from a dedicated branch takes on
 maintaining that branch itself.
 

@@ -138,7 +138,7 @@ major version change.
 
 - [[adr-003]] — the bump is computed deterministically; authored prose
   proposes but never decides.
-- [[adr-005]] — changelog authoring is a replaceable step, which is what
+- [[adr-004]] — changelog authoring is a replaceable step, which is what
   requires a structured intermediate rather than a render template.
 
 ## Open Questions

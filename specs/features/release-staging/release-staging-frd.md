@@ -1,8 +1,7 @@
 ---
 title: "FRD: Release Staging"
-description: Producing a release as a single-commit stage branch and its
-  pull request, and verifying that a candidate release commit is
-  publishable before and after it merges.
+description: Cutting a release as a stage branch and its pull request, with
+  the tooling confining its writes to the paths a project declares.
 slug: frd-release-staging
 type: frd
 status: draft

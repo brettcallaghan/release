@@ -67,8 +67,9 @@ prefix a project configures for it.
   between them is policy, not process.
 - The stage PR's diff is the release note, so reviewing the release is
   reviewing one small diff.
-- The single-commit invariant makes merge method irrelevant, which
-  removes the squash-merge hazard that a promotion-based model carries.
+- The branch touches only declared release paths whatever its commit count,
+  so the merge method cannot silently change what a release contains. That
+  removes the squash-merge hazard a promotion-based model carries.
 - Hotfix branches need no special handling: a fix is a topic PR like
   any other, and the stage PR that follows is identical to any release.
 

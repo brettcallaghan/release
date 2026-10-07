@@ -6,7 +6,8 @@ slug: container-release-cli
 type: container-blueprint
 status: draft
 updated_at: 2026-10-06T00:00:00Z
-contracts_provided: []
+contracts_provided:
+  - contract-release-cli
 contracts_consumed: []
 ---
 
@@ -97,8 +98,11 @@ description: Renders structured results from the core library as human-readable 
 
 ## Provided Contracts
 
-None. The container vends no interface of its own; the corpus contract is
-provided by [[module-release-core]].
+- [[contract-release-cli]] — the command surface: commands, arguments, flags,
+  output and exit codes.
+
+The changelog corpus contract is provided by [[module-release-core]] rather
+than here.
 
 ## Consumed Contracts
 
@@ -169,4 +173,5 @@ consumer inherits.
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
 - [[module-release-core]] — the library this container wraps
+- [[contract-release-cli]] — the command surface this container vends
 - [[frd-tool-configuration]] — the configuration this container loads

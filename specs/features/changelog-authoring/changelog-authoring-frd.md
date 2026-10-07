@@ -250,7 +250,7 @@ Feature: Authoring Exchange
 ## References
 
 - [[adr-003]] — authored prose proposes impact; computation decides it
-- [[adr-005]] — changelog authoring is a replaceable step
+- [[adr-004]] — changelog authoring is a replaceable step
 - [[contract-changelog]] — the corpus exchanged across this feature
 - [[component-commit-collector]], [[component-pr-metadata-collector]],
   [[component-changelog-corpus-builder]],
