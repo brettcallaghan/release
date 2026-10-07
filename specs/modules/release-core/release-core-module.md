@@ -94,10 +94,19 @@ the first time something outside this repository depends on it.
     `changelog.other_heading` defaults to "Other changes" and
     `changelog.breaking_heading` to "Breaking changes". Headings are any
     UTF-8 text, emoji included, rendered verbatim.
+  - `changelog.producer` names the changelog producer the authoring bridge
+    invokes, `claude` (the default) or `command`;
+    `changelog.producer_command` is the command the `command` producer runs,
+    unset by default. `adapters.pull_requests` and `adapters.diffs` turn on
+    the optional changelog source adapters and default to `false`; the
+    commit adapter is always on and has no setting.
   - `Validate` SHALL refuse an empty `stage_prefix`, a `signals` entry
     naming no known signal, a `changelog.groups` kind that is not a
     `ChangeKind` name or is listed twice, a malformed `release_branches`
-    glob, and a `release_branches` glob that can match any stage branch
+    glob, a `changelog.producer` naming no producer, the `command` producer
+    with no `changelog.producer_command`, `adapters.diffs = true` (no diff
+    adapter is implemented), `adapters.pull_requests = true` (until the pull
+    request adapter lands), and a `release_branches` glob that can match any stage branch
     name: any name made of `stage_prefix` followed by one or more version
     characters (`0-9`, `a-z`, `A-Z`, `.`, `-`, `+`), whatever the version (RTS-009; Go
     `path.Match`, where `*` does not cross `/`). The check is exact over

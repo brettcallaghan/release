@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-97.4%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-97.3%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 914 / 1,002 | 91.2% |
-| Snapshot cases | 558 / 1,002 | 55.7% |
-| End-to-end (built binary) | 432 / 1,002 | 43.1% |
-| **All layers combined** | **976 / 1,002** | **97.4%** |
+| Unit tests | 922 / 1,013 | 91.0% |
+| Snapshot cases | 563 / 1,013 | 55.6% |
+| End-to-end (built binary) | 435 / 1,013 | 42.9% |
+| **All layers combined** | **986 / 1,013** | **97.3%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -59,8 +59,8 @@ A statement is covered if any layer reaches it.
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
 | `release/internal/bump` | 79 | 79 | 100.0% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
-| `release/internal/cli` | 271 | 256 | 94.5% |
-| `release/internal/config` | 131 | 130 | 99.2% |
+| `release/internal/cli` | 274 | 258 | 94.2% |
+| `release/internal/config` | 139 | 138 | 99.3% |
 | `release/internal/delegate` | 30 | 30 | 100.0% |
 | `release/internal/gitread` | 104 | 102 | 98.1% |
 | `release/internal/render` | 91 | 90 | 98.9% |
@@ -68,7 +68,7 @@ A statement is covered if any layer reaches it.
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/version` | 68 | 68 | 100.0% |
-| **Total** | **1,002** | **976** | **97.4%** |
+| **Total** | **1,013** | **986** | **97.3%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
