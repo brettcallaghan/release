@@ -77,13 +77,29 @@ for p in SKILLS:
         if not isinstance(d, dict):
             err(p, "frontmatter is not a mapping"); continue
     else:
-        d = {}
-        for m in re.finditer(r'^([A-Za-z0-9_-]+):[ ]*(.*)$', fm, re.M):
-            d[m.group(1)] = m.group(2).strip().strip('"')
-        for ln in fm.strip().split('\n'):
-            if ln and not ln.startswith(' ') and not re.match(r'^[A-Za-z0-9_-]+:', ln):
+        # One pass: group each key with the lines that follow it.
+        raw, cur = {}, None            # key -> [inline value, continuation lines, items]
+        for ln in fm.split('\n'):
+            if not ln.strip():
+                continue
+            m = re.match(r'^([A-Za-z0-9_-]+):[ ]*(.*)$', ln)
+            if m:
+                cur = raw[m.group(1)] = [m.group(2).strip(), [], []]
+            elif ln[0] in ' \t' and cur is not None:
+                cur[1].append(ln.strip())
+            elif (ln == '-' or ln.startswith('- ')) and cur is not None and cur[0] == '':
+                cur[2].append(ln[1:].strip())
+            else:
                 err(p, f"frontmatter line is neither a key nor an indented "
                        f"continuation: {ln[:60]!r}")
+        d = {}
+        for k, (inline, cont, items) in raw.items():
+            if items:
+                d[k] = items
+            elif re.fullmatch(r'[|>][-+0-9]*', inline):
+                d[k] = ('\n' if inline[0] == '|' else ' ').join(cont)
+            else:
+                d[k] = ' '.join([inline] + cont).strip().strip('"')
 
     name, desc = d.get('name'), d.get('description')
     if name is None or name == '':
