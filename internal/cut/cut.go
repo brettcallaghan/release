@@ -54,8 +54,9 @@ type Request struct {
 	// Config is the loaded configuration.
 	Config config.Config
 	// Producers returns every changelog producer, by name, for the checkout
-	// at dir. It is called with the scratch checkout.
-	Producers func(dir string) map[string]authoring.Producer
+	// at dir, adding env to each producer process's environment. It is
+	// called with the scratch checkout and RELEASE_VERSION.
+	Producers func(dir string, env []string) map[string]authoring.Producer
 	// Redo discards a cached corpus and authors again.
 	Redo bool
 	// Skip stages without an authoring exchange. It requires Named.
@@ -222,10 +223,11 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		_, _ = g.run(context.WithoutCancel(ctx), "worktree", "remove", "--force", wt)
 		_ = os.RemoveAll(scratch)
 	}()
-	if _, err := g.run(ctx, "worktree", "add", "--quiet", "--detach", wt, res.Base); err != nil {
+	if _, err := g.run(ctx, "-c", noHooks, "worktree", "add", "--quiet", "--detach", wt, res.Base); err != nil {
 		return res, fmt.Errorf("creating the scratch checkout: %w", err)
 	}
-	sh := delegate.Shell{Sh: req.Sh, Env: []string{"RELEASE_VERSION=" + res.Version}}
+	env := []string{"RELEASE_VERSION=" + res.Version}
+	sh := delegate.Shell{Sh: req.Sh, Env: env}
 
 	// 3. Preflight, WHEN configured.
 	if len(req.Config.Commands.Preflight) > 0 {
@@ -237,7 +239,7 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	// 4, 5. Assemble, author unless skipped, set the version and render.
 	var producers map[string]authoring.Producer
 	if req.Producers != nil {
-		producers = req.Producers(wt)
+		producers = req.Producers(wt, env)
 	}
 	if res.Changelog, err = changelog.Prepare(ctx, changelog.Request{
 		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Config: req.Config,
@@ -252,7 +254,11 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		return res, &Disagreement{Computed: res.Changelog.Authoring.Computed, Proposed: *res.Changelog.Authoring.Proposed}
 	}
 
-	// 6. Write the changelog section, then propagate the version.
+	// 6. Write the changelog section, then propagate the version. A
+	// symbolic link would carry the write out of the scratch checkout.
+	if info, err := os.Lstat(filepath.Join(wt, changelogfile.Name)); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return res, &Refusal{Reason: changelogfile.Name + " is a symbolic link; the release writes the changelog only as a regular file"}
+	}
 	if err := changelogfile.Write(wt, res.Version, res.Changelog.Rendering.Section); err != nil {
 		return res, err
 	}
@@ -261,18 +267,17 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	}
 
 	// 7. Confine the release commit to the declared release paths.
-	changed, err := g.in(wt).changedPaths(ctx)
-	if err != nil {
+	if err := confine(ctx, g.in(wt), req.Config.ReleasePaths); err != nil {
 		return res, err
 	}
-	if stray := undeclared(changed, req.Config.ReleasePaths); len(stray) > 0 {
-		return res, &Refusal{Reason: fmt.Sprintf("the release would modify paths that are neither %s nor in release_paths: %s",
-			changelogfile.Name, strings.Join(stray, ", "))}
-	}
 
-	// 8. Validate.
+	// 8. Validate, then confine again: validation may change files too, and
+	// the commit takes the tree as it is left.
 	if req.Config.Commands.Validate != nil {
 		if err := step(sh.Run(ctx, "validate", req.Config.Commands.Validate, wt)); err != nil {
+			return res, err
+		}
+		if err := confine(ctx, g.in(wt), req.Config.ReleasePaths); err != nil {
 			return res, err
 		}
 	}
@@ -317,18 +322,19 @@ func planned(res Result, req Request) []Write {
 // release onto it, push it, and open the pull request.
 func write(ctx context.Context, req Request, g git, wt string, res *Result) error {
 	wg := g.in(wt)
-	if _, err := wg.run(ctx, "switch", "--quiet", "--create", res.Branch); err != nil {
+	if _, err := wg.run(ctx, "-c", noHooks, "switch", "--quiet", "--create", res.Branch); err != nil {
 		return fmt.Errorf("creating the stage branch %s: %w", res.Branch, err)
 	}
 	res.Writes = append(res.Writes, Write{"create branch", fmt.Sprintf("%s at %s", res.Branch, short(res.Base))})
 	discard := []string{"git branch -D " + res.Branch}
 
-	// --no-verify: the commit is exactly the tree steps 6 to 8 checked; a
-	// hook that rewrote it would bypass the release-path check.
+	// No hooks: the commit is exactly the tree and message steps 6 to 8
+	// checked. --no-verify alone still runs prepare-commit-msg, which can
+	// rewrite the message or stage more files.
 	if _, err := wg.run(ctx, "add", "--all"); err != nil {
 		return &WriteFailure{Err: fmt.Errorf("staging the release: %w", err), Writes: res.Writes, Remedy: discard}
 	}
-	if _, err := wg.run(ctx, "commit", "--quiet", "--no-verify", "-m", "Release "+res.Version); err != nil {
+	if _, err := wg.run(ctx, "-c", noHooks, "commit", "--quiet", "--no-verify", "-m", "Release "+res.Version); err != nil {
 		return &WriteFailure{Err: fmt.Errorf("committing the release: %w", err), Writes: res.Writes, Remedy: discard}
 	}
 	commit, err := wg.out(ctx, "rev-parse", "HEAD")
@@ -339,12 +345,14 @@ func write(ctx context.Context, req Request, g git, wt string, res *Result) erro
 	res.Writes = append(res.Writes, Write{"commit", fmt.Sprintf("%s %q on %s", short(commit), "Release "+res.Version, res.Branch)})
 	// Release the branch from the scratch checkout, so it can be deleted
 	// WHEN the push fails and is not left checked out once the cut returns.
-	if _, err := wg.run(ctx, "switch", "--quiet", "--detach"); err != nil {
+	if _, err := wg.run(ctx, "-c", noHooks, "switch", "--quiet", "--detach"); err != nil {
 		return &WriteFailure{Err: err, Writes: res.Writes, Remedy: discard}
 	}
 
 	ref := "refs/heads/" + res.Branch
-	if _, err := g.run(ctx, "push", "--quiet", "origin", ref+":"+ref); err != nil {
+	// The lease with an empty expected value pushes only WHILE origin has no
+	// such branch, so a branch created there since step 2 is never moved.
+	if _, err := g.run(ctx, "push", "--quiet", "--force-with-lease="+ref+":", "origin", ref+":"+ref); err != nil {
 		failure := &WriteFailure{Err: fmt.Errorf("pushing %s to origin: %w", res.Branch, err), Writes: res.Writes}
 		// Delete only the branch this cut created, so a rerun is not refused
 		// for it. Nothing on origin is touched.
@@ -392,6 +400,24 @@ func step(r delegate.Result, err error) error {
 		Reason: fmt.Sprintf("commands.%s failed: %q exited %d", r.Step, r.Command, r.ExitCode),
 		Output: append(append([]byte{}, r.Stdout...), r.Stderr...),
 	}
+}
+
+// noHooks points git at no hooks directory, for the scratch checkout's own
+// operations.
+var noHooks = "core.hooksPath=" + os.DevNull
+
+// confine refuses WHEN the checkout changes a path that is neither the
+// changelog nor declared.
+func confine(ctx context.Context, wt git, releasePaths []string) error {
+	changed, err := wt.changedPaths(ctx)
+	if err != nil {
+		return err
+	}
+	if stray := undeclared(changed, releasePaths); len(stray) > 0 {
+		return &Refusal{Reason: fmt.Sprintf("the release would modify paths that are neither %s nor in release_paths: %s",
+			changelogfile.Name, strings.Join(stray, ", "))}
+	}
+	return nil
 }
 
 // undeclared is every changed path that is neither the changelog nor

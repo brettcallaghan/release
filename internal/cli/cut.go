@@ -59,8 +59,8 @@ func newCutCmd(s *streams) *cobra.Command {
 				Dir:    s.root,
 				Target: target,
 				Config: s.cfg,
-				Producers: func(dir string) map[string]authoring.Producer {
-					return producers.Registry(s.cfg.Changelog, dir)
+				Producers: func(dir string, env []string) map[string]authoring.Producer {
+					return producers.Registry(s.cfg.Changelog, dir, env...)
 				},
 				Redo:          redoNotes,
 				Skip:          skipNotes,

@@ -110,8 +110,8 @@ func (f *fixture) request() Request {
 	cfg.Changelog.ProducerCommand = ptr("exit 7")
 	return Request{
 		Dir: f.work, Gh: f.gh, Target: "main", Config: cfg, Named: minor(), Skip: true,
-		Producers: func(dir string) map[string]authoring.Producer {
-			return producers.Registry(cfg.Changelog, dir)
+		Producers: func(dir string, env []string) map[string]authoring.Producer {
+			return producers.Registry(cfg.Changelog, dir, env...)
 		},
 	}
 }
@@ -219,6 +219,30 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 		"undeclared path": {func(_ *fixture, r *Request) {
 			r.Config.Commands.Propagate = ptr("echo x > src.go; echo 1.9.0 > VERSION")
 		}, "src.go"},
+		"undeclared path left by validate": {func(_ *fixture, r *Request) {
+			r.Config.Commands.Validate = ptr("echo x > main.go")
+		}, "main.go"},
+		"undeclared path left by validate, dry run": {func(_ *fixture, r *Request) {
+			r.Config.Commands.Validate = ptr("echo x > main.go")
+			r.DryRun = true
+		}, "main.go"},
+		"changelog symlink": {func(f *fixture, _ *Request) {
+			outside := filepath.Join(f.root, "outside.md")
+			if err := os.WriteFile(outside, []byte("untouched\n"), 0o644); err != nil {
+				f.t.Fatal(err)
+			}
+			if err := os.Symlink(outside, filepath.Join(f.work, "CHANGELOG.md")); err != nil {
+				f.t.Skip("no symbolic links here")
+			}
+			f.git(f.work, "add", "CHANGELOG.md")
+			f.git(f.work, "commit", "-q", "-m", "chore: link the changelog")
+			f.git(f.work, "push", "-q", "origin", "main")
+			f.t.Cleanup(func() {
+				if got, _ := os.ReadFile(outside); string(got) != "untouched\n" {
+					f.t.Errorf("the write followed the link: %q", got)
+				}
+			})
+		}, "symbolic link"},
 		"stage branch exists locally": {func(f *fixture, _ *Request) { f.git(f.work, "branch", "cut/1.9.0") }, "already exists locally"},
 		"stage branch exists on origin": {func(f *fixture, _ *Request) {
 			f.git(f.work, "push", "-q", "origin", "main:refs/heads/cut/1.9.0")
@@ -305,7 +329,9 @@ func (f *fixture) writeAuthored(req *Request, proposed string) {
 	}
 	req.Config.Changelog.ProducerCommand = ptr("cat " + path)
 	changelog := req.Config.Changelog
-	req.Producers = func(dir string) map[string]authoring.Producer { return producers.Registry(changelog, dir) }
+	req.Producers = func(dir string, env []string) map[string]authoring.Producer {
+		return producers.Registry(changelog, dir, env...)
+	}
 	req.Named, req.Skip = nil, false
 }
 
@@ -477,5 +503,63 @@ func TestReleasePathsMatchExactlyByDirectoryOrByGlob(t *testing.T) {
 	got := undeclared([]string{"CHANGELOG.md", "VERSION", "pkg/a/b.json", "crates/x/Cargo.toml", "crates/x/src/lib.rs", "VERSION.bak"}, paths)
 	if strings.Join(got, ",") != "crates/x/src/lib.rs,VERSION.bak" {
 		t.Errorf("undeclared = %v", got)
+	}
+}
+
+func TestTheProducerSeesTheReleaseVersion(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "MINOR")
+	command := `test "$RELEASE_VERSION" = 1.9.0 && ` + *req.Config.Changelog.ProducerCommand
+	req.Config.Changelog.ProducerCommand = &command
+	changelog := req.Config.Changelog
+	req.Producers = func(dir string, env []string) map[string]authoring.Producer {
+		return producers.Registry(changelog, dir, env...)
+	}
+	if _, err := Cut(context.Background(), req); err != nil {
+		t.Errorf("Cut: %v; want the producer to see RELEASE_VERSION=1.9.0", err)
+	}
+}
+
+func TestRepositoryHooksDoNotTouchTheReleaseCommit(t *testing.T) {
+	f := newFixture(t)
+	hooks := filepath.Join(f.work, ".git", "hooks")
+	for name, body := range map[string]string{
+		"prepare-commit-msg": "echo rewritten > \"$1\"; echo stray > stray.txt; git add stray.txt",
+		"post-checkout":      "exit 1",
+	} {
+		if err := os.WriteFile(filepath.Join(hooks, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	res, err := Cut(context.Background(), f.request())
+	if err != nil {
+		t.Fatalf("Cut: %v", err)
+	}
+	if subject := f.git(f.bare, "log", "-1", "--format=%s", res.Commit); subject != "Release 1.9.0\n" {
+		t.Errorf("subject = %q, want the release message unrewritten", subject)
+	}
+	if changed := f.git(f.bare, "diff", "--name-only", res.Base, res.Commit); changed != "CHANGELOG.md\nVERSION\n" {
+		t.Errorf("the release commit modifies\n%s", changed)
+	}
+}
+
+func TestAStageBranchCreatedOnOriginMidCutIsNeverMoved(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	req.Confirm = func(plan Result) (bool, error) {
+		// Someone else stages the same version after step 2.
+		f.git(f.work, "push", "-q", "origin", "main:refs/heads/"+plan.Branch)
+		return true, nil
+	}
+	theirs := ""
+	_, err := Cut(context.Background(), req)
+	theirs = f.git(f.bare, "rev-parse", "main")
+	var w *WriteFailure
+	if !errors.As(err, &w) || !strings.Contains(w.Error(), "pushing cut/1.9.0") {
+		t.Fatalf("err = %v, want the push refused", err)
+	}
+	if got := f.git(f.bare, "rev-parse", "cut/1.9.0"); got != theirs {
+		t.Errorf("origin's cut/1.9.0 = %s, want it left at %s", got, theirs)
 	}
 }

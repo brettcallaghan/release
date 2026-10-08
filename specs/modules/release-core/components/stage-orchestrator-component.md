@@ -114,14 +114,20 @@ rather than the tooling learning any manifest format.
   7. refuse WHEN a changed path is neither `CHANGELOG.md` nor matched by
      `release_paths` (equal to an entry, under an entry ending in `/`, or
      matched by an entry as a glob);
-  8. run `commands.validate` WHEN configured, and refuse WHEN git has no
-     committer identity;
+  8. run `commands.validate` WHEN configured, then repeat step 7's check,
+     and refuse WHEN git has no committer identity;
   9. write: create the stage branch at the pinned commit, commit the changes
      as `Release <version>`, push the branch to `origin`, and open the pull
      request into the target through `gh`, titled `Release <version>` with
      the release body under `## Release Notes`, unless told not to.
-- **Configured commands** run in the scratch checkout with
-  `RELEASE_VERSION` set to the version being released.
+- **Configured commands and the changelog producer** run in the scratch
+  checkout with `RELEASE_VERSION` set to the version being released. The
+  component's own git operations there (creating the checkout, the branch
+  and the commit) run with no repository hooks, so the commit is exactly
+  what was checked; a `CHANGELOG.md` that is a symbolic link is refused.
+- **Push:** the stage branch is pushed with a lease requiring it to be
+  absent on `origin`, so a branch created there since step 2 is never
+  moved.
 - **Partial writes:** IF the push fails, THEN the component deletes the local
   stage branch it created and reports both. IF opening the pull request
   fails, THEN it keeps the pushed branch, reports every write, and names the
