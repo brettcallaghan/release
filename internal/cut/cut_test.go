@@ -563,3 +563,30 @@ func TestAStageBranchCreatedOnOriginMidCutIsNeverMoved(t *testing.T) {
 		t.Errorf("origin's cut/1.9.0 = %s, want it left at %s", got, theirs)
 	}
 }
+
+func TestTheFetchRefreshesAStaleTrackingRefEvenOnADryRun(t *testing.T) {
+	f := newFixture(t)
+	stale := strings.TrimSpace(f.git(f.work, "rev-parse", "origin/main"))
+	other := filepath.Join(f.root, "other")
+	f.git(f.root, "clone", "-q", f.bare, other)
+	f.git(other, "commit", "-q", "--allow-empty", "-m", "fix: land elsewhere (#13)")
+	f.git(other, "push", "-q", "origin", "main")
+	tip := strings.TrimSpace(f.git(f.bare, "rev-parse", "main"))
+
+	req := f.request()
+	req.DryRun = true
+	res, err := Cut(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Cut: %v", err)
+	}
+	if res.Base != tip || res.Base == stale {
+		t.Errorf("base = %s, want origin's tip %s, not the stale %s", res.Base, tip, stale)
+	}
+	// The documented exception: the remote-tracking ref mirrors origin.
+	if got := strings.TrimSpace(f.git(f.work, "rev-parse", "origin/main")); got != tip {
+		t.Errorf("origin/main = %s, want it refreshed to %s", got, tip)
+	}
+	if f.git(f.work, "rev-parse", "main") != stale+"\n" {
+		t.Error("the local target branch moved")
+	}
+}

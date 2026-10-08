@@ -92,7 +92,9 @@ rather than the tooling learning any manifest format.
 
 - **Writes:** a write is creating or moving a ref, creating a commit,
   pushing, or opening a pull request. Files changed in the scratch checkout
-  are not writes.
+  are not writes, and neither is the fetch refreshing the remote-tracking
+  ref `origin/<target>` and the tags that follow it, which every run makes,
+  dry runs and refusals included.
 - **Sequence:** the component first runs `git fetch origin <target>` and pins
   the release to that `origin/<target>` commit; the version, the commit range
   and the scratch checkout (a temporary detached `git worktree` at the pinned
