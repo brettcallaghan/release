@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/brettcallaghan/release/internal/authoring"
@@ -51,8 +54,8 @@ func newFixture(t *testing.T) *fixture {
 	f.git(f.work, "commit", "-q", "--allow-empty", "-m", "feat: add a --target flag (#12)")
 	f.git(f.work, "remote", "add", "origin", f.bare)
 	f.git(f.work, "push", "-q", "origin", "main", "--tags")
-	f.gh = filepath.Join(f.root, "gh")
-	f.stubGh("echo https://github.com/o/r/pull/7")
+	f.gh = ghStub(t)
+	f.stubGh("")
 	return f
 }
 
@@ -76,13 +79,12 @@ func (f *fixture) write(name, content string) {
 	}
 }
 
-// stubGh makes gh record its arguments, one per line, and then run body.
-func (f *fixture) stubGh(body string) {
+// stubGh makes gh fail with msg on standard error, or succeed WHEN msg is
+// empty. Either way it records its arguments, one per line.
+func (f *fixture) stubGh(msg string) {
 	f.t.Helper()
-	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\n' \"$a\"; done > " + filepath.Join(f.root, "gh.args") + "\n" + body + "\n"
-	if err := os.WriteFile(f.gh, []byte(script), 0o755); err != nil {
-		f.t.Fatal(err)
-	}
+	f.t.Setenv("GHSTUB_ARGS", filepath.Join(f.root, "gh.args"))
+	f.t.Setenv("GHSTUB_FAIL", msg)
 }
 
 func (f *fixture) ghArgs() []string {
@@ -94,6 +96,36 @@ func (f *fixture) ghArgs() []string {
 		f.t.Fatal(err)
 	}
 	return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+}
+
+var (
+	ghOnce sync.Once
+	ghPath string
+	ghErr  error
+)
+
+// ghStub builds testdata/ghstub once: a real executable, so it runs as gh
+// on every platform.
+func ghStub(t *testing.T) string {
+	t.Helper()
+	ghOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "ghstub-*")
+		if err != nil {
+			ghErr = err
+			return
+		}
+		ghPath = filepath.Join(dir, "gh")
+		if runtime.GOOS == "windows" {
+			ghPath += ".exe"
+		}
+		if out, err := exec.Command("go", "build", "-o", ghPath, "./testdata/ghstub").CombinedOutput(); err != nil {
+			ghErr = fmt.Errorf("%v\n%s", err, out)
+		}
+	})
+	if ghErr != nil {
+		t.Fatalf("building the gh stub: %v", ghErr)
+	}
+	return ghPath
 }
 
 func ptr(s string) *string { return &s }
@@ -436,7 +468,7 @@ func TestAFailedPushDeletesOnlyTheLocalBranchItCreated(t *testing.T) {
 
 func TestAFailedPullRequestKeepsThePushedBranchAndSaysHowToFinish(t *testing.T) {
 	f := newFixture(t)
-	f.stubGh("echo 'HTTP 422: no' >&2; exit 1")
+	f.stubGh("HTTP 422: no")
 	res, err := Cut(context.Background(), f.request())
 	var w *WriteFailure
 	if !errors.As(err, &w) || !strings.Contains(w.Error(), "HTTP 422") {

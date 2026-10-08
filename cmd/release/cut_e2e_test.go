@@ -2,10 +2,13 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -45,7 +48,7 @@ propagate = 'printf "%s\n" "$RELEASE_VERSION" > VERSION'
 
 [changelog]
 producer = "command"
-producer_command = "echo run >> `+filepath.Join(f.root, "runs.log")+`; cat `+filepath.Join(f.root, "authored.json")+`"
+producer_command = "echo run >> `+filepath.ToSlash(filepath.Join(f.root, "runs.log"))+`; cat `+filepath.ToSlash(filepath.Join(f.root, "authored.json"))+`"
 `)
 	fixtureGit(t, f.work, "add", ".")
 	fixtureGit(t, f.work, "commit", "-q", "-m", "Initial commit")
@@ -57,22 +60,46 @@ producer_command = "echo run >> `+filepath.Join(f.root, "runs.log")+`; cat `+fil
 	fixtureGit(t, f.work, "push", "-q", "origin", "main", "--tags")
 	fixtureGit(t, f.work, "remote", "set-head", "origin", "main")
 
-	bin := filepath.Join(f.root, "bin")
-	if err := os.Mkdir(bin, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	f.stubGh("echo https://github.com/o/r/pull/7")
+	t.Setenv("PATH", ghStubDir(t)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	f.stubGh("")
 	return f
 }
 
-// stubGh makes gh record its arguments, one per line, then run body.
-func (f *cutFixture) stubGh(body string) {
-	f.t.Helper()
-	script := "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\n' \"$a\"; done >> " + filepath.Join(f.root, "gh.args") + "\n" + body + "\n"
-	if err := os.WriteFile(filepath.Join(f.root, "bin", "gh"), []byte(script), 0o755); err != nil {
-		f.t.Fatal(err)
+var (
+	ghOnce sync.Once
+	ghDir  string
+	ghErr  error
+)
+
+// ghStubDir builds internal/cut/testdata/ghstub once, as gh in a directory
+// of its own: a real executable, so it runs as gh on every platform.
+func ghStubDir(t *testing.T) string {
+	t.Helper()
+	ghOnce.Do(func() {
+		if ghDir, ghErr = os.MkdirTemp("", "ghstub-*"); ghErr != nil {
+			return
+		}
+		name := "gh"
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		out, err := exec.Command("go", "build", "-o", filepath.Join(ghDir, name), "../../internal/cut/testdata/ghstub").CombinedOutput()
+		if err != nil {
+			ghErr = fmt.Errorf("%v\n%s", err, out)
+		}
+	})
+	if ghErr != nil {
+		t.Fatalf("building the gh stub: %v", ghErr)
 	}
+	return ghDir
+}
+
+// stubGh makes gh fail with msg on standard error, or succeed WHEN msg is
+// empty. Either way it records its arguments, one per line.
+func (f *cutFixture) stubGh(msg string) {
+	f.t.Helper()
+	f.t.Setenv("GHSTUB_ARGS", filepath.Join(f.root, "gh.args"))
+	f.t.Setenv("GHSTUB_FAIL", msg)
 }
 
 func (f *cutFixture) ghArgs() string {
@@ -303,7 +330,7 @@ func TestCuttingNeverTagsOrPublishes(t *testing.T) {
 // AC: AC-STG-001.8
 func TestAPartialWriteIsReportedInFull(t *testing.T) {
 	f := newCutFixture(t, "feat: add a --target flag (#12)")
-	f.stubGh("echo 'HTTP 422: Validation Failed' >&2; exit 1")
+	f.stubGh("HTTP 422: Validation Failed")
 	a, stderr, code := f.cut("minor", "--skip-notes")
 	if code != 3 {
 		t.Fatalf("exit = %d, want 3\n%s", code, stderr)
