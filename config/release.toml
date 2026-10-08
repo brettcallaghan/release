@@ -6,3 +6,8 @@ groups = [
   { kind = "PERFORMANCE", heading = "Performance" },
   { kind = "REVERT", heading = "Reverts" },
 ]
+
+[commands]
+# The version is stamped at build time (internal/buildinfo); no manifest holds it.
+propagate = "true"
+validate = "go build ./... && go test ./..."
