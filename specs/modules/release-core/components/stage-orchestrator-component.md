@@ -7,7 +7,7 @@ description: The sequence that cuts a release — producing a stage branch and
 slug: component-stage-orchestrator
 type: component-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog
@@ -89,6 +89,54 @@ rather than the tooling learning any manifest format.
   - The component SHALL NOT modify the target branch.
   - The component SHALL NOT require the stage branch to hold only one commit
     after it is created.
+
+- **Writes:** a write is creating or moving a ref, creating a commit,
+  pushing, or opening a pull request. Files changed in the scratch checkout
+  are not writes, and neither is the fetch refreshing the remote-tracking
+  ref `origin/<target>` and the tags that follow it, which every run makes,
+  dry runs and refusals included.
+- **Sequence:** the component first runs `git fetch origin <target>` and pins
+  the release to that `origin/<target>` commit; the version, the commit range
+  and the scratch checkout (a temporary detached `git worktree` at the pinned
+  commit, removed on every exit) all use it, and the maintainer's working
+  tree, index and current branch are never read for the release or changed.
+  Refusals that need no repository come first: staging without notes and
+  without a bump, an unconfigured `commands.propagate`, and, unless the run
+  is a dry run or opens no pull request, a missing `gh`. Then, stopping at the
+  first refusal or failure:
+  1. resolve the version, with the named bump WHEN given; refuse WHEN no
+     release is warranted;
+  2. refuse WHEN the stage branch exists locally or on `origin`;
+  3. run `commands.preflight` WHEN configured;
+  4. assemble the corpus and, unless notes are skipped, author it; halt WHEN
+     the proposal disagrees and no bump was named;
+  5. set the corpus `version` and render it;
+  6. in the scratch checkout, write the changelog section, then run
+     `commands.propagate`;
+  7. refuse WHEN a changed path is neither `CHANGELOG.md` nor matched by
+     `release_paths` (equal to an entry, under an entry ending in `/`, or
+     matched by an entry as a glob);
+  8. run `commands.validate` WHEN configured, then repeat step 7's check,
+     and refuse WHEN git has no committer identity;
+  9. write: create the stage branch at the pinned commit, commit the changes
+     as `Release <version>`, push the branch to `origin`, and open the pull
+     request into the target through `gh`, titled `Release <version>` with
+     the release body under `## Release Notes`, unless told not to.
+- **Configured commands and the changelog producer** run in the scratch
+  checkout with `RELEASE_VERSION` set to the version being released. The
+  component's own git operations there (creating the checkout, the branch
+  and the commit) run with no repository hooks, so the commit is exactly
+  what was checked; a `CHANGELOG.md` that is a symbolic link is refused.
+- **Push:** the stage branch is pushed with a lease requiring it to be
+  absent on `origin`, so a branch created there since step 2 is never
+  moved.
+- **Partial writes:** IF the push fails, THEN the component deletes the local
+  stage branch it created and reports both. IF opening the pull request
+  fails, THEN it keeps the pushed branch, reports every write, and names the
+  commands that finish (`gh pr create`) or discard
+  (`git push origin --delete <branch>`, `git branch -D <branch>`) the
+  release. It never deletes or changes anything on `origin`.
+- **Dry run:** steps 1 to 8 run, and step 9's writes are reported, not made.
 
 **Rationale for the last guarantee:** a maintainer correcting the notes during
 review adds a commit, and a tool that treated that as malformed would make the

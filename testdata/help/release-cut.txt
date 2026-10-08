@@ -1,0 +1,35 @@
+cut fetches the target branch from origin and prepares the release from its
+tip in a scratch checkout: it resolves the version, authors and renders the
+changelog, writes it into CHANGELOG.md, runs commands.propagate to write the
+version into the manifests (with RELEASE_VERSION set), refuses a change to
+any path that is neither CHANGELOG.md nor in release_paths, and runs
+commands.validate. Only then does it write: it creates the stage branch at
+the fetched tip, commits the release as "Release <version>", pushes the
+branch to origin, and opens a pull request into the target with gh. Your
+working tree, index and current branch are never read or changed.
+
+bump is major, minor or patch, and names the impact instead of inferring
+it. When standard input is a terminal, cut shows the writes it will make and
+asks once before the first. It never tags, publishes, merges, or changes the
+target branch. Exits 1 when it refuses (nothing to release, an impact
+disagreement, an existing stage branch, a failing configured command, a
+path outside release_paths), having written nothing, and 3 when a write
+failed after another succeeded, having reported every write it made. If the
+push fails, cut deletes the local stage branch it created.
+
+Usage:
+  release cut [bump] [flags]
+
+Flags:
+      --dry-run           Report every intended action and change nothing
+  -h, --help              help for cut
+      --json              Render the answer as JSON instead of YAML
+      --no-pull-request   Create and push the stage branch and stop; open no pull request
+      --redo-notes        Discard any cached corpus and author again
+      --skip-notes        Stage without an authoring exchange. Requires bump
+      --target branch     The release line to cut from: a branch on origin (default: the configured target, else the branch origin/HEAD points to)
+      --yes               Do not prompt before writing. Only meaningful interactively
+
+Global Flags:
+      --config file   Use this configuration file instead of discovering one
+  -C, --repo path     Operate on the repository at this path instead of the working directory

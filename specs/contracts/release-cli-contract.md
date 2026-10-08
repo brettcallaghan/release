@@ -5,12 +5,12 @@ description: The commands, arguments, flags, output and exit codes the release
 slug: contract-release-cli
 type: contract
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 provider: container-release-cli
 visibility: public
 specs:
   - testdata/help/
-version: "1.1"
+version: "1.2"
 ---
 
 # Release CLI Command Surface
@@ -174,7 +174,14 @@ command other than `release cut`, or `release changelog --write`.
 
 ---
 
-WHERE `--dry-run` is given, the provider SHALL make no change of any kind.
+WHERE `--dry-run` is given, the provider SHALL make no change of any kind,
+except that `release cut` refreshes the remote-tracking ref
+`origin/<target>` (and the tags that follow it) by fetching the target.
+
+**Rationale:** A cut, dry or not, must describe origin's tip rather than a
+stale local copy. A remote-tracking ref only mirrors origin, and any fetch
+moves it; fetching without it would also lose the tags version resolution
+reads.
 
 ---
 

@@ -15,8 +15,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/brettcallaghan/release/internal/buildinfo"
 	"github.com/brettcallaghan/release/internal/config"
@@ -36,6 +38,11 @@ type streams struct {
 	err      io.Writer
 	exitCode Status
 
+	// in is standard input, and interactive whether it is a terminal: the
+	// only condition under which a command prompts.
+	in          io.Reader
+	interactive bool
+
 	cfg  config.Config
 	root string
 }
@@ -44,7 +51,13 @@ type streams struct {
 // and returns the process exit status. It is the one function main calls,
 // and the one the in-process tests call, so both exercise the same mapping.
 func Execute(args []string, stdout, stderr io.Writer) int {
-	s := &streams{out: stdout, err: stderr, exitCode: StatusSuccess}
+	s := &streams{out: stdout, err: stderr, exitCode: StatusSuccess, in: os.Stdin, interactive: isTerminal(os.Stdin)}
+	return s.execute(args)
+}
+
+// execute runs args against the command tree with s's streams.
+func (s *streams) execute(args []string) int {
+	stdout, stderr := s.out, s.err
 	root := newRootCmd(s)
 	root.SetArgs(args)
 	root.SetOut(stdout)
@@ -123,6 +136,13 @@ func newRootCmd(s *streams) *cobra.Command {
 	root.AddCommand(newVersionCmd(s))
 	root.AddCommand(newChangelogCmd(s))
 	root.AddCommand(newConfigCmd(s))
+	root.AddCommand(newCutCmd(s))
 
 	return root
+}
+
+// isTerminal reports whether f is a terminal. A character device is not
+// enough: the null device is one.
+func isTerminal(f *os.File) bool {
+	return term.IsTerminal(int(f.Fd()))
 }

@@ -2,8 +2,9 @@
 // configured command for a named release step and reports the outcome, so
 // validation, propagation and preflight stop, report and refuse identically.
 //
-// A configured command is a string run through `sh -c`, in the repository
-// root, with the environment inherited and standard input empty. The
+// A configured command is a string run through `sh -c`, in the checkout its
+// caller names, with the environment inherited (plus any the caller adds)
+// and standard input empty. The
 // tooling's own git and gh invocations are not configured commands and stay
 // argument lists (ADR-006). Deciding when a step runs is the caller's.
 package delegate
@@ -13,6 +14,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -57,6 +59,8 @@ type Result struct {
 type Shell struct {
 	// Sh is the shell executable; empty means "sh" from PATH.
 	Sh string
+	// Env is added to the inherited environment, as KEY=value entries.
+	Env []string
 }
 
 // Run runs the step's single configured command in dir. A nil command is
@@ -91,6 +95,9 @@ func (s Shell) run(ctx context.Context, step, command, dir string) (Result, erro
 	}
 	cmd := exec.CommandContext(ctx, sh, "-c", command)
 	cmd.Dir = dir
+	if len(s.Env) > 0 {
+		cmd.Env = append(os.Environ(), s.Env...)
+	}
 	cmd.Stdin = nil // the null device: a command cannot wait on a terminal
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

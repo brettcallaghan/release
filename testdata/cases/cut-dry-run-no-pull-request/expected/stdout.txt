@@ -1,0 +1,6 @@
+version: 1.8.1
+branch: cut/1.8.1
+writes:
+  - create branch cut/1.8.1 at 53b6ea9
+  - commit "Release 1.8.1" on cut/1.8.1
+  - push cut/1.8.1 to origin

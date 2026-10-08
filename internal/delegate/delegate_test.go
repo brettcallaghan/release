@@ -132,3 +132,12 @@ func TestOutcomeNames(t *testing.T) {
 		}
 	}
 }
+
+func TestAddedEnvironmentReachesTheCommand(t *testing.T) {
+	t.Setenv("DELEGATE_INHERITED", "kept")
+	sh := Shell{Env: []string{"RELEASE_VERSION=1.9.0"}}
+	res, err := sh.Run(context.Background(), "propagate", ptr(`test "$RELEASE_VERSION" = 1.9.0 && test "$DELEGATE_INHERITED" = kept`), t.TempDir())
+	if err != nil || res.Outcome != Succeeded {
+		t.Errorf("result = %+v, %v; want the added and the inherited variables both set", res, err)
+	}
+}

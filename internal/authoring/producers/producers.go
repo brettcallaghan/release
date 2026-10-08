@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -38,14 +39,15 @@ func (u *Unavailable) Error() string {
 const alternatives = `select another producer with changelog.producer, or name the bump and pass --skip-notes`
 
 // Registry is every producer a configuration can select, by name, for the
-// repository at dir.
-func Registry(c config.Changelog, dir string) map[string]authoring.Producer {
-	command := Command{Dir: dir}
+// repository at dir. env, as KEY=value entries, is added to each producer
+// process's inherited environment.
+func Registry(c config.Changelog, dir string, env ...string) map[string]authoring.Producer {
+	command := Command{Dir: dir, Env: env}
 	if c.ProducerCommand != nil {
 		command.Command = *c.ProducerCommand
 	}
 	return map[string]authoring.Producer{
-		config.ProducerClaudeName:  Claude{Dir: dir},
+		config.ProducerClaudeName:  Claude{Dir: dir, Env: env},
 		config.ProducerCommandName: command,
 	}
 }
@@ -60,6 +62,8 @@ type Command struct {
 	Dir string
 	// Sh is the shell; empty means "sh" from PATH.
 	Sh string
+	// Env is added to the inherited environment.
+	Env []string
 }
 
 // Produce runs the command. A non-zero exit is a failure.
@@ -75,7 +79,7 @@ func (c Command) Produce(ctx context.Context, assembled []byte) ([]byte, error) 
 	if err != nil {
 		return nil, &Unavailable{Producer: config.ProducerCommandName, Prerequisite: fmt.Sprintf("%s is not on PATH", sh), Hint: alternatives}
 	}
-	return run(ctx, c.Dir, assembled, bin, "-c", c.Command)
+	return run(ctx, c.Dir, c.Env, assembled, bin, "-c", c.Command)
 }
 
 // ClaudePrompt is what the `claude` producer asks of `claude -p`: run the
@@ -92,6 +96,8 @@ type Claude struct {
 	Bin string
 	// Dir is the directory claude runs in: the repository root.
 	Dir string
+	// Env is added to the inherited environment.
+	Env []string
 }
 
 // Produce runs claude. A non-zero exit is a failure.
@@ -108,7 +114,7 @@ func (c Claude) Produce(ctx context.Context, assembled []byte) ([]byte, error) {
 			Hint:         alternatives,
 		}
 	}
-	out, err := run(ctx, c.Dir, assembled, bin, "-p", ClaudePrompt)
+	out, err := run(ctx, c.Dir, c.Env, assembled, bin, "-p", ClaudePrompt)
 	if err != nil {
 		return nil, err
 	}
@@ -153,9 +159,12 @@ func (f *Failure) Error() string {
 	return fmt.Sprintf("exit status %d: %s", f.ExitCode, msg)
 }
 
-func run(ctx context.Context, dir string, stdin []byte, bin string, args ...string) ([]byte, error) {
+func run(ctx context.Context, dir string, env []string, stdin []byte, bin string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	cmd.Stdin = bytes.NewReader(stdin)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
