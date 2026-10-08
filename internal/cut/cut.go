@@ -171,6 +171,11 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		if _, err := exec.LookPath(orDefault(req.Gh, "gh")); err != nil {
 			return res, &Refusal{Reason: "gh is not available to open the pull request: install the GitHub CLI, or pass --no-pull-request"}
 		}
+		// Without a credential gh would fail only after the push, leaving a
+		// pushed branch and no pull request.
+		if _, err := ghRun(ctx, req, "auth", "status"); err != nil {
+			return res, &Refusal{Reason: "gh is not authenticated to open the pull request: run gh auth login or set GH_TOKEN, or pass --no-pull-request: " + err.Error()}
+		}
 	}
 
 	g := git{bin: req.Git, dir: req.Dir}

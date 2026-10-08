@@ -284,7 +284,8 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 		"stage branch exists on origin": {func(f *fixture, _ *Request) {
 			f.git(f.work, "push", "-q", "origin", "main:refs/heads/cut/1.9.0")
 		}, "already exists on origin"},
-		"gh unavailable": {func(f *fixture, r *Request) { r.Gh = filepath.Join(f.root, "no-gh") }, "gh is not available"},
+		"gh unavailable":     {func(f *fixture, r *Request) { r.Gh = filepath.Join(f.root, "no-gh") }, "gh is not available"},
+		"gh unauthenticated": {func(f *fixture, r *Request) { f.t.Setenv("GHSTUB_AUTH_FAIL", "The token in GH_TOKEN is invalid.") }, "gh is not authenticated"},
 		"declined": {func(_ *fixture, r *Request) {
 			r.Confirm = func(Result) (bool, error) { return false, nil }
 		}, "declined"},

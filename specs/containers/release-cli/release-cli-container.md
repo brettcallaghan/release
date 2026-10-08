@@ -115,10 +115,12 @@ writes it will make on standard error and prompts once before the first
 write; anything but `y` or `yes` declines, which is a refusal. Its answer is
 one mapping with keys `version`, `branch`, `commit`, `pull_request` (the URL,
 or null) and `writes` (every write made, in order, each a line such as
-`push cut/1.9.0 to origin`); under `--dry-run` it is `version`, `branch` and
-`writes` listing the writes it would make. It exits 1 on a refusal (nothing
+`push cut/1.9.0 to origin`); under `--dry-run` it is `version`, `branch`,
+`writes` listing the writes it would make, and `section`, the changelog
+section the release commit would write into `CHANGELOG.md`. It exits 1 on a refusal (nothing
 to release, an impact disagreement, an existing stage branch, an
-unconfigured `commands.propagate`, a failing configured command, a path
+unconfigured `commands.propagate`, a `gh` that is missing or not
+authenticated when a pull request is to be opened, a failing configured command, a path
 outside `release_paths`, a declined prompt, a failing or rejected producer),
 having written nothing and answering nothing; 3 WHEN a write failed after
 another succeeded, answering with every write made and naming on standard
