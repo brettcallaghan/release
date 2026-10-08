@@ -43,8 +43,8 @@ func TestNextExhaustive(t *testing.T) {
 		pre1Remap bool
 		want      [4]string
 	}{
-		{"", false, true, [4]string{"no-release", "0.0.1", "0.1.0", "0.1.0"}},
-		{"", false, false, [4]string{"no-release", "0.0.1", "0.1.0", "violation"}},
+		{"", false, true, [4]string{"no-release", "0.0.0", "0.0.0", "0.0.0"}},
+		{"", false, false, [4]string{"no-release", "0.0.0", "0.0.0", "0.0.0"}},
 		{"", true, true, [4]string{"1.0.0", "1.0.0", "1.0.0", "1.0.0"}},
 		{"", true, false, [4]string{"1.0.0", "1.0.0", "1.0.0", "1.0.0"}},
 
@@ -79,10 +79,33 @@ func TestNextExhaustive(t *testing.T) {
 }
 
 // AC: AC-VER-001.6
-func TestFirstReleaseComputedFromZero(t *testing.T) {
-	got := Next(Request{Impact: ImpactMinor, Policy: Policy{Pre1Remap: true}})
-	if describe(got) != "0.1.0" {
-		t.Errorf("Next(no base, minor) = %s, want 0.1.0", describe(got))
+func TestFirstReleaseIsZero(t *testing.T) {
+	for _, impact := range []Impact{ImpactPatch, ImpactMinor, ImpactMajor} {
+		for _, remap := range []bool{true, false} {
+			got := Next(Request{Impact: impact, Policy: Policy{Pre1Remap: remap}})
+			if describe(got) != "0.0.0" {
+				t.Errorf("Next(no base, %s, remap=%v) = %s, want 0.0.0", impact, remap, describe(got))
+			}
+		}
+	}
+	if got := Next(Request{Impact: ImpactNone}); got.Kind != NoRelease {
+		t.Errorf("Next(no base, none) = %+v, want no release", got)
+	}
+	if got := Next(Request{Impact: ImpactMinor, Graduate: true}); describe(got) != "1.0.0" {
+		t.Errorf("Next(no base, graduate) = %s, want 1.0.0", describe(got))
+	}
+	if got := CheckProposed(nil, semver.Version{}, false, Policy{}); describe(got) != "0.0.0" {
+		t.Errorf("CheckProposed(no base, 0.0.0) = %+v, want accepted", got)
+	}
+	if got := CheckProposed(nil, semver.Version{Minor: 1}, false, Policy{}); got.Kind != Violation || got.Rule != "RTS-031" {
+		t.Errorf("CheckProposed(no base, 0.1.0) = %+v, want an RTS-031 violation", got)
+	}
+}
+
+// AC: AC-VER-001.8
+func TestAReleaseAfterZeroIncrements(t *testing.T) {
+	if got := Next(Request{Base: v(t, "0.0.0"), Impact: ImpactPatch, Policy: Policy{Pre1Remap: true}}); describe(got) != "0.0.1" {
+		t.Errorf("Next(0.0.0, patch) = %s, want 0.0.1", describe(got))
 	}
 }
 
@@ -201,8 +224,9 @@ func TestCheckProposed(t *testing.T) {
 		{"1.8.3", "2.0.0", false, false, "2.0.0"},
 		{"1.8.3", "2.0.0", false, true, "2.0.0"},
 		{"0.6.4", "0.7.0", false, false, "0.7.0"},
-		{"", "0.1.0", false, false, "0.1.0"},
-		{"", "0.0.1", false, false, "0.0.1"},
+		{"", "0.0.0", false, false, "0.0.0"},
+		{"", "0.1.0", false, false, "violation"},
+		{"", "0.0.1", false, false, "violation"},
 		// leaps
 		{"1.8.3", "1.8.5", false, false, "violation"},
 		{"1.8.3", "1.8.5", false, true, "1.8.5"},
@@ -215,7 +239,7 @@ func TestCheckProposed(t *testing.T) {
 		{"1.8.3", "1.7.9", false, true, "violation"},
 		{"1.8.3", "1.9.3", false, true, "violation"},
 		{"1.8.3", "2.1.0", false, true, "violation"},
-		{"", "0.0.0", false, true, "violation"},
+		{"", "0.1.0", false, true, "violation"},
 		// graduation and RTS-019
 		{"0.6.4", "1.0.0", false, false, "violation"},
 		{"0.6.4", "1.0.0", false, true, "violation"},

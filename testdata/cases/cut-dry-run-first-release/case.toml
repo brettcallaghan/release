@@ -1,0 +1,16 @@
+description = "with no release tag reachable, a dry-run cut stages the first release as 0.0.0 on cut/0.0.0"
+cites = ["AC-VER-001.6"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["commit", "-q", "--allow-empty", "-m", "fix(cli): handle empty input (#11)"],
+  ["commit", "-q", "--allow-empty", "--cleanup=verbatim", "-m", "feat: add a --target flag (#12)\n\n## Summary\n\nReviewers: see the tests.\n\n## Release notes\n\nA maintainer can compute a version for **any** release line.\n\nPass `--target <branch>`; it defaults to the configured target."],
+  ["commit", "-q", "--allow-empty", "-m", "docs: describe the flag"],
+  ["init", "-q", "--bare", "-b", "main", ".git/origin.git"],
+  ["remote", "add", "origin", ".git/origin.git"],
+  ["push", "-q", "origin", "main", "--tags"],
+  ["remote", "set-head", "origin", "main"],
+]
+args = ["cut", "minor", "--skip-notes", "--dry-run"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

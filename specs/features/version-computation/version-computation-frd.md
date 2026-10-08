@@ -6,7 +6,7 @@ description: Resolving a release line's base version, classifying release
 slug: frd-version-computation
 type: frd
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 sources:
   - adr-001
   - adr-003
@@ -100,10 +100,16 @@ Feature: Base Version Resolution
     Then the base version is 0.0.0
 
   @AC-VER-001.6
-  Scenario: The first release is computed like any other
+  Scenario: The first release is 0.0.0
     Given no release tag is reachable from the target branch
     When the tooling computes the next version for an impact of minor
-    Then the next version is 0.1.0
+    Then the next version is 0.0.0
+
+  @AC-VER-001.8
+  Scenario: A release after 0.0.0 increments as usual
+    Given the highest reachable release tag is 0.0.0
+    When the tooling computes the next version for an impact of patch
+    Then the next version is 0.0.1
 
   @AC-VER-001.7
   Scenario: A tag is recognised with or without the configured prefix

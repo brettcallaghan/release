@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,479 / 1,707 | 86.6% |
-| Snapshot cases | 1,132 / 1,707 | 66.3% |
-| End-to-end (built binary) | 1,011 / 1,707 | 59.2% |
-| **All layers combined** | **1,604 / 1,707** | **94.0%** |
+| Unit tests | 1,486 / 1,714 | 86.7% |
+| Snapshot cases | 1,133 / 1,714 | 66.1% |
+| End-to-end (built binary) | 1,013 / 1,714 | 59.1% |
+| **All layers combined** | **1,611 / 1,714** | **94.0%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -72,8 +72,8 @@ A statement is covered if any layer reaches it.
 | `release/internal/resolve` | 28 | 27 | 96.4% |
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
-| `release/internal/version` | 68 | 68 | 100.0% |
-| **Total** | **1,707** | **1,604** | **94.0%** |
+| `release/internal/version` | 75 | 75 | 100.0% |
+| **Total** | **1,714** | **1,611** | **94.0%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
