@@ -5,3 +5,4 @@ writes:
   - commit "Release 1.8.2" on cut/1.8.2
   - push cut/1.8.2 to origin
   - open pull request "Release 1.8.2" from cut/1.8.2 into main
+section: "## 1.8.2"

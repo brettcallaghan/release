@@ -1,0 +1,11 @@
+description = "once v0.0.0 is tagged, the next release increments from it as usual: a fix gives 0.0.1"
+cites = ["AC-VER-001.8"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "feat: first cut"],
+  ["tag", "-a", "-m", "v0.0.0", "v0.0.0"],
+  ["commit", "-q", "--allow-empty", "-m", "fix: handle empty input"],
+]
+args = ["version", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

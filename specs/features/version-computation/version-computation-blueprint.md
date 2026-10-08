@@ -164,8 +164,9 @@ implementing [[component-version-calculator]].
 **Behavior:**
 - The component SHALL take as inputs an optional base version, an impact,
   a graduation flag, and a policy carrying `leaps` and `pre1_remap`.
-- WHEN no base version is supplied, the component SHALL compute from
-  0.0.0.
+- WHEN no base version is supplied, the impact is not none and graduation
+  is not requested, the component SHALL return 0.0.0 (RTS-031), and SHALL
+  accept only 0.0.0 as a proposed version.
 - WHEN the impact is none and graduation is not requested, the component
   SHALL return a no-release result rather than a version.
 - WHEN graduation is requested and the base is below 1.0.0, the component
@@ -177,8 +178,8 @@ implementing [[component-version-calculator]].
 - The component SHALL check a proposed version against a base under the
   policy, and SHALL return a policy violation WHEN the proposal increments
   any component by more than one while `leaps` is off.
-- The computed next version SHALL always increment exactly one component
-  by one; `leaps` affects only whether a proposed version is accepted.
+- From a base version, the computed next version SHALL always increment
+  exactly one component by one; `leaps` affects only whether a proposed version is accepted.
 - The component SHALL derive a prerelease of a planned version through
   [[component-semver-core]].
 
@@ -286,6 +287,7 @@ resolution operation); CMD = [[container-release-cli]] delta (—
 | AC-VER-001.5 | TR, **CMD (proves)** | e2e |
 | AC-VER-001.6 | TR, **VC (proves)** | unit |
 | AC-VER-001.7 | SV, **TR (proves)** | unit |
+| AC-VER-001.8 | TR, **VC (proves)**, RES | unit, snapshot |
 | AC-VER-002.1 | CC, **BC (proves)** | unit |
 | AC-VER-002.2 | **BC (proves)** | unit |
 | AC-VER-002.3 | **BC (proves)**, RES, CMD | unit |

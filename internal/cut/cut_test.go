@@ -290,6 +290,7 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 		}, "nothing releasable since v1.9.0: no commits; pass --force"},
 		"force without a bump": {func(_ *fixture, r *Request) { r.Named, r.Skip, r.Force = nil, false, true }, "--force needs a named bump"},
 		"gh unavailable":       {func(f *fixture, r *Request) { r.Gh = filepath.Join(f.root, "no-gh") }, "gh is not available"},
+		"gh unauthenticated":   {func(f *fixture, r *Request) { f.t.Setenv("GHSTUB_AUTH_FAIL", "The token in GH_TOKEN is invalid.") }, "gh is not authenticated"},
 		"declined": {func(_ *fixture, r *Request) {
 			r.Confirm = func(Result) (bool, error) { return false, nil }
 		}, "declined"},
@@ -645,5 +646,25 @@ func TestTheFetchRefreshesAStaleTrackingRefEvenOnADryRun(t *testing.T) {
 	}
 	if f.git(f.work, "rev-parse", "main") != stale+"\n" {
 		t.Error("the local target branch moved")
+	}
+}
+
+func TestRemoteHost(t *testing.T) {
+	cases := map[string]string{
+		"https://github.com/o/r.git":        "github.com",
+		"https://user@ghe.example.com/o/r":  "ghe.example.com",
+		"ssh://git@github.com:22/o/r.git":   "github.com",
+		"git@github.com:o/r.git":            "github.com",
+		"github.com:o/r":                    "github.com",
+		"/srv/git/r.git":                    "",
+		".git/origin.git":                   "",
+		"file:///srv/git/r.git":             "",
+		`C:\repos\r.git`:                    "",
+		"../relative/path:with-colon/r.git": "",
+	}
+	for url, want := range cases {
+		if got := remoteHost(url + "\n"); got != want {
+			t.Errorf("remoteHost(%q) = %q, want %q", url, got, want)
+		}
 	}
 }

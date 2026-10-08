@@ -105,6 +105,7 @@ func newCutCmd(s *streams) *cobra.Command {
 					{"version", yStr(res.Version)},
 					{"branch", yStr(res.Branch)},
 					{"writes", writesNode(res.Writes)},
+					{"section", yStr(strings.TrimSpace(res.Changelog.Rendering.Section))},
 				})
 			}
 			return s.answer(asJSON, cutAnswer(res))
@@ -115,7 +116,7 @@ func newCutCmd(s *streams) *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "Cut the named bump even when nothing releasable exists since the base version. Requires bump")
 	cmd.Flags().BoolVar(&redoNotes, "redo-notes", false, "Discard any cached corpus and author again")
 	cmd.Flags().BoolVar(&noPR, "no-pull-request", false, "Create and push the stage branch and stop; open no pull request")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report every intended action and change nothing")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report every intended action and the changelog section, and change nothing")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Do not prompt before writing. Only meaningful interactively")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Render the answer as JSON instead of YAML")
 	return cmd

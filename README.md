@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-94.0%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-94.1%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,493 / 1,723 | 86.7% |
-| Snapshot cases | 1,148 / 1,723 | 66.6% |
-| End-to-end (built binary) | 1,006 / 1,723 | 58.4% |
-| **All layers combined** | **1,620 / 1,723** | **94.0%** |
+| Unit tests | 1,526 / 1,757 | 86.9% |
+| Snapshot cases | 1,151 / 1,757 | 65.5% |
+| End-to-end (built binary) | 1,028 / 1,757 | 58.5% |
+| **All layers combined** | **1,653 / 1,757** | **94.1%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -65,15 +65,15 @@ A statement is covered if any layer reaches it.
 | `release/internal/cli` | 442 | 406 | 91.9% |
 | `release/internal/config` | 139 | 138 | 99.3% |
 | `release/internal/corpus` | 83 | 82 | 98.8% |
-| `release/internal/cut` | 208 | 178 | 85.6% |
+| `release/internal/cut` | 235 | 204 | 86.8% |
 | `release/internal/delegate` | 32 | 32 | 100.0% |
 | `release/internal/gitread` | 123 | 119 | 96.7% |
 | `release/internal/render` | 91 | 90 | 98.9% |
 | `release/internal/resolve` | 38 | 37 | 97.4% |
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
-| `release/internal/version` | 68 | 68 | 100.0% |
-| **Total** | **1,723** | **1,620** | **94.0%** |
+| `release/internal/version` | 75 | 75 | 100.0% |
+| **Total** | **1,757** | **1,653** | **94.1%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->

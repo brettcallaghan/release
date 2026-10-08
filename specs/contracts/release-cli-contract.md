@@ -89,7 +89,7 @@ writes the release commit onto a stage branch, and opens its pull request.
 | `--force` | Stage the named bump even when nothing releasable exists since the base version. Requires `bump` |
 | `--redo-notes` | Discard any cached corpus and author again |
 | `--no-pull-request` | Create the stage branch and stop; open no pull request |
-| `--dry-run` | Report every intended action and change nothing |
+| `--dry-run` | Report every intended action and the changelog section, and change nothing |
 | `--yes` | Do not prompt before writing. Only meaningful interactively |
 | `--json` | Render the answer as JSON instead of YAML |
 

@@ -4,3 +4,15 @@ writes:
   - create branch cut/1.8.1 at 53b6ea9
   - commit "Release 1.8.1" on cut/1.8.1
   - push cut/1.8.1 to origin
+section: |-
+  ## 1.8.1
+
+  ### Features
+
+  - A maintainer can compute a version for **any** release line. (#12)
+
+    Pass `--target <branch>`; it defaults to the configured target.
+
+  ### Fixes
+
+  - **cli:** handle empty input (#11)

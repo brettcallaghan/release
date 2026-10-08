@@ -7,7 +7,7 @@ description: The next version for a release line, carrying the version
 slug: component-version-calculator
 type: component-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:
@@ -53,15 +53,16 @@ is a pure function, so it can be tested exhaustively without a repository.
 - **Surface:** given a base version, a computed impact and a policy,
   return the next version or a policy violation.
 - **Guarantees:**
-  - The component SHALL increment exactly one version component by one
-    unless leaps are enabled by policy.
+  - From a base version, the component SHALL increment exactly one version
+    component by one unless leaps are enabled by policy.
   - WHILE the base version is below 1.0.0, the component SHALL map an impact
     of major to a minor increment by default.
   - WHILE the base version is below 1.0.0, the component SHALL map an impact
     of minor to a minor increment and an impact of patch to a patch
     increment.
-  - WHEN no base version is supplied, the component SHALL compute from a base
-    of 0.0.0.
+  - WHEN no base version is supplied, the impact is not none and graduation
+    is not requested, the component SHALL return 0.0.0 (RTS-031), and SHALL
+    accept only 0.0.0 as a proposed version.
   - The component SHALL require an explicit graduation to produce 1.0.0.
   - WHEN graduation is requested and the base is below 1.0.0, the component
     SHALL return 1.0.0 whatever the impact.
@@ -70,8 +71,8 @@ is a pure function, so it can be tested exhaustively without a repository.
   - IF the base is below 1.0.0, the impact is major, no graduation is
     requested and the pre-1.0 remapping is off, THEN the component SHALL
     return a policy violation rather than 1.0.0.
-  - The computed next version SHALL always increment exactly one component
-    by one; the leap policy affects only whether a proposed version is
+  - From a base version, the computed next version SHALL always increment
+    exactly one component by one; the leap policy affects only whether a proposed version is
     accepted.
   - The component SHALL check a proposed version against a base under the
     policy, and SHALL return a policy violation WHEN the proposal increments

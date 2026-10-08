@@ -23,7 +23,7 @@ Usage:
   release cut [bump] [flags]
 
 Flags:
-      --dry-run           Report every intended action and change nothing
+      --dry-run           Report every intended action and the changelog section, and change nothing
       --force             Cut the named bump even when nothing releasable exists since the base version. Requires bump
   -h, --help              help for cut
       --json              Render the answer as JSON instead of YAML

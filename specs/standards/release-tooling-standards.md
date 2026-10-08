@@ -7,7 +7,7 @@ slug: release-tooling-standards
 type: standards
 status: approved
 updated_at: 2026-10-08T00:00:00Z
-version: "0.2"
+version: "0.4"
 ---
 
 # Release Tooling Standards
@@ -133,8 +133,9 @@ detect on its own ([[adr-003]]).
 
 ---
 
-**RTS-015:** The release tooling SHALL increment exactly one version
-component by one unless leaps are enabled by configuration.
+**RTS-015:** From a base version, the release tooling SHALL increment exactly
+one version component by one unless leaps are enabled by configuration. The
+first release, which has no base, is 0.0.0 (RTS-031).
 
 ---
 
@@ -239,13 +240,15 @@ into a branch name imposes a topology its adopters did not choose.
 
 ---
 
-**RTS-031:** WHEN no release tag is reachable from the target branch, the
-release tooling SHALL treat the base version as 0.0.0.
+**RTS-031:** WHEN no release tag is reachable from the target branch and a
+release is warranted, the release tooling SHALL release 0.0.0, whatever the
+impact, unless graduation is requested, which produces 1.0.0.
 
-**Rationale:** A project's first release is otherwise a special case running
-through a different code path than every subsequent one. Treating the absent
-tag as 0.0.0 makes the first release ordinary: a patch bump produces 0.0.1, a
-minor bump 0.1.0, and an explicit graduation 1.0.0.
+**Rationale:** A project's first tag marks where its versioned history starts,
+so it carries the zero version rather than a first increment. Every later
+release increments from that tag exactly as RTS-015 describes, so only the
+first release differs. A project that wants to start elsewhere tags that
+version by hand before its first cut.
 
 ---
 

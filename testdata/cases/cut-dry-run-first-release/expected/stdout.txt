@@ -1,0 +1,19 @@
+version: 0.0.0
+branch: cut/0.0.0
+writes:
+  - create branch cut/0.0.0 at 53b6ea9
+  - commit "Release 0.0.0" on cut/0.0.0
+  - push cut/0.0.0 to origin
+  - open pull request "Release 0.0.0" from cut/0.0.0 into main
+section: |-
+  ## 0.0.0
+
+  ### Features
+
+  - A maintainer can compute a version for **any** release line. (#12)
+
+    Pass `--target <branch>`; it defaults to the configured target.
+
+  ### Fixes
+
+  - **cli:** handle empty input (#11)

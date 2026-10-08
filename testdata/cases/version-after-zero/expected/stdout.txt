@@ -1,0 +1,8 @@
+base: 0.0.0
+impact: patch
+named: false
+determined_by:
+  - hash: 7af4e0b417fbd139ad82900476a7aa68df8c142e
+    subject: "fix: handle empty input"
+    signal: conventional-type
+next: 0.0.1
