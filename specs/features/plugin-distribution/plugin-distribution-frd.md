@@ -168,12 +168,10 @@ Feature: Where the CLI Is Installed
     Then provisioning fetches nothing and places nothing
 ```
 
-The local-session behaviour beyond AC-PLG-002.2 is an open question for
-the maintainer: whether a local session uses a session-only copy of the
-pinned version, or installs through the machine's package manager
-(Homebrew, once a formula is published) and accepts that the installed
-version can drift from the pinned one. AC-PLG-002.2 is written for the
-first; see [[adr-008]], Open Questions.
+A local session uses a session-only copy of the pinned version, even where
+the machine also has the CLI from a package manager at another version.
+A Homebrew formula, once published, serves the person's own terminal and
+is not a provisioning route ([[adr-008]]).
 
 ### FEAT-PLG-003: Retrieval From a Private Repository
 

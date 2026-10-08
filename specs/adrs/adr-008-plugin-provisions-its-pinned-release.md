@@ -82,6 +82,9 @@ merge commit whose plugin version differs from the stage branch's.
   locally, with no Go toolchain.
 - The binary an agent runs is the one its skills were written for.
 - Nothing outside the plugin data directory changes on a local machine.
+  This holds once Homebrew is published too: a formula serves the
+  person's terminal, and a session keeps its pinned copy even when the
+  formula installed another version.
 - The release workflow stays the only producer of binaries; provisioning
   is a consumer of what CDP-001 already declares.
 
@@ -102,9 +105,6 @@ merge commit whose plugin version differs from the stage branch's.
 
 ## Open Questions
 
-- **Local sessions.** Session-only copy of the pinned version, as
-  decided above, or an install through Homebrew once a formula exists,
-  accepting that the installed version can differ from the pinned one?
 - **Marketplace pinning.** The marketplace serves the plugin from the
   default branch. Pointing its source at the release tag would make the
   installed skills match the pinned binary exactly, at the cost of a
