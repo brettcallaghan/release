@@ -29,6 +29,14 @@ env:
   GO_VERSION: "1.24"
   STAGE_PREFIX: cut/
   TAG_PREFIX: v
+  # An awk prelude setting v to the version a `## ` heading names (`## 1.2.0`,
+  # `## [1.2.0] - date`, `## v1.2.0`), or "" when it names none. It mirrors
+  # internal/changelogfile's headingVersion.
+  SECTION_VERSION: >-
+    /^## / {
+    v = $2; sub(/^\[/, "", v); sub(/\]$/, "", v); sub(/^v/, "", v);
+    if (v !~ /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)([-+].*)?$/) v = ""
+    }
 
 jobs:
   publish:
@@ -68,8 +76,13 @@ jobs:
             fail "stage branch $HEAD_REF does not name a version"
           fi
 
-          # The newest section of CHANGELOG.md is the one cut wrote.
-          top="$(grep -m1 -E '^## ' CHANGELOG.md 2>/dev/null | sed -E 's/^## +//' || true)"
+          # The newest version section of CHANGELOG.md is the one cut wrote.
+          # A level-2 heading that names no version (`## Unreleased`) is
+          # preamble, as the changelog writer treats it.
+          top=""
+          if [ -f CHANGELOG.md ]; then
+            top="$(awk "$SECTION_VERSION"' v != "" { print v; exit }' CHANGELOG.md)"
+          fi
           if [ "$top" != "$version" ]; then
             fail "CHANGELOG.md's newest section is '${top:-none}', not $version"
           fi
@@ -129,8 +142,8 @@ jobs:
           set -euo pipefail
           # The body of CHANGELOG.md's section for this version, without its
           # heading: everything up to the next `## ` heading.
-          awk -v v="$VERSION" '
-            /^## / { if (found) exit; if ($0 == "## " v) { found = 1; next } }
+          awk -v want="$VERSION" "$SECTION_VERSION"'
+            /^## / { if (found) exit; if (v == want) { found = 1; next } }
             found { print }
           ' CHANGELOG.md > dist/notes.md
           cat dist/notes.md
@@ -138,26 +151,61 @@ jobs:
       - name: Publish the release
         run: |
           set -euo pipefail
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
+          expected="$(cd dist && ls -1 release_* SHA256SUMS | sort)"
+
+          if gh release view "$TAG" --json isDraft --jq .isDraft > draft.txt 2>/dev/null; then
+            if [ "$(cat draft.txt)" = false ]; then
+              # Published already: never rewrite its assets. A rebuild has
+              # fresh archive timestamps, so its checksums would differ.
+              remote="$(gh release view "$TAG" --json assets --jq '.assets[].name' | sort)"
+              if [ "$remote" != "$expected" ]; then
+                echo "::error::$TAG is published but its assets differ from the expected set"
+                diff <(echo "$expected") <(echo "$remote") || true
+                exit 1
+              fi
+              echo "$TAG is already published with every asset"
+              exit 0
+            fi
+          else
             gh release create "$TAG" --draft --verify-tag \
               --title "$TAG" --notes-file dist/notes.md
           fi
+
           gh release upload "$TAG" --clobber \
             dist/*.tar.gz dist/*.zip dist/SHA256SUMS
-          gh release edit "$TAG" --draft=false --latest
 
+          # Latest only when this is the highest stable version tagged, so a
+          # maintenance release or a late re-run never moves it backwards.
+          tags="$(git tag -l "$TAG_PREFIX*" --sort=-v:refname)"
+          highest="$(printf '%s\n' "$tags" | grep -E "^$TAG_PREFIX[0-9]+\.[0-9]+\.[0-9]+\$" || true)"
+          highest="${highest%%$'\n'*}"
+          latest=false
+          [ "$highest" = "$TAG" ] && latest=true
+          gh release edit "$TAG" --draft=false --latest="$latest"
+
+      # Which declared artifacts reached the release and which did not
+      # (CDP-003), whatever step failed.
       - name: Summarise
         if: always()
         run: |
           {
             echo "### Release ${TAG:-unresolved}"
             echo
-            if [ -d dist ]; then
-              echo '```'
-              ls -1 dist
-              echo '```'
+            if ! gh release view "${TAG:-none}" --json isDraft,url,assets > release.json 2>/dev/null; then
+              echo "No release created."
+              exit 0
             fi
-            gh release view "${TAG:-none}" --json isDraft,url \
-              --template 'draft: {{.isDraft}}  {{.url}}{{"\n"}}' 2>/dev/null \
-              || echo "no release created"
+            jq -r '"draft: \(.isDraft)  \(.url)"' release.json
+            echo
+            remote="$(jq -r '.assets[].name' release.json | sort)"
+            expected="$( (cd dist 2>/dev/null && ls -1 release_* SHA256SUMS 2>/dev/null) | sort)"
+            echo "| Asset | State |"
+            echo "|---|---|"
+            for name in $(printf '%s\n%s\n' "$expected" "$remote" | sort -u); do
+              if printf '%s\n' "$remote" | grep -qxF "$name"; then
+                echo "| $name | uploaded |"
+              else
+                echo "| $name | missing |"
+              fi
+            done
           } >> "$GITHUB_STEP_SUMMARY"
