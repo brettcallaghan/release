@@ -266,6 +266,11 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 			if err := os.Symlink(outside, filepath.Join(f.work, "CHANGELOG.md")); err != nil {
 				f.t.Skip("no symbolic links here")
 			}
+			// Where git checks links out as plain files (core.symlinks
+			// false, as on Windows), the scratch checkout holds no link.
+			if out, _ := exec.Command("git", "-C", f.work, "config", "--bool", "core.symlinks").Output(); strings.TrimSpace(string(out)) == "false" {
+				f.t.Skip("git checks out symbolic links as plain files here")
+			}
 			f.git(f.work, "add", "CHANGELOG.md")
 			f.git(f.work, "commit", "-q", "-m", "chore: link the changelog")
 			f.git(f.work, "push", "-q", "origin", "main")
@@ -359,7 +364,7 @@ func (f *fixture) writeAuthored(req *Request, proposed string) {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		f.t.Fatal(err)
 	}
-	req.Config.Changelog.ProducerCommand = ptr("cat " + path)
+	req.Config.Changelog.ProducerCommand = ptr("cat " + filepath.ToSlash(path))
 	changelog := req.Config.Changelog
 	req.Producers = func(dir string, env []string) map[string]authoring.Producer {
 		return producers.Registry(changelog, dir, env...)
