@@ -178,8 +178,8 @@ implementing [[component-version-calculator]].
 - The component SHALL check a proposed version against a base under the
   policy, and SHALL return a policy violation WHEN the proposal increments
   any component by more than one while `leaps` is off.
-- The computed next version SHALL always increment exactly one component
-  by one; `leaps` affects only whether a proposed version is accepted.
+- From a base version, the computed next version SHALL always increment
+  exactly one component by one; `leaps` affects only whether a proposed version is accepted.
 - The component SHALL derive a prerelease of a planned version through
   [[component-semver-core]].
 

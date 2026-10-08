@@ -133,8 +133,9 @@ detect on its own ([[adr-003]]).
 
 ---
 
-**RTS-015:** The release tooling SHALL increment exactly one version
-component by one unless leaps are enabled by configuration.
+**RTS-015:** From a base version, the release tooling SHALL increment exactly
+one version component by one unless leaps are enabled by configuration. The
+first release, which has no base, is 0.0.0 (RTS-031).
 
 ---
 

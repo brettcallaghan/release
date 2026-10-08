@@ -12,7 +12,7 @@ import (
 func main() {
 	// `gh auth status` is a check, not a write: it is not recorded, and
 	// fails only WHEN GHSTUB_AUTH_FAIL is set.
-	if len(os.Args) == 3 && os.Args[1] == "auth" && os.Args[2] == "status" {
+	if len(os.Args) >= 3 && os.Args[1] == "auth" && os.Args[2] == "status" {
 		if msg := os.Getenv("GHSTUB_AUTH_FAIL"); msg != "" {
 			fmt.Fprintln(os.Stderr, msg)
 			os.Exit(1)

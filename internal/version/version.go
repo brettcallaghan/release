@@ -116,9 +116,9 @@ func base(b *semver.Version) (semver.Version, *Result) {
 	return *b, nil
 }
 
-// Next computes the next version for a release line. The computed version
-// always increments exactly one component by one; Policy.Leaps does not
-// affect it.
+// Next computes the next version for a release line. From a base, the
+// computed version increments exactly one component by one; Policy.Leaps
+// does not affect it.
 //
 //   - Graduation below 1.0.0 yields 1.0.0 whatever the impact; graduation at
 //     or above 1.0.0 is a violation.

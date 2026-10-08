@@ -628,3 +628,23 @@ func TestTheFetchRefreshesAStaleTrackingRefEvenOnADryRun(t *testing.T) {
 		t.Error("the local target branch moved")
 	}
 }
+
+func TestRemoteHost(t *testing.T) {
+	cases := map[string]string{
+		"https://github.com/o/r.git":        "github.com",
+		"https://user@ghe.example.com/o/r":  "ghe.example.com",
+		"ssh://git@github.com:22/o/r.git":   "github.com",
+		"git@github.com:o/r.git":            "github.com",
+		"github.com:o/r":                    "github.com",
+		"/srv/git/r.git":                    "",
+		".git/origin.git":                   "",
+		"file:///srv/git/r.git":             "",
+		`C:\repos\r.git`:                    "",
+		"../relative/path:with-colon/r.git": "",
+	}
+	for url, want := range cases {
+		if got := remoteHost(url + "\n"); got != want {
+			t.Errorf("remoteHost(%q) = %q, want %q", url, got, want)
+		}
+	}
+}
