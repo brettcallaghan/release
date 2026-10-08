@@ -1,5 +1,5 @@
-description = "with no release tag reachable, base is null and the first version is computed from 0.0.0; a major impact below 1.0.0 is remapped to minor"
-cites = ["AC-VER-001.4", "AC-VER-001.6", "AC-VER-003.6"]
+description = "with no release tag reachable, base is null and the first release is 0.0.0 whatever the impact, even major"
+cites = ["AC-VER-001.4", "AC-VER-001.6"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "feat!: first cut", "-m", "BREAKING CHANGE: everything is new"],

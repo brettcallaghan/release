@@ -102,7 +102,9 @@ rather than the tooling learning any manifest format.
   tree, index and current branch are never read for the release or changed.
   Refusals that need no repository come first: staging without notes and
   without a bump, an unconfigured `commands.propagate`, and, unless the run
-  is a dry run or opens no pull request, a missing `gh`. Then, stopping at the
+  is a dry run or opens no pull request, a missing `gh` or one that
+  `gh auth status`, scoped to `origin`'s host, reports unauthenticated. Then,
+  stopping at the
   first refusal or failure:
   1. resolve the version, with the named bump WHEN given; refuse WHEN no
      release is warranted;

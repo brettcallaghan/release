@@ -95,7 +95,8 @@ func TestFeatAfterTagResolvesMinor(t *testing.T) {
 	}
 }
 
-func TestNoTagsFixResolvesFirstPatch(t *testing.T) {
+// AC: AC-VER-001.6
+func TestNoTagsResolvesZero(t *testing.T) {
 	f := newFixture(t)
 	f.commit("fix: handle empty input")
 	res := f.resolve(nil)
@@ -105,8 +106,8 @@ func TestNoTagsFixResolvesFirstPatch(t *testing.T) {
 	if res.Impact != releasemodel.BumpPatch {
 		t.Errorf("impact = %s, want PATCH", res.Impact)
 	}
-	if res.Next.Kind != version.Release || res.Next.Version.String() != "0.0.1" {
-		t.Errorf("next = %+v, want release 0.0.1", res.Next)
+	if res.Next.Kind != version.Release || res.Next.Version.String() != "0.0.0" {
+		t.Errorf("next = %+v, want release 0.0.0", res.Next)
 	}
 }
 

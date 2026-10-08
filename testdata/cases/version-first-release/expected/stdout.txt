@@ -5,4 +5,4 @@ determined_by:
   - hash: 20341763b5aa54b57822a8d348836bec60c68338
     subject: "feat!: first cut"
     signal: breaking-marker
-next: 0.1.0
+next: 0.0.0

@@ -6,5 +6,6 @@
     "commit \"Release 1.9.0\" on cut/1.9.0",
     "push cut/1.9.0 to origin",
     "open pull request \"Release 1.9.0\" from cut/1.9.0 into main"
-  ]
+  ],
+  "section": "## 1.9.0\n\n### Features\n\n- A maintainer can compute a version for **any** release line. (#12)\n\n  Pass `--target \u003cbranch\u003e`; it defaults to the configured target.\n\n### Fixes\n\n- **cli:** handle empty input (#11)"
 }
