@@ -5,8 +5,8 @@ description: How release core cuts a release as a stage branch and pull
   `release cut` drives it.
 slug: feature-release-staging
 type: feature-blueprint
-status: in-progress
-updated_at: 2026-10-07T00:00:00Z
+status: retired
+updated_at: 2026-10-08T00:00:00Z
 delivery: single-pr
 plan: release-elu
 frd: frd-release-staging
@@ -167,14 +167,14 @@ stub `gh` on `PATH`, per the component's verification gate.
 
 ## Definition of Done
 
-- [ ] Every delta above is folded into its owning blueprint:
-  - [ ] [[component-stage-orchestrator]] — Interface records the step
+- [x] Every delta above is folded into its owning blueprint:
+  - [x] [[component-stage-orchestrator]] — Interface records the step
     order and the definition of a write
-  - [ ] [[container-release-cli]] — Command Surface records `release cut`
-- [ ] Every AC in the coverage table is verified at its declared level
+  - [x] [[container-release-cli]] — Command Surface records `release cut`
+- [x] Every AC in the coverage table is verified at its declared level
   and cited from its tests per the specs plugin's
   `shared/ac-traceability-standards.md`
-- [ ] This blueprint's status → retired
+- [x] This blueprint's status → retired
 
 ## Open Questions
 
