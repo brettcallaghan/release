@@ -1,0 +1,163 @@
+name: release
+
+# Publishes a GitHub release when a stage pull request merges.
+#
+# `release cut` stops at the pull request; tagging and publication are this
+# workflow's (ADR-005). Everything runs in one workflow: a tag pushed with
+# GITHUB_TOKEN triggers no other workflow, so an `on: push: tags` workflow
+# would never fire.
+#
+# Re-running a failed run finishes a partial release (CDP-004): the tag step
+# accepts a tag already on the merge commit, assets upload with --clobber, and
+# the release stays a draft until every asset is attached (CDP-006).
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # One run per stage branch; never cancel a publication midway.
+  group: release-${{ github.event.pull_request.head.ref }}
+  cancel-in-progress: false
+
+env:
+  # Matches the `go` directive in go.mod. Bump both together.
+  GO_VERSION: "1.24"
+  STAGE_PREFIX: cut/
+  TAG_PREFIX: v
+
+jobs:
+  publish:
+    name: tag, build and publish
+    runs-on: ubuntu-latest
+    # A stage branch from a fork never reaches a publication credential
+    # (CDP-015). The prefix is a signal, not an authorization (RRP-034): the
+    # verify step below checks the merged commit itself.
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'cut/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+    env:
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          # Full history and tags: the verify step reads the latest tag.
+          fetch-depth: 0
+
+      - name: Verify the release commit
+        run: |
+          set -euo pipefail
+          version="${HEAD_REF#"$STAGE_PREFIX"}"
+          tag="$TAG_PREFIX$version"
+          failed=0
+          fail() { echo "::error::$1"; failed=1; }
+
+          # Plain MAJOR.MINOR.PATCH; prereleases are not published here.
+          if ! printf '%s' "$version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+            fail "stage branch $HEAD_REF does not name a version"
+          fi
+
+          # The newest section of CHANGELOG.md is the one cut wrote.
+          top="$(grep -m1 -E '^## ' CHANGELOG.md 2>/dev/null | sed -E 's/^## +//' || true)"
+          if [ "$top" != "$version" ]; then
+            fail "CHANGELOG.md's newest section is '${top:-none}', not $version"
+          fi
+
+          # A tag already on this commit is a re-run; anywhere else, a collision.
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            at="$(git rev-parse "$tag^{commit}")"
+            if [ "$at" != "$MERGE_SHA" ]; then
+              fail "tag $tag already exists at $at, not at the merge commit $MERGE_SHA"
+            fi
+          fi
+
+          [ "$failed" -eq 0 ] || exit 1
+          {
+            echo "VERSION=$version"
+            echo "TAG=$tag"
+          } >> "$GITHUB_ENV"
+
+      - name: Tag the merge commit
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG already tags $MERGE_SHA"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $VERSION" "$MERGE_SHA"
+          git push origin "refs/tags/$TAG"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      # The same six targets the cli workflow's cross-compile job builds on
+      # every pull request, stamped with the tag.
+      - name: Build every target
+        env:
+          CGO_ENABLED: "0"
+        run: scripts/build-release.sh "$TAG" dist
+
+      - name: The linux/amd64 binary reports the release version
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          tar -xzf "dist/release_${VERSION}_linux_amd64.tar.gz" -C "$dir"
+          got="$("$dir/release" --version)"
+          echo "$got"
+          case "$got" in
+            *"$TAG"*) ;;
+            *) echo "::error::release --version printed '$got', expected $TAG"; exit 1 ;;
+          esac
+
+      - name: Extract the release notes
+        run: |
+          set -euo pipefail
+          # The body of CHANGELOG.md's section for this version, without its
+          # heading: everything up to the next `## ` heading.
+          awk -v v="$VERSION" '
+            /^## / { if (found) exit; if ($0 == "## " v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > dist/notes.md
+          cat dist/notes.md
+
+      - name: Publish the release
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --verify-tag \
+              --title "$TAG" --notes-file dist/notes.md
+          fi
+          gh release upload "$TAG" --clobber \
+            dist/*.tar.gz dist/*.zip dist/SHA256SUMS
+          gh release edit "$TAG" --draft=false --latest
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Release ${TAG:-unresolved}"
+            echo
+            if [ -d dist ]; then
+              echo '```'
+              ls -1 dist
+              echo '```'
+            fi
+            gh release view "${TAG:-none}" --json isDraft,url \
+              --template 'draft: {{.isDraft}}  {{.url}}{{"\n"}}' 2>/dev/null \
+              || echo "no release created"
+          } >> "$GITHUB_STEP_SUMMARY"
