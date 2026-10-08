@@ -171,6 +171,18 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		if _, err := exec.LookPath(orDefault(req.Gh, "gh")); err != nil {
 			return res, &Refusal{Reason: "gh is not available to open the pull request: install the GitHub CLI, or pass --no-pull-request"}
 		}
+		// Without a credential gh would fail only after the push, leaving a
+		// pushed branch and no pull request. The check is scoped to origin's
+		// host, so a stale login for another host does not refuse the cut.
+		args := []string{"auth", "status"}
+		if url, err := (git{bin: req.Git, dir: req.Dir}).run(ctx, "remote", "get-url", "origin"); err == nil {
+			if host := remoteHost(string(url)); host != "" {
+				args = append(args, "--hostname", host)
+			}
+		}
+		if _, err := ghRun(ctx, req, args...); err != nil {
+			return res, &Refusal{Reason: "gh is not authenticated to open the pull request: run gh auth login or set GH_TOKEN, or pass --no-pull-request: " + err.Error()}
+		}
 	}
 
 	g := git{bin: req.Git, dir: req.Dir}
@@ -464,6 +476,42 @@ func orDefault(s, d string) string {
 		return d
 	}
 	return s
+}
+
+// remoteHost is the host a remote URL names (https://host/o/r,
+// ssh://git@host:22/o/r, git@host:o/r), or "" for a local path.
+func remoteHost(url string) string {
+	url = strings.TrimSpace(url)
+	if i := strings.Index(url, "://"); i >= 0 {
+		rest := url[i+3:]
+		if j := strings.IndexByte(rest, '/'); j >= 0 {
+			rest = rest[:j]
+		}
+		if j := strings.LastIndexByte(rest, '@'); j >= 0 {
+			rest = rest[j+1:]
+		}
+		if j := strings.IndexByte(rest, ':'); j >= 0 {
+			rest = rest[:j]
+		}
+		if url[:i] == "file" {
+			return ""
+		}
+		return rest
+	}
+	// scp-like syntax: [user@]host:path, where host has no slash.
+	colon := strings.IndexByte(url, ':')
+	if colon <= 0 || strings.ContainsRune(url[:colon], '/') {
+		return ""
+	}
+	host := url[:colon]
+	if j := strings.LastIndexByte(host, '@'); j >= 0 {
+		host = host[j+1:]
+	}
+	// A single letter before the colon is a Windows drive, not a host.
+	if len(host) == 1 {
+		return ""
+	}
+	return host
 }
 
 // ghRun runs gh in the repository root, so it resolves the repository from

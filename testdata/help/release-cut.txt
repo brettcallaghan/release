@@ -21,7 +21,7 @@ Usage:
   release cut [bump] [flags]
 
 Flags:
-      --dry-run           Report every intended action and change nothing
+      --dry-run           Report every intended action and the changelog section, and change nothing
   -h, --help              help for cut
       --json              Render the answer as JSON instead of YAML
       --no-pull-request   Create and push the stage branch and stop; open no pull request

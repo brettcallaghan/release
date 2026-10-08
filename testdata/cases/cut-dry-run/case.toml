@@ -1,4 +1,4 @@
-description = "a dry run with a named bump and --skip-notes runs every check against origin's tip, answers with the version, the stage branch and the writes it would make, and changes nothing"
+description = "a dry run with a named bump and --skip-notes runs every check against origin's tip, answers with the version, the stage branch, the writes it would make and the changelog section, and changes nothing"
 cites = ["AC-STG-001.11", "AC-STG-001.12", "AC-STG-001.3", "contract-release-cli#guarantees"]
 git = [
   ["init", "-q", "-b", "main"],

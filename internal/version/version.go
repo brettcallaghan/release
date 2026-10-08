@@ -94,7 +94,7 @@ func violation(rule, format string, args ...any) Result {
 // Request is the input to Next.
 type Request struct {
 	// Base is the latest released version on the line; nil means no release
-	// yet, and the calculation starts from 0.0.0.
+	// yet, and a warranted release is 0.0.0 itself (RTS-031).
 	Base     *semver.Version
 	Impact   Impact
 	Graduate bool
@@ -116,13 +116,15 @@ func base(b *semver.Version) (semver.Version, *Result) {
 	return *b, nil
 }
 
-// Next computes the next version for a release line. The computed version
-// always increments exactly one component by one; Policy.Leaps does not
-// affect it.
+// Next computes the next version for a release line. From a base, the
+// computed version increments exactly one component by one; Policy.Leaps
+// does not affect it.
 //
 //   - Graduation below 1.0.0 yields 1.0.0 whatever the impact; graduation at
 //     or above 1.0.0 is a violation.
 //   - Impact none without graduation yields NoRelease.
+//   - With no base, any other impact yields 0.0.0: the first release is the
+//     zero version itself (RTS-031).
 //   - Below 1.0.0 an impact of major is a minor increment WHILE Pre1Remap is
 //     on, and a violation (RTS-019: 1.0.0 needs an explicit graduation)
 //     while it is off.
@@ -138,6 +140,14 @@ func Next(req Request) Result {
 			return violation("RTS-019", "graduation requested but base version %s is already at or above 1.0.0", b)
 		}
 		return release(one)
+	}
+
+	if req.Base == nil {
+		switch req.Impact {
+		case ImpactNone:
+		case ImpactPatch, ImpactMinor, ImpactMajor:
+			return release(semver.Version{})
+		}
 	}
 
 	switch req.Impact {
@@ -169,8 +179,9 @@ func increment(b, next semver.Version, component uint64) Result {
 	return release(next)
 }
 
-// CheckProposed checks a proposed next version against a base (nil means
-// 0.0.0) under the policy, and returns it as a Release when accepted.
+// CheckProposed checks a proposed next version against a base under the
+// policy, and returns it as a Release when accepted. With no base, only
+// 0.0.0 is accepted, or 1.0.0 under graduation (RTS-031).
 //
 // A proposal is refused unless it is a release version that follows the
 // base, increases exactly one component with every lower component reset to
@@ -192,6 +203,12 @@ func CheckProposed(baseVersion *semver.Version, proposed semver.Version, graduat
 		}
 		if semver.Compare(proposed, one) != 0 {
 			return violation("RTS-019", "graduation produces 1.0.0, not %s", proposed)
+		}
+		return release(proposed)
+	}
+	if baseVersion == nil {
+		if semver.Compare(proposed, semver.Version{}) != 0 {
+			return violation("RTS-031", "proposed version %s is not the first release, which is 0.0.0", proposed)
 		}
 		return release(proposed)
 	}

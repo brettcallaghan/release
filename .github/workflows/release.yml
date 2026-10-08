@@ -141,10 +141,13 @@ jobs:
         run: |
           set -euo pipefail
           # The body of CHANGELOG.md's section for this version, without its
-          # heading: everything up to the next `## ` heading.
+          # heading: everything up to the next `## ` heading, with no leading
+          # or trailing blank lines.
           awk -v want="$VERSION" "$SECTION_VERSION"'
             /^## / { if (found) exit; if (v == want) { found = 1; next } }
-            found { print }
+            !found { next }
+            /^[[:space:]]*$/ { if (started) blank++; next }
+            { while (blank > 0) { print ""; blank-- }; started = 1; print }
           ' CHANGELOG.md > dist/notes.md
           cat dist/notes.md
 

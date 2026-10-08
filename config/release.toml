@@ -1,3 +1,5 @@
+target = "main"
+
 [changelog]
 breaking_heading = "💥 Breaking changes"
 groups = [
