@@ -1,9 +1,10 @@
 ---
 title: "ADR-008: The Plugin Provisions Its Pinned Release"
-description: The `release` plugin's SessionStart hook downloads and verifies
-  the CLI release whose version the plugin manifest carries, and places it
-  in the plugin's data directory, rather than bundling, building or
-  delegating to a package manager.
+description: When a `release` plugin skill needs the CLI, a script bundled
+  with the skill downloads and verifies the release whose version the
+  plugin manifest carries and caches it in the plugin's data directory,
+  rather than bundling, building, delegating to a package manager, or
+  provisioning at session start.
 slug: adr-008
 type: adr
 status: draft
@@ -49,16 +50,19 @@ its PATH, and the choice is constrained by:
 
 ## Decision
 
-The plugin will declare a `SessionStart` hook that provisions the CLI
-release whose version is the plugin manifest's `version`. It selects the
-archive for the session's OS and architecture, fetches it and SHA256SUMS
-through the GitHub REST release-asset endpoint, verifies the checksum,
-and extracts the binary to `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, where
-a later session reuses it without the network. It puts that directory on
-the session's PATH; in a cloud session it also links the binary into
-`/usr/local/bin`, because subagents and hook subprocesses do not reliably
-inherit the session's environment. It fails open: any failure is one
-line of cause and remedy, and the session starts.
+Every plugin skill that drives the CLI will ship an `ensure-cli` script
+and run it as its first step. The script provisions the CLI release whose
+version is the plugin manifest's `version`: it selects the archive for the
+machine's OS and architecture, fetches it and SHA256SUMS through the
+GitHub REST release-asset endpoint, verifies the checksum, and extracts
+the binary to `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, where a later
+session reuses it without the network. It prints the binary's absolute
+path, and the skill runs the CLI by that path. In a cloud session it also
+links the binary into `/usr/local/bin`. Nothing is provisioned in a
+session that invokes no such skill.
+
+A failure stops the skill with one line of cause and remedy; the rest of
+the session is unaffected.
 
 The plugin manifest's version is written by `release cut` through the
 repository's `commands.propagate`, and the publication workflow refuses a
@@ -71,8 +75,9 @@ merge commit whose plugin version differs from the stage branch's.
 | Bundle all six binaries in the plugin directory | No network or credential at session start<br>Pinning is automatic | About 10 MB of binaries committed per release, forever, in a repository whose plugin is fetched by cloning<br>Every session downloads every platform's binary to use one | Repository and plugin size grow with every release, to save a download the release workflow already publishes |
 | Build from source with `go install …@v<version>` | No release assets involved<br>Exact version by construction | Needs a Go toolchain in the session<br>A private module needs `GOPRIVATE` and a git credential<br>Minutes per cold session | Most sessions that cut a release are not Go projects, and the toolchain is the larger dependency |
 | A package manager (Homebrew) | The idiomatic local install<br>The person's terminal gets the CLI too | Not yet published<br>Absent from cloud containers<br>Installs the formula's current version, not the plugin's | Cannot pin, and does not exist in the environment where most agent sessions run |
+| A `SessionStart` hook | The CLI is on PATH before any skill runs<br>No step for a skill to forget | Every session pays a network check, including the many that never release<br>Plugin hooks run only in Claude Code; the skills also load in harnesses that ignore them<br>A hook's PATH change reaches subprocesses only through `CLAUDE_ENV_FILE`, unverified for plugin hooks | Cost on sessions that never use it, and a harness dependency the skills do not otherwise have |
 | Require a manual install | Nothing to build | The agent discovers the gap mid-task; the version drifts from the skills | Defeats the FRD's premise that installing the plugin is adoption |
-| Download and verify the pinned release asset | One archive per session, cached across sessions<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs a credential for a private repository<br>Needs the GitHub API reachable at first use | N/A — selected |
+| Download and verify the pinned release asset when a skill needs it | One archive per machine and version, cached across sessions<br>Nothing happens in sessions that do not release<br>Works wherever the skill's script can run<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs a credential for a private repository<br>Needs the GitHub API reachable at first use | N/A — selected |
 
 ## Consequences
 
@@ -80,6 +85,7 @@ merge commit whose plugin version differs from the stage branch's.
 
 - Installing the plugin is the whole of adoption, in a cloud session and
   locally, with no Go toolchain.
+- A session that never releases never touches the network for the CLI.
 - The binary an agent runs is the one its skills were written for.
 - Nothing outside the plugin data directory changes on a local machine.
   This holds once Homebrew is published too: a formula serves the
@@ -97,11 +103,14 @@ merge commit whose plugin version differs from the stage branch's.
 - Between releases, the skills on the default branch can describe
   commands the pinned binary lacks. The cut-release skill defers flags to
   the binary's own `--help` for that reason.
-- The hook is a Bash script. Windows sessions depend on the agent
-  harness running hooks through a Bash it provides (**unverified**).
+- `ensure-cli` is a Bash script. Windows depends on the agent's shell
+  being a Bash, as Claude Code's is on Windows (**unverified**).
+- Every skill that drives the CLI carries its own copy of `ensure-cli`,
+  because a skill is self-contained; a check keeps the copies identical.
+- The first release skill in a session waits for a download.
 - A repository that builds the CLI from its own working tree, as this one
-  does, must opt out of provisioning so the plugin's copy does not shadow
-  its development build.
+  does, must point the skills at that build so the pinned copy does not
+  shadow it.
 
 ## Open Questions
 
@@ -113,8 +122,6 @@ merge commit whose plugin version differs from the stage branch's.
   session's repository access reaches the release assets of a repository
   it was not given; if not, a `GH_TOKEN` in the cloud environment is the
   credential.
-- **`CLAUDE_ENV_FILE` in plugin hooks.** Whether a plugin's
-  `SessionStart` hook receives it, as a project hook does (unverified).
 
 ## References
 

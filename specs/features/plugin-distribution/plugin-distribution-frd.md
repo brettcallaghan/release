@@ -31,8 +31,9 @@ differently or not at all. The plugin and the CLI are therefore released
 together and carry one version, and the plugin provisions exactly that
 version ([[adr-008]]).
 
-Provisioning never stands between a person and their session. A session
-that cannot get the CLI starts anyway and says why, once, with the remedy.
+Provisioning happens when a skill needs the CLI, not when a session
+starts, so a session that never releases pays nothing for it. A skill
+that cannot get the CLI stops and says why, with the remedy.
 
 This feature SHALL comply with [[cli-distribution-policy]].
 
@@ -49,16 +50,16 @@ This feature SHALL comply with [[cli-distribution-policy]].
 
 ## Requirements
 
-### FEAT-PLG-001: The Pinned CLI at Session Start
+### FEAT-PLG-001: The Pinned CLI When a Skill Needs It
 
 **Acceptance Criteria:**
 
 ```gherkin
 @FEAT-PLG-001
-Feature: The Pinned CLI at Session Start
+Feature: The Pinned CLI When a Skill Needs It
 
   As an agent working in a repository
-  I want the release CLI ready when my session starts
+  I want the release CLI provisioned when a release skill needs it
   So that I can cut a release without installing anything first
 
   The version provisioned is the plugin's own, never the latest release.
@@ -70,7 +71,7 @@ Feature: The Pinned CLI at Session Start
     Given the plugin's pinned version is "0.2.0"
     And the session runs on "<os>" "<arch>"
     And no release CLI is provisioned
-    When the session starts
+    When a release skill runs
     Then the release command reports version "0.2.0"
     And the binary came from the "<archive>" release archive
 
@@ -87,34 +88,39 @@ Feature: The Pinned CLI at Session Start
   Scenario: A provisioned pinned version is reused without the network
     Given the pinned version is already in the plugin data directory
     And the network is unavailable
-    When the session starts
+    When a release skill runs
     Then the release command reports the pinned version
 
   @AC-PLG-001.3
   Scenario: A plugin update provisions its own version
     Given the plugin data directory holds version "0.1.0"
     And the plugin is updated to pinned version "0.2.0"
-    When the session starts
+    When a release skill runs
     Then the release command reports version "0.2.0"
 
   @AC-PLG-001.4
-  Scenario: The CLI is on the path of every process in the session
-    Given the pinned CLI was provisioned at session start
-    When a subagent or a hook in the session runs "release --version"
-    Then it reports the pinned version
+  Scenario: Every CLI step in the skill runs the provisioned binary
+    Given the pinned CLI was provisioned by a release skill
+    When the skill runs a release command
+    Then the command runs the provisioned binary of the pinned version
+
+  @AC-PLG-001.7 @negative
+  Scenario: A session that runs no release skill provisions nothing
+    Given a session in which no release skill runs
+    Then nothing is fetched and nothing is placed for the CLI
 
   @AC-PLG-001.5 @negative
   Scenario: An archive failing its checksum is never executed
     Given the downloaded archive does not match its entry in SHA256SUMS
-    When the session starts
+    When a release skill runs
     Then the archive is discarded without being extracted or run
     And the session reports a checksum mismatch for that archive
 
   @AC-PLG-001.6 @negative
-  Scenario Outline: A provisioning failure does not block the session
+  Scenario Outline: A provisioning failure stops only the skill
     Given provisioning fails because "<cause>"
-    When the session starts
-    Then the session starts
+    When a release skill runs
+    Then the skill stops before running any release command
     And one message names the cause and its remedy
 
     Examples:
@@ -144,28 +150,29 @@ Feature: Where the CLI Is Installed
   @AC-PLG-002.1
   Scenario: A cloud session provisions into the plugin data directory
     Given a cloud session
-    When the session starts
+    When a release skill runs
     Then the pinned CLI is placed under the plugin data directory
     And it is runnable as "release" from any process in the session
 
   @AC-PLG-002.2 @negative
   Scenario: A local session changes nothing outside the plugin data directory
     Given a local session
-    When the session starts
+    When a release skill runs
     Then no file outside the plugin data directory is created or changed
     And no system package is installed or upgraded
 
   @AC-PLG-002.3
   Scenario: A release CLI already at the pinned version is used as found
     Given "release" on the path already reports the pinned version
-    When the session starts
+    When a release skill runs
     Then provisioning fetches nothing and places nothing
 
   @AC-PLG-002.4
-  Scenario: A repository can opt out of provisioning
-    Given the repository's agent settings disable plugin provisioning
-    When the session starts
+  Scenario: A repository can direct the skills to its own build
+    Given the repository's agent settings name its own release binary
+    When a release skill runs
     Then provisioning fetches nothing and places nothing
+    And the skill runs the named binary
 ```
 
 A local session uses a session-only copy of the pinned version, even where
@@ -193,7 +200,7 @@ Feature: Retrieval From a Private Repository
   Scenario Outline: The first available credential is used
     Given "<source>" holds a credential that can read the repository
     And no source earlier in the order holds one
-    When the session starts
+    When a release skill runs
     Then the pinned CLI is provisioned using that credential
 
     Examples:
@@ -295,7 +302,9 @@ Feature: Release-Management Standards
   So that my advice follows the same rules the release CLI enforces
 
   The plugin carries copies of this corpus's standards rather than a
-  paraphrase, so the advice and the specification cannot disagree.
+  paraphrase, so the advice and the specification cannot disagree. The
+  first version covers the command-line tool or library and the
+  continuously deployed service archetypes; web and mobile apps follow.
 
   @AC-PLG-006.1
   Scenario Outline: Each standard ships unchanged
