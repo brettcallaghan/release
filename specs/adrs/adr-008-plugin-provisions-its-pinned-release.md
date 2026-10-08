@@ -65,8 +65,10 @@ A failure stops the skill with one line of cause and remedy; the rest of
 the session is unaffected.
 
 The plugin manifest's version is written by `release cut` through the
-repository's `commands.propagate`, and the publication workflow refuses a
-merge commit whose plugin version differs from the stage branch's.
+repository's `commands.propagate`, and `plugin/.claude-plugin/plugin.json`
+is declared in `release_paths`, without which cut refuses the propagated
+change. The publication workflow refuses a merge commit whose plugin
+version differs from the stage branch's.
 
 ## Alternatives Considered
 

@@ -277,11 +277,11 @@ Feature: Cutting a Release From a Skill
     And the agent opens a stage pull request for that version
 
   @AC-PLG-005.2 @manual
-  Scenario: A missing or mismatched CLI is reported, not worked around
-    Given the release command is absent or reports another version
+  Scenario: A provisioning failure is reported, not worked around
+    Given provisioning the pinned version fails
     When the cut-release skill runs
-    Then the agent reports which and how to provision the pinned version
-    And the agent does not build or download the CLI itself
+    Then the agent reports the cause and its remedy
+    And the agent does not build, download or substitute the CLI another way
 
   @AC-PLG-005.3 @manual @negative
   Scenario: The skill never tags or publishes
