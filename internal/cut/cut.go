@@ -61,6 +61,9 @@ type Request struct {
 	Redo bool
 	// Skip stages without an authoring exchange. It requires Named.
 	Skip bool
+	// Force stages a named bump WHEN nothing releasable exists since the
+	// base version. It requires Named.
+	Force bool
 	// NoPullRequest stops after the push.
 	NoPullRequest bool
 	// DryRun runs every check and reports the writes without making them.
@@ -163,6 +166,9 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	if req.Skip && req.Named == nil {
 		return res, &Refusal{Reason: "staging without notes needs a named bump: name major, minor or patch with --skip-notes"}
 	}
+	if req.Force && req.Named == nil {
+		return res, &Refusal{Reason: "--force needs a named bump: it stages that bump when nothing releasable exists; name major, minor or patch"}
+	}
 	if req.Config.Commands.Propagate == nil {
 		return res, &Refusal{Reason: "commands.propagate is unconfigured: cutting a release writes the version into the repository's manifests through it; " +
 			"configure it in the release configuration (a command that needs no manifest change can be `true`)"}
@@ -195,6 +201,10 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	}
 	v := res.Resolution.Next.Version
 	res.Version = v.String()
+	if res.Resolution.Named && res.Resolution.Inferred == releasemodel.BumpNone && !req.Force {
+		return res, &Refusal{Reason: fmt.Sprintf("nothing releasable %s; pass --force to cut %s anyway",
+			res.Resolution.NothingReleasable(), res.Version)}
+	}
 	res.Branch = semver.StageBranchName(req.Config.StagePrefix, v)
 
 	// 2. Refuse a stage branch that already exists, here or on origin.

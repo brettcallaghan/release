@@ -5,7 +5,7 @@ description: Cutting a release as a stage branch and its pull request, with
 slug: frd-release-staging
 type: frd
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 sources:
   - adr-001
   - adr-002
@@ -107,6 +107,20 @@ Feature: Release Staging
     Given no releasable change exists since the latest tag reachable from the target branch
     When the maintainer stages a release
     Then the tooling refuses and creates no branch
+
+  @AC-STG-001.13
+  Scenario: A named bump over nothing releasable is refused unless forced
+    Given no releasable change exists since the latest tag reachable from the target branch
+    And the maintainer names a bump without forcing the release
+    When the maintainer stages a release
+    Then the tooling refuses, says nothing is releasable, names how to force the release, and creates no branch
+
+  @AC-STG-001.14
+  Scenario: A forced named bump stages over nothing releasable
+    Given no releasable change exists since the latest tag reachable from the target branch
+    And the maintainer names a bump and forces the release
+    When the maintainer stages a release
+    Then the tooling stages the named bump
 
   @AC-STG-001.5
   Scenario: A disagreement over impact halts before any write

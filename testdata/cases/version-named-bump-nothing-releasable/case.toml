@@ -1,0 +1,11 @@
+description = "a named bump over commits that indicate no bump answers the named version and warns on standard error that nothing is releasable"
+cites = ["contract-release-cli#commands"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "docs: describe the flag"],
+]
+args = ["version", "patch", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

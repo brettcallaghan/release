@@ -9,7 +9,9 @@ branch to origin, and opens a pull request into the target with gh. Your
 working tree, index and current branch are never read or changed.
 
 bump is major, minor or patch, and names the impact instead of inferring
-it. When standard input is a terminal, cut shows the writes it will make and
+it. A named bump is refused when the commits since the base version indicate
+no bump (there are none, or none is releasable), unless --force is given.
+When standard input is a terminal, cut shows the writes it will make and
 asks once before the first. It never tags, publishes, merges, or changes the
 target branch. Exits 1 when it refuses (nothing to release, an impact
 disagreement, an existing stage branch, a failing configured command, a
@@ -22,6 +24,7 @@ Usage:
 
 Flags:
       --dry-run           Report every intended action and change nothing
+      --force             Cut the named bump even when nothing releasable exists since the base version. Requires bump
   -h, --help              help for cut
       --json              Render the answer as JSON instead of YAML
       --no-pull-request   Create and push the stage branch and stop; open no pull request

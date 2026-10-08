@@ -78,7 +78,9 @@ naming `git remote set-head origin --auto`. Its answer is one mapping with
 keys `base`, `impact`, `named`, `determined_by` (each `hash`, `subject`,
 `signal`) and `next`, in that order; it exits 1 after printing the answer
 WHEN no release is warranted or the policy refuses the version, and 2 for an
-invalid bump or a repository it cannot read.
+invalid bump or a repository it cannot read. WHEN a bump is named and the
+resolution's inferred impact is none, it prints a warning on standard error
+and still exits 0.
 
 `release changelog [major|minor|patch] [--target <branch>] [--skip-notes]
 [--redo-notes] [--corpus <path>] [--write] [--json]` calls the release
@@ -106,7 +108,7 @@ renderer links sources to is derived from a GitHub `origin` remote, and
 sources render as plain text otherwise.
 
 `release cut [major|minor|patch] [--target <branch>] [--skip-notes]
-[--redo-notes] [--no-pull-request] [--dry-run] [--yes] [--json]` passes its
+[--force] [--redo-notes] [--no-pull-request] [--dry-run] [--yes] [--json]` passes its
 flags to the release core's Stage Orchestrator (`internal/cut`). Without
 `--target` it cuts the configured `target`, or else the branch `origin/HEAD`
 points to, as a branch name on `origin`. WHILE standard input is a terminal
@@ -123,7 +125,9 @@ outside `release_paths`, a declined prompt, a failing or rejected producer),
 having written nothing and answering nothing; 3 WHEN a write failed after
 another succeeded, answering with every write made and naming on standard
 error the commands that finish or discard the release; and 0 otherwise.
-`--skip-notes` without a bump is a refusal, and with `--redo-notes`, or a
+`--skip-notes` or `--force` without a bump is a refusal. A named bump over
+commits that indicate no impact is a refusal suggesting `--force`, which
+stages it anyway. `--skip-notes` with `--redo-notes`, or a
 bump other than `major`, `minor` or `patch`, is invalid (exit 2).
 
 `release config [--json]` answers with the effective configuration, declared

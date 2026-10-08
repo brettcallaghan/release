@@ -23,6 +23,7 @@ func newCutCmd(s *streams) *cobra.Command {
 	var (
 		target    string
 		skipNotes bool
+		force     bool
 		redoNotes bool
 		noPR      bool
 		dryRun    bool
@@ -42,7 +43,9 @@ func newCutCmd(s *streams) *cobra.Command {
 			"branch to origin, and opens a pull request into the target with gh. Your\n" +
 			"working tree, index and current branch are never read or changed.\n\n" +
 			"bump is major, minor or patch, and names the impact instead of inferring\n" +
-			"it. When standard input is a terminal, cut shows the writes it will make and\n" +
+			"it. A named bump is refused when the commits since the base version indicate\n" +
+			"no bump (there are none, or none is releasable), unless --force is given.\n" +
+			"When standard input is a terminal, cut shows the writes it will make and\n" +
 			"asks once before the first. It never tags, publishes, merges, or changes the\n" +
 			"target branch. Exits 1 when it refuses (nothing to release, an impact\n" +
 			"disagreement, an existing stage branch, a failing configured command, a\n" +
@@ -64,6 +67,7 @@ func newCutCmd(s *streams) *cobra.Command {
 				},
 				Redo:          redoNotes,
 				Skip:          skipNotes,
+				Force:         force,
 				NoPullRequest: noPR,
 				DryRun:        dryRun,
 			}
@@ -108,6 +112,7 @@ func newCutCmd(s *streams) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&target, "target", "", "The release line to cut from: a `branch` on origin (default: the configured target, else the branch origin/HEAD points to)")
 	cmd.Flags().BoolVar(&skipNotes, "skip-notes", false, "Stage without an authoring exchange. Requires bump")
+	cmd.Flags().BoolVar(&force, "force", false, "Cut the named bump even when nothing releasable exists since the base version. Requires bump")
 	cmd.Flags().BoolVar(&redoNotes, "redo-notes", false, "Discard any cached corpus and author again")
 	cmd.Flags().BoolVar(&noPR, "no-pull-request", false, "Create and push the stage branch and stop; open no pull request")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report every intended action and change nothing")

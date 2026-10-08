@@ -6,7 +6,7 @@ description: What the release tooling guarantees and validates — stage
 slug: release-tooling-standards
 type: standards
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 version: "0.2"
 ---
 
@@ -166,7 +166,15 @@ produce version 1.0.0.
 ---
 
 **RTS-020:** WHERE no releasable change exists since the latest reachable
-tag, the release tooling SHALL refuse to create a stage branch.
+tag, the release tooling SHALL refuse to create a stage branch unless the
+maintainer names a bump and explicitly forces the release. A releasable
+change is a commit that indicates an impact of patch or above through an
+enabled signal; a range with no commits holds none.
+
+**Rationale:** A named bump states the impact but not that anything
+changed. Staging it over an empty range publishes a release with nothing in
+it, which is usually a mistake, and occasionally intended (a rebuild, or a
+release of changes that carry no signal).
 
 ---
 

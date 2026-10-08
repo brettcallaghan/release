@@ -57,6 +57,9 @@ anything.
 
 Answers with the base version, the resolved impact, what drove that impact,
 and the next version. Read-only, and safe to run against any repository at any time.
+WHEN a bump is named and the commits since the base version indicate no
+impact, it answers the named version and prints a warning on standard error
+that nothing is releasable.
 
 ### `release changelog [bump]`
 
@@ -83,6 +86,7 @@ writes the release commit onto a stage branch, and opens its pull request.
 |---|---|
 | `--target <branch>` | The release line to cut from |
 | `--skip-notes` | Stage without an authoring exchange. Requires `bump` |
+| `--force` | Stage the named bump even when nothing releasable exists since the base version. Requires `bump` |
 | `--redo-notes` | Discard any cached corpus and author again |
 | `--no-pull-request` | Create the stage branch and stop; open no pull request |
 | `--dry-run` | Report every intended action and change nothing |

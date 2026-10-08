@@ -125,6 +125,45 @@ func TestNamedBumpIsReportedAsNamed(t *testing.T) {
 	}
 }
 
+func TestInferredIsWhatTheCommitsIndicateWhateverIsNamed(t *testing.T) {
+	f := newFixture(t)
+	f.commit("initial")
+	f.git("tag", "v2.0.0")
+	major := releasemodel.BumpMajor
+	if res := f.resolve(&major); res.Inferred != releasemodel.BumpNone {
+		t.Errorf("no commits: inferred = %s, want NONE", res.Inferred)
+	}
+	f.commit("docs: readme")
+	if res := f.resolve(&major); res.Inferred != releasemodel.BumpNone || res.Impact != releasemodel.BumpMajor {
+		t.Errorf("docs only: got impact %s inferred %s, want MAJOR and NONE", res.Impact, res.Inferred)
+	}
+	f.commit("fix: a bug")
+	if res := f.resolve(&major); res.Inferred != releasemodel.BumpPatch {
+		t.Errorf("a fix: inferred = %s, want PATCH", res.Inferred)
+	}
+	if res := f.resolve(nil); res.Inferred != res.Impact {
+		t.Errorf("unnamed: inferred %s differs from impact %s", res.Inferred, res.Impact)
+	}
+}
+
+func TestNothingReleasableDescribesTheRange(t *testing.T) {
+	commits := func(n int) []releasemodel.CommitRecord { return make([]releasemodel.CommitRecord, n) }
+	cases := []struct {
+		res  Resolution
+		want string
+	}{
+		{Resolution{BaseTag: "v1.2.0"}, "since v1.2.0: no commits"},
+		{Resolution{BaseTag: "v1.2.0", Commits: commits(1)}, "since v1.2.0: 1 commit, which indicates no bump"},
+		{Resolution{BaseTag: "v1.2.0", Commits: commits(3)}, "since v1.2.0: 3 commits, none of which indicates a bump"},
+		{Resolution{Commits: commits(2)}, "with no release tag reachable: 2 commits, none of which indicates a bump"},
+	}
+	for _, c := range cases {
+		if got := c.res.NothingReleasable(); got != c.want {
+			t.Errorf("got %q, want %q", got, c.want)
+		}
+	}
+}
+
 func TestNoSignalIsNoRelease(t *testing.T) {
 	f := newFixture(t)
 	f.commit("initial")
