@@ -105,6 +105,7 @@ Feature: Release Staging
   @AC-STG-001.4
   Scenario: Nothing releasable means no branch
     Given no releasable change exists since the latest tag reachable from the target branch
+    And the maintainer names no bump
     When the maintainer stages a release
     Then the tooling refuses and creates no branch
 

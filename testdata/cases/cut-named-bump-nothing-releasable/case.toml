@@ -1,5 +1,5 @@
 description = "a named bump with no commits since the latest tag refuses, says nothing is releasable, suggests --force, and creates no branch"
-cites = ["AC-STG-001.13", "AC-STG-001.4"]
+cites = ["AC-STG-001.13"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
