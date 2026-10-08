@@ -1,0 +1,1 @@
+release cut: staging without notes needs a named bump: name major, minor or patch with --skip-notes

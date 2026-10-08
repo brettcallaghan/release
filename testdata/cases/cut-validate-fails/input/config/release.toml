@@ -1,0 +1,9 @@
+release_paths = ["VERSION"]
+
+[commands]
+validate = "echo VERSION holds $(cat VERSION); exit 3"
+propagate = "printf \"%s\\n\" \"$RELEASE_VERSION\" > VERSION"
+
+[changelog]
+producer = "command"
+producer_command = "false"

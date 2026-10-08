@@ -6,7 +6,7 @@ description: The command-line front end to the release core library — its
 slug: container-release-cli
 type: container-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 contracts_consumed: []
 modules:
   - module-release-core
@@ -65,7 +65,7 @@ capability lives there.
 
 Subcommands, flags and argument validation. `release version` prints the
 computed version and its justification; `release changelog` assembles,
-authors and renders without staging; `release cut <major|minor|patch>` stages
+authors and renders without staging; `release cut [major|minor|patch]` stages
 a release, with `--skip-notes` to stage without an authoring exchange.
 
 `release version [major|minor|patch] [--target <branch>] [--json]` calls the
@@ -104,6 +104,27 @@ nothing else. `--skip-notes` with `--redo-notes` or `--corpus` is invalid,
 and a missing producer prerequisite exits 2. The repository web URL the
 renderer links sources to is derived from a GitHub `origin` remote, and
 sources render as plain text otherwise.
+
+`release cut [major|minor|patch] [--target <branch>] [--skip-notes]
+[--redo-notes] [--no-pull-request] [--dry-run] [--yes] [--json]` passes its
+flags to the release core's Stage Orchestrator (`internal/cut`). Without
+`--target` it cuts the configured `target`, or else the branch `origin/HEAD`
+points to, as a branch name on `origin`. WHILE standard input is a terminal
+and neither `--yes` nor `--dry-run` is given, it shows the version and the
+writes it will make on standard error and prompts once before the first
+write; anything but `y` or `yes` declines, which is a refusal. Its answer is
+one mapping with keys `version`, `branch`, `commit`, `pull_request` (the URL,
+or null) and `writes` (every write made, in order, each a line such as
+`push cut/1.9.0 to origin`); under `--dry-run` it is `version`, `branch` and
+`writes` listing the writes it would make. It exits 1 on a refusal (nothing
+to release, an impact disagreement, an existing stage branch, an
+unconfigured `commands.propagate`, a failing configured command, a path
+outside `release_paths`, a declined prompt, a failing or rejected producer),
+having written nothing and answering nothing; 3 WHEN a write failed after
+another succeeded, answering with every write made and naming on standard
+error the commands that finish or discard the release; and 0 otherwise.
+`--skip-notes` without a bump is a refusal, and with `--redo-notes`, or a
+bump other than `major`, `minor` or `patch`, is invalid (exit 2).
 
 `release config [--json]` answers with the effective configuration, declared
 values over the release core's defaults, as one mapping: `target`,

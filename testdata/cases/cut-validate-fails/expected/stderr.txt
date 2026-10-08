@@ -1,0 +1,2 @@
+release cut: commands.validate failed: "echo VERSION holds $(cat VERSION); exit 3" exited 3
+VERSION holds 1.9.0

@@ -8,6 +8,7 @@ Usage:
 Available Commands:
   changelog   Assemble, author and render the changelog section a release would carry
   config      Answer with the effective configuration and validate it
+  cut         Cut a release as a stage branch and open its pull request
   help        Help about any command
   version     Resolve the version a release would carry, without writing anything
 

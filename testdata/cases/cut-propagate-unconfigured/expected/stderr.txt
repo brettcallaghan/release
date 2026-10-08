@@ -1,0 +1,1 @@
+release cut: commands.propagate is unconfigured: cutting a release writes the version into the repository's manifests through it; configure it in the release configuration (a command that needs no manifest change can be `true`)

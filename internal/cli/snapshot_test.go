@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -108,6 +109,12 @@ func runSnapshotCase(t *testing.T, dir string) {
 		runFixtureGit(t, work, args)
 	}
 	t.Chdir(work)
+	// The command's own git runs see the fixture's isolation too, so a case
+	// does not depend on the user's git configuration or identity.
+	for _, kv := range fixtureEnv {
+		k, v, _ := strings.Cut(kv, "=")
+		t.Setenv(k, v)
+	}
 
 	var stdout, stderr bytes.Buffer
 	code := Execute(m.Args, &stdout, &stderr)

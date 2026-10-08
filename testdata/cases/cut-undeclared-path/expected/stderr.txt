@@ -1,0 +1,1 @@
+release cut: the release would modify paths that are neither CHANGELOG.md nor in release_paths: main.go

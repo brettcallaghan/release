@@ -1,0 +1,8 @@
+release_paths = ["VERSION"]
+
+[commands]
+propagate = "echo 1.9.0 > VERSION; echo changed > main.go"
+
+[changelog]
+producer = "command"
+producer_command = "false"
