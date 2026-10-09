@@ -57,6 +57,10 @@ Each skill is invoked as `release:<skill>`:
 - `release:changelog` — authors a structured changelog from an evidence
   bundle, under [[contract-changelog]]. Invoked by the CLI's `claude`
   producer, never by a person.
+- `release:cut-release` — cuts a release with the pinned CLI: provisions it,
+  previews the version and changelog, confirms the bump with the person,
+  and stages the release. Invoked by a person, or by an agent on their
+  behalf.
 
 ## Components
 
@@ -72,6 +76,26 @@ technology: Agent skill
 `plugin/skills/changelog/`. Its references are byte-identical copies of
 [[contract-changelog]] and the schemas it names, checked by
 `scripts/check-skills.sh`.
+
+### Cut Release Skill
+
+```component
+entity_name: Cut Release Skill
+slug: component-cut-release-skill
+description: Teaches an agent to cut a release with the pinned CLI, following the release standards
+technology: Agent skill
+```
+
+`plugin/skills/cut-release/`, user-invocable. Its first step runs the
+Install CLI Script and keeps the printed path; a failure there is reported
+and stops the skill, which never builds, downloads or substitutes the CLI
+another way. Every CLI command it directs runs through that path. It
+teaches the workflow — the CLI's help, a `changelog` preview, the person's
+confirmation of the bump, then `cut` — and states that the agent never
+tags, publishes or merges. It defers to the CLI's `--help` for commands and
+flags, and carries sections on commit conventions and on configuring a
+repository. The plugin has no `hooks/` and no top-level `bin/`, so nothing
+is provisioned in a session that runs no skill.
 
 ### Install CLI Script
 
