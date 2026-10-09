@@ -5,8 +5,8 @@ description: How release core assembles a changelog corpus from git,
   returns, and how `release changelog` drives it.
 slug: feature-changelog-authoring
 type: feature-blueprint
-status: in-progress
-updated_at: 2026-10-07T00:00:00Z
+status: retired
+updated_at: 2026-10-09T00:00:00Z
 delivery: single-pr
 plan: release-mng
 frd: frd-changelog-authoring
@@ -273,7 +273,7 @@ Bridge` delta; PROD = `Changelog Producer` delta (— MVP producers); CLCMD =
 - [ ] Every AC in the coverage table is verified at its declared level
   and cited from its tests per the specs plugin's
   `shared/ac-traceability-standards.md`
-- [ ] This blueprint's status → retired
+- [x] This blueprint's status → retired
 
 ## Open Questions
 

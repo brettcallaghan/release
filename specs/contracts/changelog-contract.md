@@ -141,7 +141,7 @@ struct CommitEvidence {
   record: CommitRecord              # hash, subject, body, trailers, author, files
   conventional: Conventional?       # the parsed conventional subject, where it is one
   pull_request: PullRequestInfo?    # the pull request the commit carries, where it carries one
-  diff: DiffRecord?                 # absent WHEN the budget carried none of it
+  diff: DiffRecord?                 # absent WHEN the Diff Collector did not run
   signal: Bump?                     # the classifier's reading; absent when unclassified
 }
 struct Conventional {

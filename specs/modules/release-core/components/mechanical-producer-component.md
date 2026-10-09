@@ -31,10 +31,12 @@ heading with no kind.
 It serves `--skip-notes`, continuous integration with no model, and
 `changelog.producer = "mechanical"`. The bridge never selects it on its
 own when the configured producer is unavailable or fails. It exercises no judgement and reads no
-diff. Because its kinds come from the same conventional types the Bump
-Classifier reads, the suggestion [[component-bump-suggester]] derives from
-its entries is the signal floor alone; where that is none and an entry
-has no kind, the cut halts for a named bump.
+diff. Its kinds come from conventional subjects whether or not the
+`conventional-type` signal is enabled. With that signal enabled, the
+default, the suggestion [[component-bump-suggester]] derives from its
+entries is the signal floor; with it disabled, the suggestion can exceed
+the floor, and a person still confirms it. Where the suggestion is none
+and an entry has no kind, the cut halts for a named bump.
 
 - **Role:** a model-free structured changelog.
 - **Scope:** in — mapping commit subjects to changelog entries; out —

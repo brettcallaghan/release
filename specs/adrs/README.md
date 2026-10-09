@@ -7,7 +7,7 @@ libraries and language toolchains.
 |-----|-------|--------|
 | [ADR-001](adr-001-release-lines-as-policy.md) | Release Lines Are Policy, Not Tooling | approved |
 | [ADR-002](adr-002-stage-branches-as-the-release-trigger.md) | Stage Branches as the Release Trigger | approved |
-| [ADR-003](adr-003-ai-authored-changelog-suggested-bump.md) | AI-Authored Changelog with a Suggested, Confirmed Bump | draft |
+| [ADR-003](adr-003-ai-authored-changelog-suggested-bump.md) | AI-Authored Changelog with a Suggested, Confirmed Bump | approved |
 | [ADR-004](adr-004-existing-release-tooling-not-adopted.md) | Existing Release Tooling Is Not Adopted | approved |
 | [ADR-005](adr-005-composable-release-tool.md) | A Composable Library With a Thin CLI | approved |
 | [ADR-006](adr-006-git-through-the-git-binary.md) | Git Through the Git Binary | approved |
