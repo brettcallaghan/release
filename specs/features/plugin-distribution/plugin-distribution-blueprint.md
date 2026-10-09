@@ -5,10 +5,11 @@ description: How the release plugin provisions the CLI it pins, teaches an
   lockstep with the CLI and pinned in the marketplace.
 slug: feature-plugin-distribution
 type: feature-blueprint
-status: approved
+status: in-progress
 updated_at: 2026-10-09T00:00:00Z
 delivery: single-pr
 frd: frd-plugin-distribution
+plan: release-bi5
 ---
 
 # Plugin Distribution
