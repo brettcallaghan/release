@@ -90,7 +90,7 @@ func newVersionCmd(s *streams) *cobra.Command {
 				return err
 			}
 			if res.Named && res.Floor == releasemodel.BumpNone {
-				fmt.Fprintf(s.err, "release version: warning: nothing releasable %s; release cut stages the named bump only with --force\n", res.NothingReleasable())
+				fmt.Fprintf(s.err, "release version: warning: nothing releasable %s; release cut decides from the authored changelog, and needs --force only if that holds nothing releasable either\n", res.NothingReleasable())
 			}
 			if res.Next.Kind != version.Release {
 				s.exitCode = StatusRefused
