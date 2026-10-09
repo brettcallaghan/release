@@ -108,10 +108,9 @@ a range whose floor is none still halts for a person.
 
 ## Open Questions
 
-- [ ] An entry with no `kind` needs `ChangelogEntry.kind` to be optional in
-  [[contract-changelog]]. While it is required, the renderer's other
-  heading holds only kinds `changelog.groups` does not declare, and a
-  non-conventional commit's entry would take CHORE.
+None. [[contract-changelog]] makes `ChangelogEntry.kind` optional, so a
+non-conventional commit's entry carries no kind and renders under the other
+heading.
 
 ## References
 

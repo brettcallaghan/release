@@ -81,6 +81,8 @@ saw.
   - The component SHALL preserve returned prose byte-for-byte.
   - The component SHALL cache an accepted changelog keyed by the commit
     range it was authored from.
+  - The component SHALL keep the evidence bundle the producer was given
+    beside the cached changelog, as `<from>..<to>.evidence.json`.
   - WHEN a cached changelog exists for the range, the component SHALL reuse
     it rather than invoking a producer.
   - The component SHALL allow the maintainer to discard a cached changelog

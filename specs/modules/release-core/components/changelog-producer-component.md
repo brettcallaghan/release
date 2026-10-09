@@ -117,8 +117,7 @@ replaceable rather than merely configurable.
 - **Mechanical producer** (`mechanical`, `producers.Mechanical` in
   `internal/authoring/producers`) — [[component-mechanical-producer]].
   Entries from conventional subjects, in process, with no model. Serves
-  `--skip-notes`, a configured producer that refused, and continuous
-  integration with no model.
+  `--skip-notes`, including continuous integration with no model.
 - **Manual producer** (`internal/authoring/producers/manual`) — writes the
   bundle to a path and waits for a person to return the changelog.
 
@@ -164,9 +163,9 @@ WHEN the skill the Claude CLI producer invokes changes the shape it returns,
 ## Open Questions
 
 None. The Claude CLI producer is the default. A machine without the `claude`
-command gets a refusal naming the prerequisite; the authoring bridge then
-authors with the mechanical producer and reports that it did, so the
-changelog never depends silently on which tools happened to be installed.
+command gets a refusal naming the prerequisite, and the command stops and
+names `--skip-notes`, so the changelog never depends silently on which tools
+happened to be installed.
 
 ## References
 

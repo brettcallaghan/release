@@ -78,7 +78,7 @@ rather than the tooling learning any manifest format.
   - IF the maintainer names a bump below the signal floor and the release is
     not forced, THEN the component SHALL refuse without writing.
   - WHEN the maintainer requests staging without notes, the component SHALL
-    author the corpus with [[component-mechanical-producer]].
+    author the structured changelog with [[component-mechanical-producer]].
   - WHEN [[component-bump-suggester]] halts, the component SHALL halt
     without writing, returning the suggested bump, its reasons, the signal
     floor and the unclassified commits as its result.
@@ -158,9 +158,12 @@ rather than the tooling learning any manifest format.
       open the pull request into the target through `gh`, titled
       `Release <version>`, with the rendered changelog under
       `## Release Notes` followed by the confirmed bump, the suggestion and
-      its reasons under `## Bump`, unless told not to.
+      its reasons under `## Bump`, and each omitted commit with its reason
+      under `## Omitted commits`, unless told not to.
 - **Configured commands and the changelog producer** run in the scratch
-  checkout with `RELEASE_VERSION` set to the version being released. The
+  checkout with `RELEASE_VERSION` set to the version being released WHEN a
+  bump is named, and unset otherwise, since the version is not known until
+  the suggestion is confirmed. The
   component's own git operations there (creating the checkout, the branch
   and the commit) run with no repository hooks, so the commit is exactly
   what was checked; a `CHANGELOG.md` that is a symbolic link is refused.
