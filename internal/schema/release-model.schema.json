@@ -320,7 +320,7 @@
           ]
         },
         "diff": {
-          "description": "The commit's diff. Absent WHEN the budget carried none of it.",
+          "description": "The commit's diff. Absent WHEN the Diff Collector did not run.",
           "oneOf": [
             {
               "$ref": "#/definitions/DiffRecord"

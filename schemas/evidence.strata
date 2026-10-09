@@ -88,7 +88,7 @@ struct CommitEvidence {
     pull_request: PullRequestInfo?
 
     """
-    The commit's diff. Absent WHEN the budget carried none of it.
+    The commit's diff. Absent WHEN the Diff Collector did not run.
     """
     diff: DiffRecord?
 

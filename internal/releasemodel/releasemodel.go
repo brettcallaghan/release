@@ -1160,7 +1160,7 @@ type CommitEvidence struct {
 	Conventional *Conventional `json:"conventional,omitempty"`
 	// The pull request the commit carries, where it carries one.
 	PullRequest *PullRequestInfo `json:"pull_request,omitempty"`
-	// The commit's diff. Absent WHEN the budget carried none of it.
+	// The commit's diff. Absent WHEN the Diff Collector did not run.
 	Diff *DiffRecord `json:"diff,omitempty"`
 	// The classifier's reading of the commit. Absent when unclassified.
 	Signal *Bump `json:"signal,omitempty"`
