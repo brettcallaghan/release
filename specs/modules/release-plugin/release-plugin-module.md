@@ -73,6 +73,46 @@ technology: Agent skill
 [[contract-changelog]] and the schemas it names, checked by
 `scripts/check-skills.sh`.
 
+### Install CLI Script
+
+```component
+entity_name: Install CLI Script
+slug: component-install-cli-script
+description: Finds or downloads the CLI release the plugin pins and prints its path
+technology: Bash
+```
+
+`plugin/skills/cut-release/scripts/install-cli`, run as
+`bash <path> <data-dir>` with the plugin data directory; it lives with the
+skill that runs it, so that skill stays self-contained. It is the only
+provisioning code ([[adr-008]]): a skill runs it first and runs every CLI
+step by the path it prints.
+
+- **Pinned version:** the `version` of `.claude-plugin/plugin.json` three
+  directories above the script, and nowhere else.
+- **Lookup**, first hit wins and fetches nothing: `RELEASE_CLI` (relative
+  paths resolved against the git toplevel; not executable is a failure,
+  never a fall-through), then `<data-dir>/bin/<version>/release`, then a
+  `release` on the PATH whose `--version` prints `release v<version>`.
+- **Download:** the archive `release_<version>_<os>_<arch>` and
+  `SHA256SUMS` of release `v<version>`, by asset id through the GitHub
+  REST API, verified with `sha256sum` (or `shasum -a 256`) before `tar`
+  extracts it under `<data-dir>/bin/.tmp-<pid>`; only the verified binary
+  moves into `<data-dir>/bin/<version>/`. POSIX tools only.
+- **Credential:** `GH_TOKEN`, `GITHUB_TOKEN`, `gh auth token`, or none —
+  sent as a header read from standard input, to the API host only;
+  redirects are followed without it.
+- **Placement:** nothing outside `<data-dir>`, except that with
+  `CLAUDE_CODE_REMOTE=true` the provisioned binary is linked as `release`
+  into `/usr/local/bin`.
+- **Result:** the binary's absolute path as the only line of standard
+  output; on failure one line `install-cli: <cause>. <remedy>` on standard
+  error and exit 1; exit 2 on a missing data directory.
+
+`INSTALL_CLI_API_URL` and `INSTALL_CLI_LINK_DIR` exist for the
+integration tests in `internal/pluginscripts`, which run the script
+against an `httptest` server.
+
 ## Versioning and Compatibility
 
 The plugin's version is the CLI's version: `release cut` writes it into
