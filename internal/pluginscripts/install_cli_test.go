@@ -636,8 +636,14 @@ func TestRepositoryCanDirectProvisioningToItsOwnBuild(t *testing.T) {
 	h.env["RELEASE_CLI"] = "build/release"
 	h.env["CLAUDE_CODE_REMOTE"] = "true"
 
-	if path := h.succeed(); path != own {
-		t.Errorf("path = %s, want %s", path, own)
+	// git reports the toplevel with symlinks resolved (macOS's /var is
+	// /private/var), so compare resolved paths.
+	want, err := filepath.EvalSymlinks(own)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path := h.succeed(); path != want {
+		t.Errorf("path = %s, want %s", path, want)
 	}
 	h.requireNoRequests()
 	if _, err := os.Stat(h.data); !errors.Is(err, fs.ErrNotExist) {
