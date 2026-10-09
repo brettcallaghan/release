@@ -168,6 +168,14 @@ Feature: Where the CLI Is Installed
     When a release skill runs
     Then provisioning fetches nothing and places nothing
 
+  @AC-PLG-002.5 @negative
+  Scenario: A release CLI at another version is never run
+    Given "release" on the path reports version "0.1.0"
+    And the plugin's pinned version is "0.2.0"
+    When a release skill runs a release command
+    Then the command runs the pinned version "0.2.0"
+    And the "release" on the path is left unchanged
+
   @AC-PLG-002.4
   Scenario: A repository can direct the skills to its own build
     Given the repository's agent settings name its own release binary

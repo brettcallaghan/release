@@ -50,16 +50,20 @@ its PATH, and the choice is constrained by:
 
 ## Decision
 
-Every plugin skill that drives the CLI will ship an `ensure-cli` script
+Every plugin skill that drives the CLI will ship an `install-cli` script
 and run it as its first step. The script provisions the CLI release whose
-version is the plugin manifest's `version`: it selects the archive for the
-machine's OS and architecture, fetches it and SHA256SUMS through the
-GitHub REST release-asset endpoint, verifies the checksum, and extracts
-the binary to `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, where a later
+version is the plugin manifest's `version`. It first looks for one already
+installed, in order: the binary the repository's agent settings name, the
+copy in `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, and `release` on the PATH
+when it reports the pinned version. Only when none is found does it select
+the archive for the machine's OS and architecture, fetch it and SHA256SUMS
+through the GitHub REST release-asset endpoint, verify the checksum, and
+extract the binary to `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, where a later
 session reuses it without the network. It prints the binary's absolute
-path, and the skill runs the CLI by that path. In a cloud session it also
-links the binary into `/usr/local/bin`. Nothing is provisioned in a
-session that invokes no such skill.
+path, and the skill runs the CLI by that path, so a `release` earlier on
+the PATH at another version, such as a Homebrew install, is never run. In
+a cloud session it also links the binary into `/usr/local/bin`. Nothing is
+provisioned in a session that invokes no such skill.
 
 A failure stops the skill with one line of cause and remedy; the rest of
 the session is unaffected.
@@ -120,9 +124,9 @@ REST requests succeed without one.
 - The skills on the default branch can describe commands the last
   release lacks; the marketplace's tag pin keeps them from installed
   plugins until the next release.
-- `ensure-cli` is a Bash script. Windows depends on the agent's shell
+- `install-cli` is a Bash script. Windows depends on the agent's shell
   being a Bash, as Claude Code's is on Windows (**unverified**).
-- Every skill that drives the CLI carries its own copy of `ensure-cli`,
+- Every skill that drives the CLI carries its own copy of `install-cli`,
   because a skill is self-contained; a check keeps the copies identical.
 - The first release skill in a session waits for a download.
 - A repository that builds the CLI from its own working tree, as this one
