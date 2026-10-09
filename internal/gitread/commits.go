@@ -208,13 +208,14 @@ func pullRequestNumber(subject string) *int64 {
 
 // changedFiles returns, per commit hash in rng, the files it changed against
 // its first parent, from git's --name-status and --numstat with rename
-// detection. A merge commit has no entry, as git log reports no diff for it.
+// detection. A merge commit's files are taken against its first parent, as
+// the Diff Collector diffs it.
 func (r Repo) changedFiles(ctx context.Context, rng string) (map[string][]releasemodel.FileChange, error) {
-	status, err := r.run(ctx, "log", "--format="+filesFormat, "-z", "-M", "--name-status", rng, "--")
+	status, err := r.run(ctx, "log", "--format="+filesFormat, "-z", "-M", "--diff-merges=first-parent", "--name-status", rng, "--")
 	if err != nil {
 		return nil, err
 	}
-	counts, err := r.run(ctx, "log", "--format="+filesFormat, "-z", "-M", "--numstat", rng, "--")
+	counts, err := r.run(ctx, "log", "--format="+filesFormat, "-z", "-M", "--diff-merges=first-parent", "--numstat", rng, "--")
 	if err != nil {
 		return nil, err
 	}

@@ -129,6 +129,26 @@ func TestCommitsIncludeMergeCommits(t *testing.T) {
 	}
 }
 
+func TestCommitsMergeCommitFilesAgainstFirstParent(t *testing.T) {
+	f := newFixture(t)
+	f.commit("v1.0.0")
+	f.git("checkout", "-q", "-b", "topic")
+	f.write("topic.txt", "one\ntwo\n")
+	f.commitAll("topic work")
+	f.git("checkout", "-q", "main")
+	f.commitMsg("main work")
+	f.git("merge", "-q", "--no-ff", "-m", "Merge branch 'topic'", "topic")
+
+	rec := f.commits("v1.0.0", "main")[0]
+	if len(rec.Files) != 1 {
+		t.Fatalf("merge commit files = %+v, want topic.txt against the first parent", rec.Files)
+	}
+	fc := rec.Files[0]
+	if fc.Path != "topic.txt" || fc.Status != releasemodel.FileStatusAdded || fc.Additions != 2 || fc.Deletions != 0 {
+		t.Errorf("merge commit file = %+v, want topic.txt added with 2 lines", fc)
+	}
+}
+
 func TestCommitsUnknownRefIsGitError(t *testing.T) {
 	f := newFixture(t)
 	f.commitMsg("one")
