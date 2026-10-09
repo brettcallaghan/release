@@ -8,7 +8,7 @@ description: When a `release` plugin skill needs the CLI, a script bundled
 slug: adr-008
 type: adr
 status: draft
-updated_at: 2026-10-08T00:00:00Z
+updated_at: 2026-10-09T00:00:00Z
 ---
 
 # ADR-008: The Plugin Provisions Its Pinned Release
@@ -59,7 +59,12 @@ when it reports the pinned version. Only when none is found does it select
 the archive for the machine's OS and architecture, fetch it and SHA256SUMS
 through the GitHub REST release-asset endpoint, verify the checksum, and
 extract the binary to `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, where a later
-session reuses it without the network. It prints the binary's absolute
+session reuses it without the network. The skill passes
+`${CLAUDE_PLUGIN_DATA}` to the script as an argument: Claude Code
+substitutes it in skill content but does not export it to the Bash tool.
+The directory is `~/.claude/plugins/data/<plugin id>/`, one per plugin on
+the machine whatever scope enabled it, so repositories pinning different
+versions keep separate `bin/<version>/` copies side by side. It prints the binary's absolute
 path, and the skill runs the CLI by that path, so a `release` earlier on
 the PATH at another version, such as a Homebrew install, is never run. In
 a cloud session it also links the binary into `/usr/local/bin`. Nothing is
@@ -95,6 +100,8 @@ REST requests succeed without one.
 | Build from source with `go install …@v<version>` | No release assets involved<br>Exact version by construction | Needs a Go toolchain in the session<br>A private module needs `GOPRIVATE` and a git credential<br>Minutes per cold session | Most sessions that cut a release are not Go projects, and the toolchain is the larger dependency |
 | A package manager (Homebrew) | The idiomatic local install<br>The person's terminal gets the CLI too | Not yet published<br>Absent from cloud containers<br>Installs the formula's current version, not the plugin's | Cannot pin, and does not exist in the environment where most agent sessions run |
 | A `SessionStart` hook | The CLI is on PATH before any skill runs<br>No step for a skill to forget | Every session pays a network check, including the many that never release<br>Plugin hooks run only in Claude Code; the skills also load in harnesses that ignore them<br>A hook's PATH change reaches subprocesses only through `CLAUDE_ENV_FILE`, unverified for plugin hooks | Cost on sessions that never use it, and a harness dependency the skills do not otherwise have |
+| A `bin/release` launcher in the plugin, which Claude Code puts on the Bash tool's PATH | The agent types `release` and gets the plugin's CLI | Plugin `bin/` directories come after the person's own PATH, so a Homebrew `release` at another version wins<br>claude.ai and Cowork do not install a plugin with a top-level `bin/` | Does not pin where a person has the CLI installed, and blocks the account-synced route cloud sessions use |
+| Install into a gitignored `bin/` in each repository | The person's terminal in that repository finds the same binary | Writes into the person's working tree<br>One download per repository per version<br>Every adopting repository must ignore the path | The plugin data directory is the documented home for caches that survive plugin updates, and a session needs nothing in the working tree |
 | Require a manual install | Nothing to build | The agent discovers the gap mid-task; the version drifts from the skills | Defeats the FRD's premise that installing the plugin is adoption |
 | Download and verify the pinned release asset when a skill needs it | One archive per machine and version, cached across sessions<br>Nothing happens in sessions that do not release<br>Works wherever the skill's script can run<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs a credential while the repository is private<br>Needs the GitHub API reachable at first use | N/A — selected |
 

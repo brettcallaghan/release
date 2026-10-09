@@ -7,7 +7,7 @@ description: Delivering the release CLI through the `release` agent plugin —
 slug: frd-plugin-distribution
 type: frd
 status: draft
-updated_at: 2026-10-08T00:00:00Z
+updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-008
   - cli-distribution-policy
@@ -19,12 +19,13 @@ sources:
 
 ## Overview
 
-The `release` CLI is published from a private repository and nobody has
-used it before, so an agent asked to cut a release has neither the binary
-nor any knowledge of how to drive it. Installing the plugin should be the
-whole of adoption: the agent's session gains the CLI, at the version the
-plugin was written against, and the skill that says how to use it and what
-a well-run release process looks like.
+Nobody outside this repository has used the `release` CLI yet, so an
+agent asked to cut a release has neither the binary nor any knowledge of
+how to drive it. Enabling the plugin in a repository should be the whole
+of adoption: every agent session in that repository gains the CLI, at the
+version the plugin was written against, and the skill that says how to use
+it and what a well-run release process looks like. The first repository to
+adopt it, after this one, is `agent-plugins`.
 
 Pinning matters more than convenience. A skill describes one version's
 command surface; a binary from another version answers the same commands
@@ -47,7 +48,13 @@ This feature SHALL comply with [[cli-distribution-policy]].
 - **Cloud session** — an agent session in a managed, ephemeral container
   (Claude Code on the web); anything else is a **local session**.
 - **Plugin data directory** — the per-plugin directory the agent harness
-  keeps across sessions and plugin updates.
+  keeps across sessions and plugin updates (`${CLAUDE_PLUGIN_DATA}`, under
+  the person's home directory in Claude Code). It is shared by every
+  repository that enables the plugin on that machine.
+- **Reported version** — what `release --version` prints after
+  `release `: `v0.2.0` for a published build, `devel` for a build from a
+  working tree. A CLI is at the pinned version when its reported version is
+  `v` followed by the pinned version.
 
 ## Requirements
 
@@ -189,7 +196,7 @@ the machine also has the CLI from a package manager at another version.
 A Homebrew formula, once published, serves the person's own terminal and
 is not a provisioning route ([[adr-008]]).
 
-### FEAT-PLG-003: Retrieval From a Private Repository
+### FEAT-PLG-003: Retrieval While the Repository Is Private
 
 **Acceptance Criteria:**
 
@@ -203,7 +210,8 @@ Feature: Retrieval From a Private Repository
 
   The release assets of a private repository are not anonymously
   readable. Provisioning uses an existing credential rather than asking
-  for a new one, and never widens where a credential goes.
+  for a new one, and never widens where a credential goes. Once the
+  repository is public, no credential is needed.
 
   @AC-PLG-003.1
   Scenario Outline: The first available credential is used
@@ -218,6 +226,13 @@ Feature: Retrieval From a Private Repository
       | the GITHUB_TOKEN environment variable     |
       | the GitHub CLI's stored login             |
       | the session's own repository access       |
+
+  @AC-PLG-003.4
+  Scenario: A public repository's release needs no credential
+    Given the release repository is public
+    And no source holds a credential
+    When a release skill runs
+    Then the pinned CLI is provisioned
 
   @AC-PLG-003.2 @negative
   Scenario: A credential is never recorded
@@ -341,6 +356,49 @@ Feature: Release-Management Standards
     When the repository's checks run
     Then the checks fail and name the standard
 ```
+
+### FEAT-PLG-007: Adoption and Updates Through the Marketplace
+
+**Acceptance Criteria:**
+
+```gherkin
+@FEAT-PLG-007
+Feature: Adoption and Updates Through the Marketplace
+
+  As a maintainer adopting the release process in a repository
+  I want to enable the plugin once, in the repository's shared settings
+  So that every session there has it, and new releases reach it unaided
+
+  The plugin is enabled at project scope, so the repository rather than
+  each person decides it is in use. Releases reach installed plugins
+  through the marketplace; the plugin then provisions the CLI it pins.
+
+  @AC-PLG-007.1
+  Scenario: A repository enables the plugin for every session in it
+    Given a repository whose shared agent settings add the release marketplace
+    And enable the release plugin
+    When a person starts an agent session in that repository
+    Then the cut-release skill is available in the session
+
+  @AC-PLG-007.2
+  Scenario: A published release reaches the repository through the marketplace
+    Given a repository with the release plugin enabled at version "0.2.0"
+    And marketplace updates are turned on for the person
+    When version "0.3.0" is published
+    Then a later session has the plugin at version "0.3.0"
+    And the next release skill provisions CLI version "0.3.0"
+
+  @AC-PLG-007.3 @manual
+  Scenario: A cloud session receives the plugin from the account
+    Given the release plugin is added to the plugins synced to the person's account
+    When the person starts a cloud session
+    Then the cut-release skill is available in the session
+```
+
+A cloud session does not load plugins that a repository's settings enable;
+it loads the plugins synced to the person's account, and that sync follows
+the marketplace. Adding the plugin to the account is a one-time step per
+account ([[adr-008]]).
 
 ## References
 
