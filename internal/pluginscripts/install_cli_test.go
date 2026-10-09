@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 const (
@@ -37,7 +38,7 @@ var installCLI = filepath.Join("..", "..", "plugin", "skills", "cut-release", "s
 var tools = []string{
 	"bash", "sh", "curl", "tar", "gzip", "sha256sum", "shasum", "awk", "sed",
 	"mkdir", "rm", "mv", "chmod", "ln", "cat", "dirname", "git", "uname",
-	"tr", "env",
+	"tr", "env", "sleep", "mktemp",
 }
 
 // fakeAPI stands in for api.github.com and for the host its asset downloads
@@ -215,6 +216,7 @@ type harness struct {
 	t                                *testing.T
 	root, script, data, home, work   string
 	extra, toolDir, linkDir, curlLog string
+	stdin                            *os.File
 	api                              *fakeAPI
 	env                              map[string]string
 }
@@ -302,6 +304,7 @@ func (h *harness) run() (stdout, stderr string, code int) {
 	h.t.Helper()
 	cmd := exec.Command("bash", h.script, h.data)
 	cmd.Dir = h.work
+	cmd.Stdin = h.stdin
 	cmd.Env = []string{
 		"PATH=" + h.extra + string(os.PathListSeparator) + h.toolDir,
 		"HOME=" + h.home,
@@ -596,6 +599,42 @@ func TestReleaseOnPathAtThePinnedVersionIsUsedAsFound(t *testing.T) {
 	h.requireNoRequests()
 	if _, err := os.Stat(h.data); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("the data directory was touched (err %v)", err)
+	}
+}
+
+// A release on the PATH that never returns is given up on, and the probe
+// reads end-of-file on stdin.
+func TestReleaseOnPathThatBlocksFallsThroughToTheDownload(t *testing.T) {
+	h := newHarness(t)
+	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "1"
+	onPath := h.tool("release", "#!/bin/sh\nexec sleep 1000\n")
+	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+
+	start := time.Now()
+	path := h.succeed()
+	if elapsed := time.Since(start); elapsed > 20*time.Second {
+		t.Errorf("took %v, want the probe abandoned after about 1s", elapsed)
+	}
+	if path == onPath || path != h.provisioned("release") {
+		t.Errorf("path = %s, want the downloaded release", path)
+	}
+}
+
+func TestReleaseOnPathProbeReadsEndOfFileOnStdin(t *testing.T) {
+	h := newHarness(t)
+	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "30"
+	// Script stdin is a pipe nobody writes to or closes: without /dev/null on
+	// the probe, `read` blocks on it.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	defer w.Close()
+	h.stdin = r
+	onPath := h.tool("release", "#!/bin/sh\nif read -r _line; then exit 1; fi\necho 'release v"+pinned+"'\n")
+	if path := h.succeed(); path != onPath {
+		t.Errorf("path = %s, want the release on the PATH, %s", path, onPath)
 	}
 }
 
