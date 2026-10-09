@@ -60,7 +60,8 @@ This feature SHALL comply with [[release-tooling-standards]],
 - **Notes block** — the `## Release notes` section of a pull request
   description, and therefore of the squash commit body, in the grammar
   [[contract-changelog]] defines. It carries a proposed impact and one entry
-  per user-visible change.
+  per user-visible change, grouped under the repository's changelog headings
+  as the changelog section will show them.
 - **Pull request notes** — the content of a notes block as structured data:
   the impact and the entries.
 - **Diff budget** — the most patch text, in bytes, one evidence bundle may
@@ -464,7 +465,9 @@ Feature: Pull Request Notes
   prints it for someone to paste. The block records the head commit it was
   written for, so `release notes --check`, which needs no producer and no
   model credential, can fail a pull request whose block is missing, malformed
-  or stale.
+  or stale. The block's entries sit under the repository's changelog
+  headings, rendered as the changelog section renders them, so a heading
+  rather than a type prefix gives each entry its kind.
 
   @AC-CLOG-005.1
   Scenario: The pull request's commits and diff are collected
@@ -537,6 +540,36 @@ Feature: Pull Request Notes
   Scenario: The check invokes no producer
     When release notes --check runs
     Then the tooling invokes no producer and needs no language model credential
+
+  @AC-CLOG-005.13
+  Scenario: Entries are rendered under the configured changelog headings
+    Given the changelog settings name the breaking heading "💥 Breaking changes" and the groups FEATURE "🚀 Features" and FIX "🪲 Bugs"
+    And a producer has returned pull request notes with one feature entry scoped to cut and one fix entry
+    When the tooling renders them
+    Then the block holds a "### 🚀 Features" section and then a "### 🪲 Bugs" section, each with its entry
+    And each entry line reads "- **cut:** " or "- " followed by its summary, with no type prefix and no source reference
+
+  @AC-CLOG-005.14 @negative
+  Scenario: Work the changelog does not render is left out of the block
+    Given the changelog settings render FEATURE and FIX and no other kind
+    And a pull request whose changes include a feature and a CI configuration change
+    When the producer authors the pull request notes
+    Then the notes carry an entry for the feature and none for the CI change
+
+  @AC-CLOG-005.15
+  Scenario: An entry's section determines its kind
+    Given the changelog settings name the breaking heading "💥 Breaking changes" and the group FEATURE "🚀 Features"
+    And a notes block with one entry under "### 🚀 Features" and one entry, with a Migration paragraph, under "### 💥 Breaking changes"
+    When the tooling parses the block
+    Then the first entry has kind FEATURE and is not breaking
+    And the second entry is breaking and has no kind
+
+  @AC-CLOG-005.16 @negative
+  Scenario: An unrecognised section heading makes the block malformed
+    Given the changelog settings and the default headings do not include "Improvements"
+    And a pull request description whose notes block has a "### Improvements" section
+    When release notes --check runs
+    Then the check fails, says the notes block is malformed, and names the heading
 ```
 
 ### FEAT-CLOG-006: Notes Blocks at Release Time
@@ -590,6 +623,13 @@ Feature: Notes Blocks at Release Time
     Then the tooling reports that commit's block as malformed
     And that commit's evidence carries its diff and no parsed notes
     And the block contributes no signal for that commit
+
+  @AC-CLOG-006.6
+  Scenario: A block under a default heading parses after the headings change
+    Given the changelog settings name the group FEATURE "🚀 Features"
+    And a commit whose body carries a notes block with an entry under "### Features"
+    When the tooling builds an evidence bundle for a release
+    Then that commit's evidence carries the entry with kind FEATURE
 ```
 
 ## References

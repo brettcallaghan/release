@@ -65,14 +65,18 @@ carry no signal, [[component-impact-reconciler]] still asks a person.
     subjects gives the reviewer nothing to review.
 - **Pinned rules:**
   - A notes entry maps field for field: `kind`, `scope`, `summary`,
-    `detail`, `breaking` and `migration`. Its `sources` hold the pull
+    `detail`, `breaking` and `migration`. A breaking notes entry has no
+    `kind` and takes CHORE, which the renderer places under the breaking
+    heading like any breaking entry. Its `sources` hold the pull
     request WHEN the commit's record carries a number, and the commit
     otherwise.
   - A derived entry's `summary` is the subject's description: the subject
     without its conventional type prefix and its trailing ` (#<n>)`. A
-    conventional type maps to `kind` case-insensitively as the
-    [[component-notes-codec]] grammar maps an entry's type, and any other
-    type, or a subject that is not conventional, is CHORE. The conventional
+    conventional type maps to `kind` case-insensitively: `feat` FEATURE,
+    `fix` FIX, `perf` PERFORMANCE, `revert` REVERT, `refactor` REFACTOR,
+    `docs` DOCUMENTATION, `build` BUILD, `ci` CI, `test` TEST, `style`
+    STYLE, and any other type, or a subject that is not conventional,
+    CHORE. The conventional
     scope is `scope`.
   - A derived entry's `breaking` is the commit's breaking-change marker as
     [[component-bump-classifier]] reads it; `migration` is the text of a
@@ -115,7 +119,12 @@ halts for a person.
 
 ## Open Questions
 
-None.
+- [ ] What corpus `kind` a notes entry from the other heading takes. It
+  has no `kind`, `ChangelogEntry.kind` is required, and the renderer puts
+  under the other heading only kinds `ChangeKind` does not declare, so
+  every declared kind either moves the entry to a group or drops it. A
+  producer never writes such an entry; one written by hand reaches this
+  rule.
 
 ## References
 

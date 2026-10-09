@@ -147,7 +147,7 @@ struct PullRequestNotes {           # also the pull request producer's output
   entries: [NoteEntry]
 }
 struct NoteEntry {
-  kind: ChangeKind
+  kind: ChangeKind?                 # absent under the breaking and other headings
   scope: String?
   summary: String                   # one sentence, reader's point of view
   detail: String?                   # a sentence or two
@@ -162,21 +162,26 @@ struct NoteEntry {
 
 A notes block is the markdown form of `PullRequestNotes`. It lives in a pull
 request description, and under squash merging that uses the description, in
-the commit body. Example:
+the commit body. Its entries render as the Changelog Renderer renders a
+changelog section's body, so a reviewer sees the entries as the changelog
+will show them. Example, under this repository's configured headings:
 
 ```markdown
 ## Release notes
 
 <!-- release-notes: v1 head=3f2a9c1 -->
-Release-Type: major
+Release-Type: minor
 
-- feat(cut)!: `release cut` refuses a named bump over a range with nothing releasable unless `--force` is given.
+### 🚀 Features
 
-  A named bump used to stage an empty release. Pass `--force` to release anyway, for example for a rebuild.
+- **cut:** `release cut --dry-run` shows the changelog section the release commit would write.
+- **cut:** `release cut` refuses a named bump over a range with nothing releasable unless `--force` is given.
 
-  Migration: scripts that cut with a named bump over an empty range must add `--force`.
+  Pass `--force` to release anyway, for example for a rebuild.
 
-- fix(cut): `release cut` checks `gh` authentication before writing anything.
+### 🪲 Bugs
+
+- **cut:** `release cut` checks `gh` authentication before writing anything.
 ```
 
 The grammar, in order:
@@ -190,35 +195,38 @@ The grammar, in order:
 3. **Impact.** The next non-blank line is `Release-Type: <bump>`, where
    `<bump>` is one of `major`, `minor`, `patch` or `none`. It is the block's
    impact.
-4. **Entries.** Each entry starts at a line `- <type>(<scope>)[!]: <sentence>`
-   at column zero. `(<scope>)` is optional. `!` marks the entry breaking.
-   `<sentence>` is the entry's one-sentence summary and occupies the rest of
-   the line.
-5. **Detail.** An entry may be followed by paragraphs indented by two
+4. **Sections.** Entries appear under level-three headings,
+   `### <heading>`, in the Changelog Renderer's order:
+   `changelog.breaking_heading`, then each `changelog.groups` heading in
+   configured order, then `changelog.other_heading`. A section with no
+   entries is left out. The section gives each of its entries' kind:
+   - under the breaking heading, an entry is breaking and has no `kind`;
+   - under a group's heading, an entry has that group's `kind`;
+   - under the other heading, an entry has no `kind`. `ChangeKind` has no
+     value for other changes: the renderer puts there the kinds it does not
+     recognise.
+5. **Entries.** Each entry starts at a line at column zero reading `- `, an
+   optional `**<scope>:** `, and the entry's one-sentence summary, which
+   occupies the rest of the line. The line carries no type and no breaking
+   mark, because its section gives both, and no source reference, because
+   the block's source is its own pull request.
+6. **Detail.** An entry may be followed by paragraphs indented by two
    spaces and separated from the entry and from each other by a blank line.
-   Together they are the entry's detail.
-6. **Migration.** An indented paragraph beginning `Migration: ` is the
+   Together they are the entry's detail. A blank line separates an entry
+   carrying paragraphs from the next entry.
+7. **Migration.** An indented paragraph beginning `Migration: ` is the
    entry's migration guidance. An entry has at most one, and it follows the
    detail paragraphs.
-7. **End.** The block ends at the next line beginning `## `, or at the end
+8. **End.** The block ends at the next line beginning `## `, or at the end
    of the text. Lines after it, such as `Co-authored-by:` trailers, are not
    part of it.
 
-`<type>` maps to `ChangeKind` as conventional commits do:
-
-| `<type>` | `ChangeKind` |
-|---|---|
-| `feat` | `FEATURE` |
-| `fix` | `FIX` |
-| `perf` | `PERFORMANCE` |
-| `revert` | `REVERT` |
-| `refactor` | `REFACTOR` |
-| `docs` | `DOCUMENTATION` |
-| `build` | `BUILD` |
-| `ci` | `CI` |
-| `test` | `TEST` |
-| `style` | `STYLE` |
-| `chore` | `CHORE` |
+A parser maps a section heading to its meaning through the repository's
+changelog configuration. It also accepts the default headings,
+`Breaking changes`, `Features`, `Fixes`, `Performance`, `Reverts` and
+`Other changes`, with the meanings the default configuration gives them, so
+a block in history still parses after the repository changes its headings.
+A configured heading takes precedence over a default heading it equals.
 
 ### Block guarantees
 
@@ -240,29 +248,54 @@ SHALL report the block as malformed.
 
 ---
 
-IF an entry is marked breaking and carries no `Migration:` paragraph, THEN
-the provider SHALL report the block as malformed.
+IF a section heading in a block is neither a heading the repository's
+changelog configuration declares nor a default heading, THEN the provider
+SHALL report the block as malformed and name the heading.
+
+**Rationale:** An unrecognised heading gives its entries no kind, and a
+guessed kind would reach the changelog as reviewed.
 
 ---
 
-IF an entry is marked breaking and the block's impact is below `major`, THEN
-the provider SHALL report the block as malformed.
+WHEN the provider parses an entry, it SHALL take the entry's kind and
+breaking flag from the section the entry is under, and from nothing else.
+
+---
+
+IF an entry under the breaking heading carries no `Migration:` paragraph,
+THEN the provider SHALL report the block as malformed.
+
+---
+
+IF a block has an entry under the breaking heading and its impact is below
+`major`, THEN the provider SHALL report the block as malformed.
 
 **Rationale:** The impact line is the block's only signal. A breaking entry
 under a lower impact would let a reviewed block understate its own content.
 
 ---
 
-The provider SHALL render `PullRequestNotes` into a block that parses back to
-the same `PullRequestNotes`, and SHALL render identical notes identically on
-every run.
+The provider SHALL render `PullRequestNotes`, under a repository's changelog
+settings, into a block that parses back under the same settings to the same
+`PullRequestNotes`, and SHALL render identical notes and settings
+identically on every run.
+
+---
+
+A producer SHALL write into `PullRequestNotes` only entries the repository's
+changelog renders: breaking entries, and entries whose kind a
+`changelog.groups` entry names. Work of any other kind, such as `CHORE`,
+`CI` or `TEST`, SHALL be left out of the block.
+
+**Rationale:** The block shows what the changelog will show. An entry the
+changelog drops would be reviewed and then never published.
 
 ---
 
 The provider SHALL read only the block's impact line as its impact signal.
 
 **Rationale:** One line a reviewer can see and change is the signal. The
-entries' types and breaking marks describe the changes, and the guarantee
+entries' sections describe the changes, and the guarantee
 above keeps them consistent with it.
 
 ---
