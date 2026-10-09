@@ -18,6 +18,7 @@ import (
 	"github.com/brettcallaghan/release/internal/changelog"
 	"github.com/brettcallaghan/release/internal/config"
 	"github.com/brettcallaghan/release/internal/releasemodel"
+	"github.com/brettcallaghan/release/internal/suggest"
 )
 
 // fixture is a working repository released at v1.8.0 with a feature since,
@@ -783,5 +784,55 @@ func TestRemoteHost(t *testing.T) {
 		if got := remoteHost(url + "\n"); got != want {
 			t.Errorf("remoteHost(%q) = %q, want %q", url, got, want)
 		}
+	}
+}
+
+func TestAConfirmingCutIsRefusedWhenTheTargetMovedSinceTheHalt(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) || first.Base == "" {
+		t.Fatalf("first cut: base %q, err %v; want a halt with a base", first.Base, err)
+	}
+
+	f.git(f.work, "commit", "-q", "--allow-empty", "-m", "fix: another change")
+	f.git(f.work, "push", "-q", "origin", "main")
+	moved := strings.TrimSpace(f.git(f.bare, "rev-parse", "main"))
+
+	req.Accepted, req.ExpectBase = true, first.Base
+	_, err = Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, first.Base) || !strings.Contains(r.Reason, moved) {
+		t.Fatalf("err = %v, want a refusal naming %s and %s", err, first.Base, moved)
+	}
+	if f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") || f.ghArgs() != nil {
+		t.Errorf("a refused confirmation wrote a branch or a pull request")
+	}
+	if got := strings.TrimSpace(f.git(f.bare, "rev-parse", "main")); got != moved {
+		t.Errorf("origin main = %s, want %s", got, moved)
+	}
+}
+
+func TestAConfirmingCutPinnedToAnUnmovedBaseConfirmsTheShownSuggestion(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) {
+		t.Fatalf("first cut err = %v, want a halt", err)
+	}
+	req.Config.Changelog.ProducerCommand = ptr("exit 7")
+	req.Accepted, req.ExpectBase = true, first.Base
+	res, err := Cut(context.Background(), req)
+	if err != nil {
+		t.Fatalf("pinned cut: %v", err)
+	}
+	if d := res.Changelog.Suggestion.Decision; d == nil || d.DecidedBy != suggest.ByConfirmed || res.Changelog.Authoring.Obtained != authoring.FromCache {
+		t.Fatalf("decision %+v, obtained %v; want confirmed from the cache", d, res.Changelog.Authoring.Obtained)
 	}
 }

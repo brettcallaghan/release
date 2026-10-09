@@ -201,3 +201,35 @@ func gitOutput(t *testing.T, dir string, args ...string) string {
 	}
 	return string(out)
 }
+
+// movingInput answers the prompts, and pushes a commit to origin's main on
+// the first read, so the target moves while the bump prompt is open.
+type movingInput struct {
+	r     *strings.Reader
+	moved func()
+}
+
+func (m *movingInput) Read(p []byte) (int, error) {
+	if m.moved != nil {
+		m.moved()
+		m.moved = nil
+	}
+	return m.r.Read(p)
+}
+
+func TestATargetThatMovedWhileThePromptWasOpenRefusesTheConfirmation(t *testing.T) {
+	work, bare, _ := authoredCutRepo(t)
+	in := &movingInput{r: strings.NewReader("\ny\n"), moved: func() {
+		runFixtureGit(t, work, []string{"commit", "-q", "--allow-empty", "-m", "fix: another change"})
+		runFixtureGit(t, work, []string{"push", "-q", "origin", "main"})
+	}}
+	var out, errb bytes.Buffer
+	s := &streams{out: &out, err: &errb, in: in, interactive: true}
+	code := s.execute([]string{"-C", work, "cut", "--no-pull-request"})
+	if code != int(StatusRefused) || !strings.Contains(errb.String(), "moved") {
+		t.Errorf("exit = %d, stderr:\n%s\nwant a refusal naming the moved target", code, errb.String())
+	}
+	if branchExists(work, "cut/1.9.0") || branchExists(bare, "cut/1.9.0") {
+		t.Error("a refused confirmation wrote")
+	}
+}

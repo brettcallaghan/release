@@ -57,6 +57,9 @@ type Request struct {
 	// Accepted confirms the suggested bump WHEN no bump is named. Without it,
 	// a cut with no named bump ends in a *Halt.
 	Accepted bool
+	// ExpectBase, WHEN set, is the commit the fetched tip of the target must
+	// be: a cut whose target has moved since is refused, writing nothing.
+	ExpectBase string
 	// Config is the loaded configuration.
 	Config config.Config
 	// Producers returns every changelog producer, by name, for the checkout
@@ -265,6 +268,9 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	}
 	if res.Base, err = g.out(ctx, "rev-parse", "--verify", "--end-of-options", remoteRef+"^{commit}"); err != nil {
 		return res, err
+	}
+	if req.ExpectBase != "" && res.Base != req.ExpectBase {
+		return res, &Refusal{Reason: fmt.Sprintf("%s on origin moved from %s to %s since the suggestion was shown, so it no longer applies: run release cut again", req.Target, req.ExpectBase, res.Base)}
 	}
 
 	// 1. Resolve the base version and the signal floor. WHEN a bump is

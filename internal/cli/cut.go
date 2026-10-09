@@ -110,8 +110,11 @@ func newCutCmd(s *streams) *cobra.Command {
 					return s.cutHalted(asJSON, res, halt)
 				}
 				// The second call reads the authored changelog from the
-				// cache, so the suggestion confirmed is the one shown.
+				// cache and is pinned to the first call's base, so the
+				// suggestion confirmed is the one shown: a target that
+				// moved meanwhile is a refusal.
 				req.Redo = false
+				req.ExpectBase = res.Base
 				named, accepted, perr := s.promptBump(res)
 				if perr != nil {
 					return perr

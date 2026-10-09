@@ -209,6 +209,10 @@ person's confirmation:
   `floor`, `reasons`, `raised_by_floor`, `unclassified` and `corpus_path`,
   as `release changelog` defines them, in that order.
 
+WHEN the target's tip on origin moved between the prompt and the
+confirmation, the provider SHALL refuse, writing nothing: the suggestion
+shown no longer describes the range.
+
 WHEN no bump is named, the suggestion is none, and the authored changelog
 holds an entry with no kind, the provider SHALL halt the same way, with or
 without `--yes`, naming `release cut <bump>`: no producer classified those
@@ -228,7 +232,7 @@ floor. `--force` without a bump is a refusal.
 | Exit | When |
 |---|---|
 | 0 | The release was staged, or under `--dry-run` reported |
-| 1 | A refusal, having written nothing: a halt for an unconfirmed bump, which answers as above; and, answering nothing, nothing to release, a named bump below the signal floor without `--force`, `--force` without a bump, a declined prompt, an existing stage branch, an unconfigured `commands.propagate`, a platform CLI missing or not authenticated when a pull request is to be opened, a failing configured command, a path outside `release_paths`, a failing or rejected producer |
+| 1 | A refusal, having written nothing: a halt for an unconfirmed bump, which answers as above; and, answering nothing, nothing to release, a named bump below the signal floor without `--force`, `--force` without a bump, a declined prompt, the target moved while the prompt was open, an existing stage branch, an unconfigured `commands.propagate`, a platform CLI missing or not authenticated when a pull request is to be opened, a failing configured command, a path outside `release_paths`, a failing or rejected producer |
 | 2 | `--skip-notes` with `--redo-notes`; a bump other than `major`, `minor` or `patch`; a missing producer prerequisite |
 | 3 | A write failed after another succeeded; the answer lists every write made, and standard error names the commands that finish or discard the release |
 
