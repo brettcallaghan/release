@@ -105,7 +105,7 @@ func TestAuthoredProposalIsIgnored(t *testing.T) {
 	major := releasemodel.BumpMajor
 	_ = releasemodel.Changelog{ProposedBump: &major}
 	r := Classify(Input{
-		Changelog: []releasemodel.ChangelogEntry{{Kind: releasemodel.ChangeKindFix, Summary: "Fix a crash"}},
+		Changelog: []releasemodel.ChangelogEntry{{Kind: kp(releasemodel.ChangeKindFix), Summary: "Fix a crash"}},
 		Commits:   []releasemodel.CommitRecord{commit("a", "fix: crash", "", nil)},
 		Enabled:   AllSignals(),
 	})
@@ -135,7 +135,7 @@ func TestReleaseTypeNoneNeverLowers(t *testing.T) {
 func TestNamedBumpOverridesEverySignal(t *testing.T) {
 	r := Classify(Input{
 		Named:     bumpPtr(releasemodel.BumpPatch),
-		Changelog: []releasemodel.ChangelogEntry{{Kind: releasemodel.ChangeKindFeature, Breaking: true}},
+		Changelog: []releasemodel.ChangelogEntry{{Kind: kp(releasemodel.ChangeKindFeature), Breaking: true}},
 		Commits:   []releasemodel.CommitRecord{commit("a", "feat!: big", "", map[string]string{"Release-Type": "major"})},
 		Enabled:   AllSignals(),
 	})
@@ -145,9 +145,9 @@ func TestNamedBumpOverridesEverySignal(t *testing.T) {
 }
 
 func TestChangelogEntriesMap(t *testing.T) {
-	feature := releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFeature, Summary: "f"}
-	breaking := releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFix, Summary: "b", Breaking: true}
-	chore := releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindChore, Summary: "c"}
+	feature := releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFeature), Summary: "f"}
+	breaking := releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "b", Breaking: true}
+	chore := releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindChore), Summary: "c"}
 	for _, tc := range []struct {
 		entries []releasemodel.ChangelogEntry
 		want    releasemodel.Bump
@@ -294,3 +294,6 @@ func TestBreakingNote(t *testing.T) {
 		}
 	}
 }
+
+// kp returns a pointer to an entry kind.
+func kp(k releasemodel.ChangeKind) *releasemodel.ChangeKind { return &k }

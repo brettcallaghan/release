@@ -33,7 +33,7 @@ func assembled() releasemodel.Changelog {
 	return releasemodel.Changelog{
 		SchemaVersion: "1.0.0",
 		Entries: []releasemodel.ChangelogEntry{{
-			Kind: releasemodel.ChangeKindFeature, Summary: "add --target", Derived: true,
+			Kind: kp(releasemodel.ChangeKindFeature), Summary: "add --target", Derived: true,
 			Sources: []releasemodel.ChangeSource{releasemodel.NewChangeSourcePullRequest(releasemodel.PullRequestSource{Number: 12})},
 		}},
 		Sources: []releasemodel.AdapterRun{{Adapter: releasemodel.AdapterCommits, To: head}},
@@ -413,3 +413,6 @@ func TestCacheWriteLeavesNoTemporaryFiles(t *testing.T) {
 		t.Errorf("cache directory holds %q, want only the corpus", names)
 	}
 }
+
+// kp returns a pointer to an entry kind.
+func kp(k releasemodel.ChangeKind) *releasemodel.ChangeKind { return &k }

@@ -119,12 +119,17 @@ func group(entries []releasemodel.ChangelogEntry, settings config.Changelog) ([]
 				return nil, fmt.Errorf("entry %d (%q) has a source with no kind", i, e.Summary)
 			}
 		}
-		switch i, ok := index[e.Kind]; {
+		var i int
+		var ok bool
+		if e.Kind != nil {
+			i, ok = index[*e.Kind]
+		}
+		switch {
 		case e.Breaking:
 			breaking.entries = append(breaking.entries, e)
 		case ok:
 			configured[i].entries = append(configured[i].entries, e)
-		case !config.KnownChangeKind(e.Kind):
+		case e.Kind == nil || !config.KnownChangeKind(*e.Kind):
 			other.entries = append(other.entries, e)
 		}
 	}

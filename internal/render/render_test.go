@@ -63,12 +63,12 @@ const example190 = "## 1.9.0\n" +
 func corpus190() releasemodel.Changelog {
 	c := corpus("1.9.0",
 		releasemodel.ChangelogEntry{
-			Kind: releasemodel.ChangeKindFeature, Scope: str("cli"), Summary: "`--target` is required",
+			Kind: kp(releasemodel.ChangeKindFeature), Scope: str("cli"), Summary: "`--target` is required",
 			Breaking: true, Migration: str("pass `--target main` where you relied on the default."),
 			Sources: []releasemodel.ChangeSource{pr(412)},
 		},
 		releasemodel.ChangelogEntry{
-			Kind: releasemodel.ChangeKindFix, Summary: "Tags with a `v` prefix are recognised",
+			Kind: kp(releasemodel.ChangeKindFix), Summary: "Tags with a `v` prefix are recognised",
 			Sources: []releasemodel.ChangeSource{pr(87)},
 		},
 	)
@@ -97,20 +97,20 @@ func emojiHeadings() config.Changelog {
 // renders.
 func mixed() releasemodel.Changelog {
 	return corpus("2.0.0",
-		releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFix, Summary: "second fix in the corpus, first rendered", Sources: []releasemodel.ChangeSource{commit("0123456789abcdef0123456789abcdef01234567")}},
-		releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindChore, Summary: "a chore no group renders", Sources: []releasemodel.ChangeSource{pr(1)}},
-		releasemodel.ChangelogEntry{Kind: "SECURITY", Summary: "a kind the renderer does not know", Sources: []releasemodel.ChangeSource{issue("release-abc")}},
+		releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "second fix in the corpus, first rendered", Sources: []releasemodel.ChangeSource{commit("0123456789abcdef0123456789abcdef01234567")}},
+		releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindChore), Summary: "a chore no group renders", Sources: []releasemodel.ChangeSource{pr(1)}},
+		releasemodel.ChangelogEntry{Kind: kp("SECURITY"), Summary: "a kind the renderer does not know", Sources: []releasemodel.ChangeSource{issue("release-abc")}},
 		releasemodel.ChangelogEntry{
-			Kind: releasemodel.ChangeKindFeature, Scope: str("config"), Summary: "headings are configurable",
+			Kind: kp(releasemodel.ChangeKindFeature), Scope: str("config"), Summary: "headings are configurable",
 			Detail:  str("Each kind names its heading.\n\nGroups render in the configured order."),
 			Sources: []releasemodel.ChangeSource{pr(10), pr(11), issue("42")},
 		},
-		releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFix, Summary: "a later fix", Sources: []releasemodel.ChangeSource{}},
+		releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "a later fix", Sources: []releasemodel.ChangeSource{}},
 		releasemodel.ChangelogEntry{
-			Kind: releasemodel.ChangeKindRefactor, Summary: "an omitted kind still renders when breaking",
+			Kind: kp(releasemodel.ChangeKindRefactor), Summary: "an omitted kind still renders when breaking",
 			Breaking: true, Migration: str("rebuild your plugins"), Sources: []releasemodel.ChangeSource{commit("fedcba9")},
 		},
-		releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFeature, Summary: "a second feature", Sources: []releasemodel.ChangeSource{pr(12)}},
+		releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFeature), Summary: "a second feature", Sources: []releasemodel.ChangeSource{pr(12)}},
 	)
 }
 
@@ -125,7 +125,7 @@ var goldenCases = map[string]goldenCase{
 	"mixed":             {mixed(), defaults(), repoURL},
 	"mixed-no-url":      {mixed(), defaults(), ""},
 	"emoji-headings":    {mixed(), emojiHeadings(), repoURL},
-	"unrecognised-kind": {corpus("1.0.1", releasemodel.ChangelogEntry{Kind: "SECURITY", Summary: "closes a hole", Sources: []releasemodel.ChangeSource{pr(5)}}), defaults(), repoURL},
+	"unrecognised-kind": {corpus("1.0.1", releasemodel.ChangelogEntry{Kind: kp("SECURITY"), Summary: "closes a hole", Sources: []releasemodel.ChangeSource{pr(5)}}), defaults(), repoURL},
 	"no-entries":        {corpus("1.0.0"), defaults(), repoURL},
 	"title-only":        {func() releasemodel.Changelog { c := corpus("0.1.0"); c.Title = str("First release"); return c }(), defaults(), repoURL},
 }
@@ -252,7 +252,7 @@ func inOrder(t *testing.T, s string, parts ...string) {
 
 // AC: AC-REND-001.4
 func TestAnUnrecognisedKindRendersInTheOtherGroup(t *testing.T) {
-	c := corpus("1.0.1", releasemodel.ChangelogEntry{Kind: "SECURITY", Summary: "closes a hole", Sources: []releasemodel.ChangeSource{pr(5)}})
+	c := corpus("1.0.1", releasemodel.ChangelogEntry{Kind: kp("SECURITY"), Summary: "closes a hole", Sources: []releasemodel.ChangeSource{pr(5)}})
 	r, err := Render(c, defaults(), "")
 	if err != nil {
 		t.Fatal(err)
@@ -330,7 +330,7 @@ func TestSectionHeadingsFollowTheConfiguration(t *testing.T) {
 }
 
 func TestSourcesRenderAsLinksOnlyWithAURL(t *testing.T) {
-	e := releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFix, Summary: "s", Sources: []releasemodel.ChangeSource{pr(3), commit("0123456789abcdef"), issue("release-x")}}
+	e := releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "s", Sources: []releasemodel.ChangeSource{pr(3), commit("0123456789abcdef"), issue("release-x")}}
 	cases := map[string]string{
 		repoURL: "- s ([#3](https://github.com/o/r/pull/3), [0123456](https://github.com/o/r/commit/0123456789abcdef), release-x)\n",
 		"":      "- s (#3, 0123456, release-x)\n",
@@ -347,7 +347,7 @@ func TestSourcesRenderAsLinksOnlyWithAURL(t *testing.T) {
 }
 
 func TestCarriageReturnsInTheCorpusAreNormalised(t *testing.T) {
-	c := corpus("1.0.0", releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFix, Summary: "s", Detail: str("a\r\nb\r\n"), Sources: []releasemodel.ChangeSource{}})
+	c := corpus("1.0.0", releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "s", Detail: str("a\r\nb\r\n"), Sources: []releasemodel.ChangeSource{}})
 	c.Summary = str("x\ry\r\n")
 	r, err := Render(c, defaults(), "")
 	if err != nil {
@@ -359,7 +359,7 @@ func TestCarriageReturnsInTheCorpusAreNormalised(t *testing.T) {
 }
 
 func TestASourceWithNoKindIsRefused(t *testing.T) {
-	c := corpus("1.0.0", releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFix, Summary: "s", Sources: []releasemodel.ChangeSource{{}}})
+	c := corpus("1.0.0", releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "s", Sources: []releasemodel.ChangeSource{{}}})
 	if _, err := Render(c, defaults(), ""); err == nil {
 		t.Error("a source with no kind rendered")
 	}
@@ -376,3 +376,6 @@ func TestConfiguredHeadingsRenderVerbatim(t *testing.T) {
 		t.Errorf("the heading was not rendered verbatim:\n%q", r.Section)
 	}
 }
+
+// kp returns a pointer to an entry kind.
+func kp(k releasemodel.ChangeKind) *releasemodel.ChangeKind { return &k }

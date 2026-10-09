@@ -97,15 +97,16 @@ var kinds = map[string]releasemodel.ChangeKind{
 // with derived false, and otherwise from the subject, with derived true.
 func Entry(r releasemodel.CommitRecord) releasemodel.ChangelogEntry {
 	subject := pullRequestSuffix.ReplaceAllString(r.Subject, "")
+	chore := releasemodel.ChangeKindChore
 	e := releasemodel.ChangelogEntry{
-		Kind:     releasemodel.ChangeKindChore,
+		Kind:     &chore,
 		Summary:  subject,
 		Breaking: bump.Breaking(r),
 		Derived:  true,
 	}
 	if m := conventionalSubject.FindStringSubmatch(subject); m != nil {
 		if k, ok := kinds[strings.ToLower(m[1])]; ok {
-			e.Kind = k
+			e.Kind = &k
 		}
 		if scope := strings.TrimSpace(m[2]); scope != "" {
 			e.Scope = &scope
@@ -126,7 +127,7 @@ func Entry(r releasemodel.CommitRecord) releasemodel.ChangelogEntry {
 		}
 	}
 	if r.PullRequest != nil {
-		e.Sources = []releasemodel.ChangeSource{releasemodel.NewChangeSourcePullRequest(releasemodel.PullRequestSource{Number: *r.PullRequest})}
+		e.Sources = []releasemodel.ChangeSource{releasemodel.NewChangeSourcePullRequest(releasemodel.PullRequestSource{Number: r.PullRequest.Number})}
 	} else {
 		e.Sources = []releasemodel.ChangeSource{releasemodel.NewChangeSourceCommit(releasemodel.CommitSource{Hash: r.Hash})}
 	}

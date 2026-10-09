@@ -18,6 +18,17 @@
           "$ref": "#/definitions/Adapter",
           "description": "The adapter that contributed."
         },
+        "budget": {
+          "description": "The diff budget report of the evidence the corpus was authored from. Set\non the run of the `DIFFS` adapter.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/BudgetReport"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "from": {
           "description": "The full hash of the range's base commit: the commit the previous release\nwas tagged on. Absent for a release line with no release yet, whose range\nstarts at its root.",
           "type": [
@@ -33,6 +44,37 @@
       "required": [
         "adapter",
         "to"
+      ],
+      "type": "object"
+    },
+    "BudgetReport": {
+      "description": "How much patch text a bundle carries against its limit.",
+      "properties": {
+        "limit": {
+          "$ref": "#/definitions/__Int",
+          "description": "Bytes of patch text permitted."
+        },
+        "omitted": {
+          "description": "The patches the budget left out or cut.",
+          "items": {
+            "$ref": "#/definitions/OmittedDiff"
+          },
+          "type": "array"
+        },
+        "total": {
+          "$ref": "#/definitions/__Int",
+          "description": "Bytes of patch text before the budget applied."
+        },
+        "used": {
+          "$ref": "#/definitions/__Int",
+          "description": "Bytes of patch text carried."
+        }
+      },
+      "required": [
+        "limit",
+        "total",
+        "used",
+        "omitted"
       ],
       "type": "object"
     },
@@ -131,7 +173,7 @@
       "type": "object"
     },
     "Changelog": {
-      "description": "A release's changelog as structured data.\n\nThis is the contract between a producer that may vary between runs — a\nlanguage model, a command, a conventional-commit parser, or a person — and\nthe deterministic consumers that render it. Authoring may vary; rendering may\nnot. Every published artifact describing a release is rendered from one\ninstance, so no two artifacts can disagree.\n\n`proposed_bump` carries the producer's conclusion about release impact. It is\na proposal, never an authority: the release tooling computes the bump\nindependently and halts when the two disagree. Where a maintainer names the\nbump explicitly, the named bump governs and the proposal is advisory.",
+      "description": "A release's changelog as structured data.\n\nThis is the contract between a producer that may vary between runs — a\nlanguage model, a command, a conventional-commit parser, or a person — and\nthe deterministic consumers that render it. Authoring may vary; rendering may\nnot. Every published artifact describing a release is rendered from one\ninstance, so no two artifacts can disagree.\n\nA producer states the impact of each change through its entries' `kind` and\n`breaking`, never the impact of the release: the release tooling suggests the\nbump from those. Where a maintainer names the bump explicitly, the named bump\ngoverns.",
       "properties": {
         "entries": {
           "description": "The itemized record of what changed, in the order it should be rendered.\n\nRenderers group entries by `kind` and preserve this order within each\ngroup, so authoring order is presentation order.\n\nA breaking change is an entry with `breaking` set, carrying its own\n`migration`. There is no separate collection for them: a release-level\nbreaking note is an entry whose sources span the changes that caused it.",
@@ -140,8 +182,18 @@
           },
           "type": "array"
         },
+        "omitted": {
+          "description": "The commits no entry cites, each with why.\n\nEvery commit in the evidence is either cited by an entry or listed here.\nNever rendered.",
+          "items": {
+            "$ref": "#/definitions/OmittedCommit"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
         "proposed_bump": {
-          "description": "The release impact the producer concluded from the content.\n\nAbsent on a corpus the tooling assembled, which proposes nothing, and\nrequired of every corpus a producer returns. Compared against the bump\nthe tooling computes. A disagreement halts the release for human\nconfirmation; it is never resolved by preferring one side.",
+          "description": "Left unset by every producer and ignored by the tooling, which suggests\nthe bump from the entries' kinds and breaking flags.",
           "oneOf": [
             {
               "$ref": "#/definitions/Bump"
@@ -156,7 +208,7 @@
           "type": "string"
         },
         "sources": {
-          "description": "Every adapter that contributed material to this corpus, and the commit\nrange each read.\n\nWritten when the corpus is assembled and carried through authoring\nunchanged, so a reviewer can tell what the prose was written from. Empty\nfor a corpus nobody assembled, such as one written by hand.",
+          "description": "Every adapter that contributed material to this corpus, and the commit\nrange each read.\n\nCarried from the evidence the corpus was authored from, so a reviewer can\ntell what the prose was written from. Empty for a corpus written by hand.",
           "items": {
             "$ref": "#/definitions/AdapterRun"
           },
@@ -199,7 +251,7 @@
           "type": "boolean"
         },
         "derived": {
-          "description": "Whether `summary` was derived mechanically from a commit subject rather\nthan written by a person or a producer.\n\nSet when the tooling assembles an entry from a commit that carried no\nauthor-written release-notes block. A producer that replaces the summary\nwith prose of its own clears it; one that keeps the derived summary\nleaves it set, so a reviewer can see which lines nobody wrote.",
+          "description": "Whether `summary` was derived mechanically from a commit subject rather\nthan written by a person or a model.\n\nSet only by the mechanical producer, for a summary it derived from a\ncommit subject: nobody wrote the sentence.",
           "type": "boolean"
         },
         "detail": {
@@ -210,8 +262,15 @@
           ]
         },
         "kind": {
-          "$ref": "#/definitions/ChangeKind",
-          "description": "What kind of change this is. Determines which section renders it."
+          "description": "What kind of change this is. Determines which section renders it.\n\nEvery entry a model or a person authors carries one. Only the mechanical\nproducer writes an entry with none, for a commit whose subject carries no\nconventional type; such an entry renders under the other heading.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/ChangeKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "migration": {
           "description": "What a consumer must do to adopt this change, where anything is required.\n\nRequired where `breaking` is set: a breaking change without migration\nguidance is an incident report rather than a release note. Also used\nwhere adoption is optional but non-obvious.",
@@ -235,12 +294,11 @@
           "type": "array"
         },
         "summary": {
-          "description": "One line stating the change from the reader's point of view.\n\nWritten as an outcome a consumer can recognize, not as the work that\nproduced it: \"closed decoders reject undeclared keys\", not \"refactored the\ndecoder\".",
+          "description": "One or two full sentences stating the change from the reader's point of\nview.\n\nWritten as an outcome a consumer can recognize, not as the work that\nproduced it: \"closed decoders reject undeclared keys\", not \"refactored the\ndecoder\".",
           "type": "string"
         }
       },
       "required": [
-        "kind",
         "summary",
         "breaking",
         "sources",
@@ -271,6 +329,61 @@
       },
       "required": [
         "id"
+      ],
+      "type": "object"
+    },
+    "OmissionReason": {
+      "description": "Why a patch is not carried whole.",
+      "enum": [
+        "EXCLUDED",
+        "BINARY",
+        "OVER_BUDGET"
+      ],
+      "type": "string"
+    },
+    "OmittedCommit": {
+      "description": "A commit that no entry cites.",
+      "properties": {
+        "hash": {
+          "description": "The full commit hash, as the evidence carries it.",
+          "type": "string"
+        },
+        "reason": {
+          "description": "One line saying why no entry cites the commit.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hash",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "OmittedDiff": {
+      "description": "A patch the bundle left out or cut.",
+      "properties": {
+        "commit": {
+          "description": "The commit the patch belongs to.",
+          "type": "string"
+        },
+        "path": {
+          "description": "The file the patch is of.",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/definitions/OmissionReason",
+          "description": "Why the patch is not carried whole."
+        },
+        "truncated": {
+          "description": "Whether part of the patch was carried.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "commit",
+        "path",
+        "reason",
+        "truncated"
       ],
       "type": "object"
     },

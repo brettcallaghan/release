@@ -65,9 +65,9 @@ func TestCommitsPullRequestNumberFromSquashSubject(t *testing.T) {
 
 	direct, squash := recs[0], recs[1]
 	if direct.PullRequest != nil {
-		t.Errorf("direct commit pull_request = %d, want absent", *direct.PullRequest)
+		t.Errorf("direct commit pull_request = %v, want absent", direct.PullRequest)
 	}
-	if squash.PullRequest == nil || *squash.PullRequest != 87 {
+	if squash.PullRequest == nil || squash.PullRequest.Number != 87 || squash.PullRequest.Origin != releasemodel.PullRequestOriginSquash {
 		t.Fatalf("squash pull_request = %v, want 87", squash.PullRequest)
 	}
 	if squash.Subject != "Fix the parser (#87)" {
@@ -85,7 +85,7 @@ func TestCommitsSquashWithoutDescription(t *testing.T) {
 	if rec.Body != "" || len(rec.Trailers) != 0 {
 		t.Errorf("body = %q, trailers = %v; want both empty", rec.Body, rec.Trailers)
 	}
-	if rec.PullRequest == nil || *rec.PullRequest != 9 {
+	if rec.PullRequest == nil || rec.PullRequest.Number != 9 {
 		t.Errorf("pull_request = %v, want 9", rec.PullRequest)
 	}
 }

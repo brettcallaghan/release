@@ -123,9 +123,9 @@ func assembled(entries ...releasemodel.ChangelogEntry) []byte {
 }
 
 var someEntries = []releasemodel.ChangelogEntry{
-	{Kind: releasemodel.ChangeKindFeature, Summary: "add --target", Derived: true,
+	{Kind: kp(releasemodel.ChangeKindFeature), Summary: "add --target", Derived: true,
 		Sources: []releasemodel.ChangeSource{releasemodel.NewChangeSourcePullRequest(releasemodel.PullRequestSource{Number: 12})}},
-	{Kind: releasemodel.ChangeKindFix, Summary: "crash", Derived: true,
+	{Kind: kp(releasemodel.ChangeKindFix), Summary: "crash", Derived: true,
 		Sources: []releasemodel.ChangeSource{releasemodel.NewChangeSourceCommit(releasemodel.CommitSource{Hash: "abc"})}},
 }
 
@@ -292,3 +292,6 @@ func TestProducersExchangeThroughAProcessOnly(t *testing.T) {
 		t.Errorf("the producer's prose did not come back verbatim: %s", out)
 	}
 }
+
+// kp returns a pointer to an entry kind.
+func kp(k releasemodel.ChangeKind) *releasemodel.ChangeKind { return &k }

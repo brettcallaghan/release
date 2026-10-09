@@ -133,7 +133,7 @@ func entryImpact(e releasemodel.ChangelogEntry) releasemodel.Bump {
 	switch {
 	case e.Breaking:
 		return releasemodel.BumpMajor
-	case e.Kind == releasemodel.ChangeKindFeature:
+	case e.Kind != nil && *e.Kind == releasemodel.ChangeKindFeature:
 		return releasemodel.BumpMinor
 	}
 	return releasemodel.BumpPatch

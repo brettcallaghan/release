@@ -1,6 +1,7 @@
-// Package schemacheck validates a changelog corpus against the JSON Schema
-// generated from schemas/changelog.strata: the check the changelog contract
-// requires before anything reads an instance. It validates the document as
+// Package schemacheck validates a changelog corpus or an evidence bundle
+// against the JSON Schema generated from schemas/changelog.strata and
+// schemas/evidence.strata: the check the changelog contract requires before
+// anything reads an instance. It validates the document as
 // written, so a check passes or fails on exactly the bytes a consumer would
 // decode.
 package schemacheck
@@ -15,46 +16,70 @@ import (
 	"github.com/brettcallaghan/release/internal/schema"
 )
 
-// changelogURL is the name the embedded schema is registered under. Nothing
-// is fetched from it.
-const changelogURL = "release:///changelog.schema.json"
-
-var (
-	compileOnce sync.Once
-	compiled    *jsonschema.Schema
-	compileErr  error
+// The names the embedded schemas are registered under. Nothing is fetched
+// from them.
+const (
+	changelogURL = "release:///changelog.schema.json"
+	evidenceURL  = "release:///evidence.schema.json"
 )
 
-func changelogSchema() (*jsonschema.Schema, error) {
-	compileOnce.Do(func() {
-		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema.Changelog))
+// lazy compiles one embedded schema once.
+type lazy struct {
+	once     sync.Once
+	compiled *jsonschema.Schema
+	err      error
+}
+
+func (l *lazy) get(name, url string, raw []byte) (*jsonschema.Schema, error) {
+	l.once.Do(func() {
+		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
 		if err != nil {
-			compileErr = fmt.Errorf("reading the embedded changelog schema: %w", err)
+			l.err = fmt.Errorf("reading the embedded %s schema: %w", name, err)
 			return
 		}
 		c := jsonschema.NewCompiler()
-		if err := c.AddResource(changelogURL, doc); err != nil {
-			compileErr = fmt.Errorf("loading the embedded changelog schema: %w", err)
+		if err := c.AddResource(url, doc); err != nil {
+			l.err = fmt.Errorf("loading the embedded %s schema: %w", name, err)
 			return
 		}
-		compiled, compileErr = c.Compile(changelogURL)
+		l.compiled, l.err = c.Compile(url)
 	})
-	return compiled, compileErr
+	return l.compiled, l.err
+}
+
+var (
+	changelogSchema lazy
+	evidenceSchema  lazy
+)
+
+// validate returns nil WHEN data is a JSON document that validates against s.
+func validate(s *jsonschema.Schema, what, schemaName string, data []byte) error {
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("the %s is not a JSON document: %w", what, err)
+	}
+	if err := s.Validate(doc); err != nil {
+		return fmt.Errorf("the %s does not validate against the %s schema: %w", what, schemaName, err)
+	}
+	return nil
 }
 
 // Changelog returns nil WHEN data is a JSON document that validates against
 // the changelog corpus schema, and otherwise an error naming every violation.
 func Changelog(data []byte) error {
-	s, err := changelogSchema()
+	s, err := changelogSchema.get("changelog", changelogURL, schema.Changelog)
 	if err != nil {
 		return err
 	}
-	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	return validate(s, "corpus", "changelog", data)
+}
+
+// Evidence returns nil WHEN data is a JSON document that validates against
+// the evidence bundle schema, and otherwise an error naming every violation.
+func Evidence(data []byte) error {
+	s, err := evidenceSchema.get("evidence", evidenceURL, schema.Evidence)
 	if err != nil {
-		return fmt.Errorf("the corpus is not a JSON document: %w", err)
+		return err
 	}
-	if err := s.Validate(doc); err != nil {
-		return fmt.Errorf("the corpus does not validate against the changelog schema: %w", err)
-	}
-	return nil
+	return validate(s, "evidence bundle", "evidence", data)
 }

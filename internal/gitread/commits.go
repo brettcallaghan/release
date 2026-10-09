@@ -74,10 +74,22 @@ func parseCommit(raw string) (releasemodel.CommitRecord, error) {
 		AuthorEmail: f[2],
 		Subject:     f[3],
 		Body:        f[4],
-		PullRequest: pullRequestNumber(f[3]),
+		PullRequest: pullRequestInfo(f[3]),
+		Files:       []releasemodel.FileChange{},
 		Trailers:    parseTrailers(f[5]),
 	}
 	return rec, nil
+}
+
+// pullRequestInfo returns the pull request a squash subject carries: its
+// number and the SQUASH origin. Title and description are left unset. It
+// returns nil WHEN the subject carries no number.
+func pullRequestInfo(subject string) *releasemodel.PullRequestInfo {
+	n := pullRequestNumber(subject)
+	if n == nil {
+		return nil
+	}
+	return &releasemodel.PullRequestInfo{Number: *n, Origin: releasemodel.PullRequestOriginSquash}
 }
 
 // pullRequestNumber returns the number a hosting platform appended to a

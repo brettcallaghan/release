@@ -22,7 +22,7 @@ func rec(hash, subject, body string, pr int64, trailers map[string]string) relea
 		r.Trailers = map[string]string{}
 	}
 	if pr > 0 {
-		r.PullRequest = &pr
+		r.PullRequest = &releasemodel.PullRequestInfo{Number: pr, Origin: releasemodel.PullRequestOriginSquash}
 	}
 	return r
 }
@@ -88,8 +88,8 @@ func TestAuthorWrittenBlockBecomesTheEntryProse(t *testing.T) {
 	if e.Derived {
 		t.Error("an author-written entry is marked derived")
 	}
-	if e.Kind != releasemodel.ChangeKindPerformance || deref(e.Scope) != "resolve" {
-		t.Errorf("kind, scope = %s, %q; want PERFORMANCE, resolve", e.Kind, deref(e.Scope))
+	if e.Kind == nil || *e.Kind != releasemodel.ChangeKindPerformance || deref(e.Scope) != "resolve" {
+		t.Errorf("kind, scope = %v, %q; want PERFORMANCE, resolve", e.Kind, deref(e.Scope))
 	}
 }
 
@@ -163,8 +163,8 @@ func TestRecordWithoutABlockYieldsADerivedEntry(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.subject, func(t *testing.T) {
 			e := Entry(rec("a", tc.subject, "A body with no block.", 0, nil))
-			if e.Kind != tc.kind || e.Summary != tc.summary || deref(e.Scope) != deref(tc.scope) {
-				t.Errorf("kind, scope, summary = %s, %q, %q; want %s, %q, %q", e.Kind, deref(e.Scope), e.Summary, tc.kind, deref(tc.scope), tc.summary)
+			if e.Kind == nil || *e.Kind != tc.kind || e.Summary != tc.summary || deref(e.Scope) != deref(tc.scope) {
+				t.Errorf("kind, scope, summary = %s, %q, %q; want %s, %q, %q", deref((*string)(e.Kind)), deref(e.Scope), e.Summary, tc.kind, deref(tc.scope), tc.summary)
 			}
 			if !e.Derived {
 				t.Error("a derived entry is not marked derived")

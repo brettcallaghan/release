@@ -54,3 +54,65 @@ func TestRefusals(t *testing.T) {
 		})
 	}
 }
+
+func TestEntryWithoutKindValidates(t *testing.T) {
+	doc := strings.Replace(assembled, `"kind": "FIX",`, ``, 1)
+	if doc == assembled {
+		t.Fatal("the replacement did not apply; the case tests nothing")
+	}
+	if err := Changelog([]byte(doc)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCorpusWithOmittedValidates(t *testing.T) {
+	doc := strings.Replace(assembled, `"entries"`, `"omitted": [{"hash": "abc", "reason": "a merge commit"}], "entries"`, 1)
+	if err := Changelog([]byte(doc)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOmittedItemWithoutHashIsRefused(t *testing.T) {
+	doc := strings.Replace(assembled, `"entries"`, `"omitted": [{"reason": "a merge commit"}], "entries"`, 1)
+	if err := Changelog([]byte(doc)); err == nil {
+		t.Error("validated; want a refusal")
+	}
+}
+
+// bundle is a minimal valid evidence bundle.
+const bundle = `{
+  "schema_version": "1.0.0",
+  "purpose": "RELEASE",
+  "range": {"to": "0123456789abcdef0123456789abcdef01234567"},
+  "commits": [],
+  "sources": [],
+  "budget": {"limit": 100, "total": 10, "used": 10, "omitted": [
+    {"commit": "abc", "path": "go.sum", "reason": "EXCLUDED", "truncated": false}
+  ]}
+}`
+
+func TestMinimalEvidenceBundleValidates(t *testing.T) {
+	if err := Evidence([]byte(bundle)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEvidenceRefusals(t *testing.T) {
+	cases := map[string]string{
+		"reason not an OmissionReason": strings.Replace(bundle, `"EXCLUDED"`, `"TOO_BIG"`, 1),
+		"unknown purpose":              strings.Replace(bundle, `"RELEASE"`, `"PREVIEW"`, 1),
+		"no purpose":                   strings.Replace(bundle, `"purpose": "RELEASE",`, ``, 1),
+		"no budget":                    strings.Replace(bundle, `"budget": {"limit": 100, "total": 10, "used": 10, "omitted": [`, `"x": {"omitted": [`, 1),
+		"not JSON":                     `{"schema_version":`,
+	}
+	for name, doc := range cases {
+		t.Run(name, func(t *testing.T) {
+			if doc == bundle {
+				t.Fatal("the replacement did not apply; the case tests nothing")
+			}
+			if err := Evidence([]byte(doc)); err == nil {
+				t.Error("validated; want a refusal")
+			}
+		})
+	}
+}
