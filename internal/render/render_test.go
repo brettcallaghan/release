@@ -128,6 +128,7 @@ var goldenCases = map[string]goldenCase{
 	"unrecognised-kind": {corpus("1.0.1", releasemodel.ChangelogEntry{Kind: kp("SECURITY"), Summary: "closes a hole", Sources: []releasemodel.ChangeSource{pr(5)}}), defaults(), repoURL},
 	"no-entries":        {corpus("1.0.0"), defaults(), repoURL},
 	"title-only":        {func() releasemodel.Changelog { c := corpus("0.1.0"); c.Title = str("First release"); return c }(), defaults(), repoURL},
+	"unkinded-omitted":  {unkindedWithOmitted(), defaults(), repoURL},
 }
 
 func goldenNames() []string {
@@ -374,6 +375,87 @@ func TestConfiguredHeadingsRenderVerbatim(t *testing.T) {
 	}
 	if !strings.Contains(r.Section, "\n###   Fixes, spaced  \n") {
 		t.Errorf("the heading was not rendered verbatim:\n%q", r.Section)
+	}
+}
+
+// unkindedWithOmitted has an entry with no kind, a breaking FEATURE with its
+// migration, and an omitted commit whose reason must never render.
+func unkindedWithOmitted() releasemodel.Changelog {
+	c := corpus("3.0.0",
+		releasemodel.ChangelogEntry{Summary: "a change with no kind", Sources: []releasemodel.ChangeSource{commit("1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")}},
+		releasemodel.ChangelogEntry{
+			Kind: kp(releasemodel.ChangeKindFeature), Scope: str("cli"), Summary: "`--target` is required",
+			Breaking: true, Migration: str("pass `--target main`."), Sources: []releasemodel.ChangeSource{pr(412)},
+		},
+		releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "a fix", Sources: []releasemodel.ChangeSource{pr(9)}},
+	)
+	c.Omitted = &[]releasemodel.OmittedCommit{{Hash: "2222222bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Reason: "changes only tests"}}
+	return c
+}
+
+// AC: AC-CLOG-004.14
+func TestAnUnkindedEntryRendersUnderTheOtherHeading(t *testing.T) {
+	c := corpus("1.0.0", releasemodel.ChangelogEntry{Summary: "closes a hole", Sources: []releasemodel.ChangeSource{pr(5)}})
+	r, err := Render(c, defaults(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "## 1.0.0\n\n### Other changes\n\n- closes a hole (#5)\n"; r.Section != want {
+		t.Errorf("section = %q, want %q", r.Section, want)
+	}
+}
+
+// AC: AC-CLOG-004.14
+func TestAnUnkindedEntryFollowsTheConfiguredGroupsAndCarriesNoKindPrefix(t *testing.T) {
+	c := corpus("1.0.0",
+		releasemodel.ChangelogEntry{Summary: "no kind first", Sources: []releasemodel.ChangeSource{pr(1)}},
+		releasemodel.ChangelogEntry{Kind: kp(releasemodel.ChangeKindFix), Summary: "a fix", Sources: []releasemodel.ChangeSource{pr(2)}},
+	)
+	r, err := Render(c, defaults(), repoURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inOrder(t, r.Section, "### Fixes", "- a fix", "### Other changes", "- no kind first")
+	for _, prefix := range []string{"FIX", "fix:", "**fix", "FEATURE", "breaking"} {
+		if strings.Contains(r.Section, prefix) {
+			t.Errorf("section carries kind or breaking text %q:\n%s", prefix, r.Section)
+		}
+	}
+}
+
+// AC: AC-CLOG-004.14
+func TestABreakingUnkindedEntryRendersUnderTheBreakingHeadingWithMigration(t *testing.T) {
+	c := corpus("2.0.0", releasemodel.ChangelogEntry{Summary: "drops a flag", Breaking: true, Migration: str("use the new flag."), Sources: []releasemodel.ChangeSource{pr(7)}})
+	r, err := Render(c, defaults(), repoURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "## 2.0.0\n\n### Breaking changes\n\n- drops a flag ([#7](https://github.com/o/r/pull/7))\n\n  Migration: use the new flag.\n"
+	if r.Section != want {
+		t.Errorf("section = %q, want %q", r.Section, want)
+	}
+}
+
+// AC: AC-CLOG-004.13
+func TestOmittedCommitsAreNeverRendered(t *testing.T) {
+	with := unkindedWithOmitted()
+	without := unkindedWithOmitted()
+	without.Omitted = nil
+	a, err := Render(with, defaults(), repoURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := Render(without, defaults(), repoURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a != b {
+		t.Errorf("an omitted list changed the rendering:\n%q\n%q", a.Section, b.Section)
+	}
+	for _, leak := range []string{"2222222", "changes only tests", "omitted"} {
+		if strings.Contains(a.Section+a.Body, leak) {
+			t.Errorf("rendering carries omitted material %q:\n%s", leak, a.Section)
+		}
 	}
 }
 

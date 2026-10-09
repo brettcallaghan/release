@@ -57,8 +57,8 @@ project can keep the changelog style it already publishes.
     <migration>` follow as indented paragraphs when set, and a blank line
     ends an item carrying them.
   - A breaking entry renders only in the breaking-changes group, whatever
-    its kind. An entry of a kind the component does not know renders in the
-    other group; an entry of a known kind absent from `changelog.groups`
+    its kind. An entry with no kind, or of a kind the component does not know,
+    renders in the other group; an entry of a known kind absent from `changelog.groups`
     does not render. A group with no entries renders no heading.
   - With a repository web URL, a pull request renders as
     `[#<n>](<url>/pull/<n>)` and a commit as
@@ -78,6 +78,8 @@ project can keep the changelog style it already publishes.
     corpus declares one.
   - IF `version` is unset, or `schema_version` has a major other than 1,
     THEN the component SHALL refuse to render.
+  - The component SHALL NOT render the corpus's `omitted` list, its commits
+    or their reasons.
   - The component SHALL NOT read the filesystem, git, or the network.
 
 ## Cross-Cutting Standards
@@ -107,8 +109,9 @@ The component SHALL NOT re-order entries within a group.
 most. A renderer that sorts discards it silently.
 
 - **Verification gates:** the component's golden-file suite across every
-  target, including the unrecognised-`kind` case, the breaking-changes
-  section, and a corpus with no entries.
+  target, including the unrecognised-`kind` case, the unkinded case, the
+  breaking-changes section, a corpus with an omitted list, and a corpus
+  with no entries.
 
 ## Key Decisions
 
