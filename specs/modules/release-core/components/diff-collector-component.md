@@ -21,35 +21,32 @@ test_paths:
 ## Overview
 
 The code is the honest record of what changed, so a producer is shown the
-diff. At pull request time it reads the diff of every commit on the pull
-request, and the notes it authors are reviewed with that code. At release
-time it reads the diffs only of the commits that reached git without a
-reviewed notes block: the others are already described by notes a reviewer
-read, and reading their diffs again would spend budget on what is known.
+diff of every commit in the release range. A commit's subject and body say
+what its author meant; the diff says what it did, and it is the only
+account of a commit whose message says little.
 
 Diffs are the one source whose size scales with how much changed, and a
 model-backed producer pays per token. So the collector works within a byte
 budget, leaves out paths that are noise to a reader (lockfiles, vendored
 code, golden test output), and reports exactly what it cut, so the producer
-knows what it was not shown and the corpus can say so.
+knows what it was not shown and the changelog can say so.
 
 - **Role:** code diffs as changelog evidence.
 - **Scope:** in — per-commit diffs, path exclusion, the budget and the
-  truncation report; out — interpreting a diff, which is a producer's job,
-  and choosing which commits need one, which is its caller's.
+  truncation report; out — interpreting a diff, which is a producer's job.
 - **Composed into:** [[module-release-core]] — feeds
   [[component-evidence-builder]]; see the module for relationships.
 - **Source & tests:** `internal/gitread`.
 
 ## Interface
 
-- **Surface:** given a repository, the commits whose diffs are wanted, the
+- **Surface:** given a repository, the commits in the release range, the
   exclusion list (`changelog.diff_exclude`) and a budget in bytes
-  (`changelog.diff_budget.release` or `.pull_request`), return a
-  `DiffRecord` per commit, as `schemas/collection.strata` defines it, and
-  a `BudgetReport` as [[contract-changelog]] defines it: the limit, the
-  bytes of patch text before the budget and carried, and every file
-  excluded, binary, truncated or omitted, with its reason.
+  (`changelog.diff_budget.release`), return a `DiffRecord` per commit, as
+  `schemas/collection.strata` defines it, and a `BudgetReport` as
+  [[contract-changelog]] defines it: the limit, the bytes of patch text
+  before the budget and carried, and every file excluded, binary,
+  truncated or omitted, with its reason.
 - **Guarantees:**
   - The component SHALL return a diff for each commit it was given, against
     its first parent.
@@ -80,8 +77,8 @@ knows what it was not shown and the corpus can say so.
     matching any number of path segments.
 
 **Rationale for the size report:** a producer driven by a language model pays
-per token, and a reader of the corpus should be able to see when the notes
-were written from part of a change.
+per token, and a reader of the changelog should be able to see when an
+entry was written from part of a change.
 
 ## Cross-Cutting Standards
 
@@ -95,8 +92,8 @@ WHEN the allocation of the budget changes, the budget report SHALL still
 name every file that lost content.
 
 **Rationale:** The producer cannot ask for what it was not shown. The report
-is the only way it, or a reviewer of the corpus, learns that the notes rest
-on part of a change.
+is the only way it, or a reviewer of the changelog, learns that an entry
+rests on part of a change.
 
 ---
 
@@ -106,17 +103,16 @@ on part of a change.
 
 ## Key Decisions
 
-- [[adr-003]] — notes are authored from evidence, and the diff is the
-  evidence for a commit no one reviewed notes for.
-- [[adr-004]] — notes authored from diffs are why this tool was chosen over
-  conventional-commit tooling.
+- [[adr-003]] — the structured changelog is authored from commit evidence,
+  and the diff is the evidence of what a commit did.
+- [[adr-004]] — a changelog authored from diffs is why this tool was chosen
+  over conventional-commit tooling.
 
 ## Open Questions
 
-- [ ] Whether the default budgets of 204800 bytes per release and 102400
-  bytes per pull request, and the default exclusion list, hold up against
-  real releases. Decided by the project owner from the first releases cut
-  with diffs.
+- [ ] Whether the default budget of 204800 bytes per release, and the
+  default exclusion list, hold up against real releases. Decided by the
+  project owner from the first releases cut with diffs.
 
 ## References
 

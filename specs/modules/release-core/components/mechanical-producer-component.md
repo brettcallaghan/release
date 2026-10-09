@@ -1,9 +1,9 @@
 ---
 title: "Component Blueprint: Mechanical Producer"
 entity_name: Mechanical Producer
-description: The changelog producer of last resort — entries taken from
-  reviewed notes blocks and derived from conventional commit subjects, with no
-  language model, proposing only the computed impact.
+description: The changelog producer of last resort — entries derived from
+  conventional commit subjects, unclassified commits listed under the other
+  heading, with no language model.
 slug: component-mechanical-producer
 type: component-blueprint
 status: draft
@@ -22,21 +22,24 @@ test_paths:
 ## Overview
 
 An instance of [[component-changelog-producer]] that needs nothing but the
-evidence bundle. Where a commit carries a reviewed notes block, its entries
-become changelog entries as they were reviewed. Where it does not, an entry
-is derived from the commit subject and marked as derived, so a reader of the
-corpus can tell a reviewed sentence from one nobody wrote.
+evidence bundle. Each commit becomes one entry derived from its subject and
+marked as derived, so a reader of the changelog can tell a sentence nobody
+wrote from one a producer authored. A conventional subject gives the entry
+its kind; a commit with no conventional type is listed under the other
+heading with no kind.
 
 It serves `--skip-notes`, continuous integration with no model, and
-`changelog.producer = "mechanical"` for a project whose notes blocks already
-say everything. It exercises no judgement, so its proposal is the impact
-computed from the reviewed signals, and it never raises it: where commits
-carry no signal, [[component-impact-reconciler]] still asks a person.
+`changelog.producer = "mechanical"`. The bridge never selects it on its
+own when the configured producer is unavailable or fails. It exercises no judgement and reads no
+diff. Because its kinds come from the same conventional types the Bump
+Classifier reads, the suggestion [[component-bump-suggester]] derives from
+its entries is the signal floor alone; where that is none and an entry
+has no kind, the cut halts for a named bump.
 
-- **Role:** a model-free authored corpus.
-- **Scope:** in — mapping notes entries and commit subjects to corpus
-  entries, and restating the computed impact as its proposal; out — reading
-  git, composing prose, merging or omitting changes, and judging impact.
+- **Role:** a model-free structured changelog.
+- **Scope:** in — mapping commit subjects to changelog entries; out —
+  reading git or diffs, composing prose, merging, splitting or omitting
+  changes, and suggesting a bump.
 - **Composed into:** [[module-release-core]] — invoked by
   [[component-changelog-authoring-bridge]]; see the module for
   relationships.
@@ -45,91 +48,75 @@ carry no signal, [[component-impact-reconciler]] still asks a person.
 
 ## Interface
 
-- **Surface:** given a release evidence bundle, return a corpus conforming
-  to [[contract-changelog]].
+- **Surface:** given an evidence bundle, return a structured changelog
+  conforming to [[contract-changelog]].
 - **Guarantees:**
   - The component SHALL be a pure function of the evidence bundle, and
     SHALL run in process.
-  - The component SHALL carry every entry of every parsed notes block into
-    the corpus, verbatim, with `derived` false.
-  - WHEN a commit has no notes block, or one that does not parse, the
-    component SHALL derive one entry from its subject with `derived` true.
-  - The component SHALL omit no commit.
-  - The component SHALL set `proposed_bump` to the impact computed from the
-    bundle's commit signals, `proposal_drivers` to the commits that
-    determined it, and `proposal_rationale` to a sentence saying it is the
-    computed impact and how many commits carry no signal.
+  - The component SHALL derive one entry per commit, from its subject, with
+    `derived` true.
+  - The component SHALL cite every commit in exactly one entry, and SHALL
+    list no commit in `omitted`.
+  - WHEN a commit's subject has no conventional type, the component SHALL
+    give its entry no `kind`, so it renders under the other heading.
   - The component SHALL NOT set `version`.
-  - WHEN given a pull-request evidence bundle, the component SHALL refuse,
-    because pull-request notes are prose for a reviewer and a restatement of
-    subjects gives the reviewer nothing to review.
 - **Pinned rules:**
-  - A notes entry maps field for field: `kind`, `scope`, `summary`,
-    `detail`, `breaking` and `migration`. A breaking notes entry has no
-    `kind` and takes CHORE, which the renderer places under the breaking
-    heading like any breaking entry. Its `sources` hold the pull
-    request WHEN the commit's record carries a number, and the commit
-    otherwise.
   - A derived entry's `summary` is the subject's description: the subject
     without its conventional type prefix and its trailing ` (#<n>)`. A
     conventional type maps to `kind` case-insensitively: `feat` FEATURE,
     `fix` FIX, `perf` PERFORMANCE, `revert` REVERT, `refactor` REFACTOR,
     `docs` DOCUMENTATION, `build` BUILD, `ci` CI, `test` TEST, `style`
-    STYLE, and any other type, or a subject that is not conventional,
-    CHORE. The conventional
-    scope is `scope`.
+    STYLE, and any other type CHORE. The conventional scope is `scope`.
   - A derived entry's `breaking` is the commit's breaking-change marker as
     [[component-bump-classifier]] reads it; `migration` is the text of a
-    `BREAKING CHANGE:` footer, with its continuation lines, WHEN one exists.
-  - Entries follow the bundle's commit order, oldest first, and a block's
-    entries keep their order within it.
+    `BREAKING CHANGE:` footer, with its continuation lines, WHEN one
+    exists, and otherwise a sentence saying the commit is marked breaking
+    and names no migration.
+  - An entry's `sources` hold the commit, and the pull request WHEN the
+    commit's record carries a number.
+  - Entries follow the bundle's commit order, oldest first.
   - Corpus-level `sources` are the bundle's `sources`, copied unchanged.
-  - The computed impact is the highest `signal` in the bundle, and none
-    WHEN no commit carries one.
 
 ## Cross-Cutting Standards
 
 This component SHALL comply with:
 
-- [[contract-changelog]] — the corpus semantics.
+- [[contract-changelog]] — the structured changelog semantics.
 
 ## Change Guidance
 
-The component SHALL NOT propose an impact higher or lower than the computed
-one.
+The component SHALL NOT take a kind from anything but a conventional type.
 
-**Rationale:** It reads no diff, so any other proposal would be a guess
-dressed as a reading of the evidence. Restating the computed impact keeps
-the reconciler's decision where it belongs: a range whose commits all carry
-reviewed signals is decided by them, and one with unclassified commits still
-halts for a person.
+**Rationale:** It reads no diff, so any other kind would be a guess dressed
+as a reading of the evidence. Taking kinds only from conventional types
+keeps the suggestion derived from its entries equal to the signal floor, and
+a range whose floor is none still halts for a person.
 
 ---
 
 - **Verification gates:** the conformance suite every producer runs, plus
-  the component's unit suite over bundles with blocks, without blocks, with
-  malformed blocks, and with breaking footers.
+  the component's unit suite over bundles with conventional and
+  non-conventional subjects, squash subjects carrying ` (#<n>)`, and
+  breaking markers with and without a footer.
 
 ## Key Decisions
 
-- [[adr-003]] — a proposal is the reading of evidence; this producer reads
-  none, so it restates what the reviewed records compute.
+- [[adr-003]] — without a model, entries come from conventional subjects
+  and the suggestion is the signal floor alone.
 - [[adr-004]] — conventional subjects are used where present and never
   required.
 
 ## Open Questions
 
-- [ ] What corpus `kind` a notes entry from the other heading takes. It
-  has no `kind`, `ChangelogEntry.kind` is required, and the renderer puts
-  under the other heading only kinds `ChangeKind` does not declare, so
-  every declared kind either moves the entry to a group or drops it. A
-  producer never writes such an entry; one written by hand reaches this
-  rule.
+- [ ] An entry with no `kind` needs `ChangelogEntry.kind` to be optional in
+  [[contract-changelog]]. While it is required, the renderer's other
+  heading holds only kinds `changelog.groups` does not declare, and a
+  non-conventional commit's entry would take CHORE.
 
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
 - [[module-release-core]] — the module this component is composed into
 - [[component-changelog-producer]] — what every producer must do
-- [[contract-changelog]] — the corpus this producer returns
+- [[contract-changelog]] — the changelog this producer returns
 - [[frd-changelog-authoring]] — the feature this component serves

@@ -2,8 +2,9 @@
 title: "Component Blueprint: Stage Orchestrator"
 entity_name: Stage Orchestrator
 description: The sequence that cuts a release — producing a release commit
-  carrying the confirmed impact, a stage branch, and a pull request showing
-  the impact proposal — and the only component that writes to a repository.
+  carrying the confirmed bump as a trailer, a stage branch, and a pull
+  request showing the changelog, the suggested bump and its reasons — and the
+  only component that writes to a repository.
 slug: component-stage-orchestrator
 type: component-blueprint
 status: draft
@@ -22,26 +23,30 @@ test_paths:
 ## Overview
 
 Runs the sequence behind `release cut`: resolve the base version and the
-computed impact, build the evidence, author the changelog, reconcile the
-impact, compute the next version, render, write the changelog, propagate the
-version across the repository's manifests, commit, branch, and open the pull
-request. It holds no logic of its own beyond ordering and failure handling.
+signal floor, build the evidence, author the structured changelog, suggest
+and confirm the bump, compute the next version, render, write the
+changelog, propagate the version across the repository's manifests, commit,
+branch, and open the pull request. It holds no logic of its own beyond
+ordering and failure handling.
 
 The operation is called cutting a release, which is why the command reads
 `release cut minor` and the default branch prefix is `cut/`. The documents
 keep calling the branch a *stage branch* — that is the concept, whatever a
 project names the prefix ([[adr-002]]).
 
-Two paths through it. With a bump named on the command line, the impact is
-settled before anything runs. Without one, [[component-bump-classifier]]
-computes it from the reviewed signals in the range, the producer proposes one
-from the evidence, and [[component-impact-reconciler]] decides, or halts for
-a person to confirm. Either way the decision is committed as a
-`Release-Type:` trailer on the release commit, so the version stays
-recomputable from a clone, and the stage pull request shows the proposal and
-its reasons beside the notes. Authoring can be skipped, in which case
-[[component-mechanical-producer]] writes the notes and proposes only the
-computed impact.
+Two paths through it. With a bump named on the command line, the bump is
+settled by a person before anything is authored, subject only to the
+signal floor. Without one, [[component-bump-classifier]] computes the floor
+from the explicit signals in the range, the producer authors the structured
+changelog, and [[component-bump-suggester]] derives the suggested bump from
+it and halts until a person confirms. Either way the confirmed bump is
+committed as a `Release-Type:` trailer on the release commit, so the version
+stays recomputable from a clone without re-running a model, and the stage
+pull request shows the changelog, the suggestion and its reasons.
+Reviewing the stage pull request is where a person reviews the model's
+changelog before anything is published. Authoring can be skipped, in which
+case [[component-mechanical-producer]] writes the changelog and the
+suggestion is the signal floor alone.
 
 It is the only component that writes to the repository. Everything upstream
 reads or computes, so a failure part-way leaves state this component is
@@ -68,19 +73,21 @@ rather than the tooling learning any manifest format.
 - **Guarantees:**
   - The component SHALL perform every check that can fail before making any
     write.
-  - WHEN the maintainer names a bump, the component SHALL use it rather than
-    inferring one.
+  - WHEN the maintainer names a bump at or above the signal floor, the
+    component SHALL use it, warning WHEN it is below the suggested bump.
+  - IF the maintainer names a bump below the signal floor and the release is
+    not forced, THEN the component SHALL refuse without writing.
   - WHEN the maintainer requests staging without notes, the component SHALL
     author the corpus with [[component-mechanical-producer]].
-  - WHEN [[component-impact-reconciler]] halts, the component SHALL halt
-    without writing, reporting the computed impact, the proposal, its
-    reasons and the commits with no reviewed signal.
+  - WHEN [[component-bump-suggester]] halts, the component SHALL halt
+    without writing, returning the suggested bump, its reasons, the signal
+    floor and the unclassified commits as its result.
   - IF a forced release is requested and no bump is named, THEN the
     component SHALL refuse, because there is no named bump to force.
   - The component SHALL create a stage branch whose first commit is the
     release commit.
   - The component SHALL end the release commit's message with the confirmed
-    impact as a `Release-Type:` trailer.
+    bump as a `Release-Type:` trailer.
   - The component SHALL run the repository's configured version-propagation
     command to write the version into its manifests.
   - The component SHALL confine its writes to the paths the project declared
@@ -88,12 +95,14 @@ rather than the tooling learning any manifest format.
   - The component SHALL title the pull request for the version being released.
   - The component SHALL include the rendered release notes in the pull request
     body under a "Release Notes" heading.
-  - The component SHALL show in the pull request body the confirmed impact,
-    who decided it, the computed impact with the commits that drove it, and
-    the proposal with its reasons.
+  - The component SHALL show in the pull request body the confirmed bump and
+    who decided it, the suggested bump with its reasons, and the signal floor
+    with the commits that set it.
   - WHEN no releasable change exists since the latest reachable tag, the
     component SHALL refuse without writing, unless a bump is named and the
-    release is forced. The refusal SHALL say whether the range holds no
+    release is forced. A range releasable only because an entry has no kind
+    is releasable: its halt for a named bump is answered by naming one,
+    without a force. The refusal SHALL say whether the range holds no
     commits or how many commits it holds, and WHEN a bump was named SHALL
     name how to force the release.
   - IF a write fails part-way, THEN the component SHALL report every change it
@@ -119,18 +128,20 @@ rather than the tooling learning any manifest format.
   one that `gh auth status`, scoped to `origin`'s host, reports
   unauthenticated. Then, stopping at the
   first refusal or failure:
-  1. resolve the base version and the computed impact, with the commits
-     that carry no reviewed signal; refuse WHEN the range holds no commits
-     and the release is not forced; WHEN a bump is named, compute the
-     version and refuse WHEN the stage branch exists locally or on
-     `origin`;
+  1. resolve the base version and the signal floor, with the unclassified
+     commits; refuse WHEN the range holds no commits and the release is not
+     forced; WHEN a bump is named, refuse WHEN it is below the floor and the
+     release is not forced, then compute the version and refuse WHEN the
+     stage branch exists locally or on `origin`;
   2. run `commands.preflight` WHEN configured;
-  3. build the release evidence bundle and author it, with the mechanical
-     producer WHEN notes are skipped;
-  4. reconcile the impact; halt WHEN the reconciler halts; refuse WHEN the
-     range holds no releasable change and the release is not forced with a
-     named bump;
-  5. compute the version from the confirmed impact, refusing WHEN the
+  3. collect the diffs, build the evidence bundle and author the structured
+     changelog, with the mechanical producer WHEN notes are skipped; WHEN
+     the configured producer is unavailable or fails, stop with its failure,
+     naming `--skip-notes`;
+  4. suggest the bump; refuse WHEN the range holds no releasable change and
+     the release is not forced with a named bump; otherwise decide it from
+     the named bump or the confirmation, halting WHEN the suggester halts;
+  5. compute the version from the confirmed bump, refusing WHEN the
      policy does, and refuse WHEN the stage branch exists locally or on
      `origin`;
   6. set the corpus `version` and render it;
@@ -143,10 +154,11 @@ rather than the tooling learning any manifest format.
      and refuse WHEN git has no committer identity;
   10. write: create the stage branch at the pinned commit, commit the
       changes as `Release <version>` with the trailer
-      `Release-Type: <confirmed impact>`, push the branch to `origin`, and
+      `Release-Type: <confirmed bump>`, push the branch to `origin`, and
       open the pull request into the target through `gh`, titled
-      `Release <version>`, with the release body under `## Release Notes`
-      followed by the impact under `## Impact`, unless told not to.
+      `Release <version>`, with the rendered changelog under
+      `## Release Notes` followed by the confirmed bump, the suggestion and
+      its reasons under `## Bump`, unless told not to.
 - **Configured commands and the changelog producer** run in the scratch
   checkout with `RELEASE_VERSION` set to the version being released. The
   component's own git operations there (creating the checkout, the branch
@@ -162,15 +174,19 @@ rather than the tooling learning any manifest format.
   (`git push origin --delete <branch>`, `git branch -D <branch>`) the
   release. It never deletes or changes anything on `origin`.
 - **Dry run:** steps 1 to 9 run, and step 10's writes are reported, not made.
-- **Confirmation:** the component does not prompt. A front end that
-  receives the reconciler's halt asks the person, or stops and names the
-  bump to pass, and calls again with the answer as a named bump; the
-  authored corpus is then read from the cache, so confirming costs no
-  second authoring.
+- **Confirmation:** the component does not prompt. Its input carries an
+  optional named bump and whether the suggestion is accepted. `release cut`
+  on a terminal receives the halt, prompts, and calls again with the answer
+  as an acceptance or a named bump; `--yes` passes the acceptance on the
+  first call; a non-interactive call without `--yes` ends at the halt,
+  which the front end reports with the exit status [[contract-release-cli]]
+  names. The authored changelog is read from the cache on the second call,
+  so confirming costs no second authoring and the suggestion confirmed is
+  the one shown.
 
-**Rationale for the last guarantee:** a maintainer correcting the notes during
-review adds a commit, and a tool that treated that as malformed would make the
-review surface unusable for the one thing it is for.
+**Rationale for the last guarantee:** a maintainer correcting the changelog
+during review adds a commit, and a tool that treated that as malformed would
+make the review surface unusable for the one thing it is for.
 
 ## Cross-Cutting Standards
 
@@ -216,18 +232,19 @@ repository rather than a release of the tooling.
 
 - **Verification gates:** the end-to-end cut test against a fixture
   repository, covering the accepting path, a named bump, staging without
-  notes, the nothing-to-release refusal, the halt for a commit with no
-  reviewed signal, the halt for a proposal above the computed impact, the
-  `Release-Type:` trailer on the release commit, and a partial-write
-  report.
+  notes, the nothing-to-release refusal, the halt for confirmation and the
+  accepted suggestion, a named bump below the suggestion (warned) and below
+  the signal floor (refused, and forced), the halt for a named bump when
+  the suggestion is none and an entry has no kind, the `Release-Type:` trailer on
+  the release commit, and a partial-write report.
 
 ## Key Decisions
 
 - [[adr-002]] — a release is staged as a branch carrying the release commit
   and merged by pull request; nothing modifies a release branch directly.
-- [[adr-003]] — reviewed records decide the impact, a person confirms any
-  impact without one, and the confirmed impact is committed on the release
-  commit.
+- [[adr-003]] — the bump is suggested from the authored changelog, floored
+  by git signals and confirmed by a person, and the confirmed bump is
+  committed on the release commit.
 
 ## Open Questions
 
@@ -237,9 +254,9 @@ None.
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
 - [[module-release-core]] — the module this component is composed into
-- [[component-bump-classifier]] — computes the impact from reviewed signals
-- [[component-impact-reconciler]] — decides the impact, or halts for a
-  person to confirm
+- [[component-bump-classifier]] — computes the signal floor from git
+- [[component-bump-suggester]] — suggests the bump and decides it, or halts
+  for a person to confirm
 - [[component-changelog-authoring-bridge]] — the authoring step this sequence
   may skip
 - [[frd-release-staging]] — the feature this component serves

@@ -33,9 +33,8 @@ is the adopting project's policy and not the tool's business
 ([[adr-001]]).
 
 Configuration also bounds the evidence a producer reads. How much patch
-text a release or a pull request may carry, which paths are noise, which
-producer authors, and which reviewed signals decide the impact differ by
-repository, and each has a default that serves a repository declaring
+text a release may carry, which paths are noise, which producer authors,
+and which signals set the impact's floor differ by repository, and each has a default that serves a repository declaring
 nothing. How the evidence is collected and used is [[frd-changelog-authoring]]
 and [[frd-version-computation]]; this document is what can be configured, and
 what is refused.
@@ -50,18 +49,19 @@ This feature SHALL comply with [[release-tooling-standards]].
   a release.
 - **Release-branch pattern** — the glob a repository uses to identify its
   release branches in branch protection and workflow filters.
-- **Diff budget** — the most patch text, in bytes, one evidence bundle may
-  carry: one budget for a release, another for a pull request.
+- **Diff budget** — the most patch text, in bytes, a release's evidence
+  bundle may carry.
 - **Diff exclusion** — a path glob whose patches no evidence bundle carries.
   The path still appears in its commit's file list.
 - **Adapter** — a collector of evidence that can be turned on or off: the
-  diff adapter and the pull request adapter. The commit adapter is always on.
+  diff adapter and the optional pull request adapter, which enriches commits
+  from the hosting platform. The commit adapter is always on.
 - **Producer** — what authors from the evidence: `claude`, a configured
-  `command`, or `mechanical`, the built-in producer of last resort that
-  needs no model.
-- **Signal** — a reviewed record in a commit that indicates its impact,
-  named in configuration as `notes-block`, `release-type`,
-  `conventional-type` or `breaking-marker` ([[frd-version-computation]]).
+  `command`, or `mechanical`, the built-in producer that needs no model,
+  which `--skip-notes` also selects.
+- **Signal** — an explicit record in a commit that indicates its impact,
+  named in configuration as `release-type`, `conventional-type` or
+  `breaking-marker` ([[frd-version-computation]]).
 
 ## Requirements
 
@@ -171,10 +171,11 @@ Feature: Evidence Collection Settings
   I want to bound and filter the diffs a producer reads
   So that the evidence fits a model's context and leaves out what no reader cares about
 
-  Diffs are collected by default, because they are the record a producer
-  reads where a commit has no reviewed notes block. The budgets and the
-  exclusions are settings because a repository's size and its generated
-  paths are its own.
+  Diffs are collected by default, because they are the only record of a
+  change nobody described. The budget and the exclusions are settings
+  because a repository's size and its generated paths are its own. The pull
+  request adapter is an optional enrichment, off by default; nothing
+  depends on it.
 
   @AC-CFG-003.1
   Scenario Outline: An unconfigured evidence setting takes its documented default
@@ -185,7 +186,6 @@ Feature: Evidence Collection Settings
     Examples:
       | setting                               | default |
       | changelog.diff_budget.release         | 204800  |
-      | changelog.diff_budget.pull_request    | 102400  |
       | adapters.diffs                        | true    |
       | adapters.pull_requests                | false   |
 
@@ -260,13 +260,12 @@ Feature: Evidence Collection Settings
 Feature: Producer and Signal Settings
 
   As an adopting project
-  I want to choose what authors my notes and which reviewed records decide my impact
+  I want to choose what authors my notes and which records in git set the floor of my impact
   So that a repository with no model, or with its own conventions, can still release
 
-  The mechanical producer exercises no judgement: it carries reviewed notes
-  blocks and commit subjects into the corpus and proposes only the impact
-  the signals already compute. It serves releases; a pull request's notes
-  need a producer that reads the diff.
+  The mechanical producer exercises no judgement: it composes entries from
+  conventional commit subjects, so the bump suggested from its changelog is
+  the signal floor alone. Signals are what set that floor.
 
   @AC-CFG-004.1
   Scenario Outline: A producer is configured by name
@@ -292,12 +291,6 @@ Feature: Producer and Signal Settings
     When the maintainer prepares a release changelog
     Then the tooling composes the corpus with the mechanical producer and starts no producer process
 
-  @AC-CFG-004.4 @negative
-  Scenario: The mechanical producer does not author pull request notes
-    Given the repository configures "mechanical" as its changelog producer
-    When the maintainer authors the notes for a pull request
-    Then the tooling refuses as an invalid invocation, saying the mechanical producer serves releases only
-
   @AC-CFG-004.5 @negative
   Scenario Outline: An unusable producer setting is refused
     Given the repository configures <setting>
@@ -317,21 +310,20 @@ Feature: Producer and Signal Settings
 
     Examples:
       | signal            |
-      | notes-block       |
       | release-type      |
       | conventional-type |
       | breaking-marker   |
 
   @AC-CFG-004.7
-  Scenario: A notes block is no signal when its signal is not enabled
-    Given the repository configures the signals "release-type" and "conventional-type"
-    And a commit whose only signal is a notes block reading Release-Type: minor
-    When the tooling computes the impact
+  Scenario: A conventional type is no signal when its signal is not enabled
+    Given the repository configures the signals "release-type" and "breaking-marker"
+    And a commit whose only signal is the conventional-commit type feat
+    When the tooling computes the signal floor
     Then the commit is reported as unclassified
 
   @AC-CFG-004.8 @negative
   Scenario: An unknown signal name is refused
-    Given the repository configures a signal named "notes"
+    Given the repository configures a signal named "issue-label"
     When the tooling reads its configuration
     Then the tooling refuses the configuration, naming the signal
 ```
@@ -340,8 +332,8 @@ Feature: Producer and Signal Settings
 
 - [[adr-001]] — the tooling is branch-agnostic, so branch names carry no
   configuration meaning
-- [[adr-003]] — reviewed signals decide the impact, which is why the
-  notes block is a signal and the mechanical producer proposes nothing new
+- [[adr-003]] — explicit signals in git set the floor of the suggested
+  bump, which is why the mechanical producer's suggestion is that floor
 - [[adr-005]] — repository-specific behaviour is delegated rather than
   implemented
 - [[frd-changelog-authoring]] — how evidence is collected within the budget

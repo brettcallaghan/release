@@ -32,7 +32,7 @@ PRM, BR, PROD, CLCMD.
 ### [[contract-changelog]] and `schemas/changelog.strata` (modified)
 
 **Intent:** The FRD requires a corpus that records which adapters built it
-(AC-CLOG-002.4), marks mechanically derived entries (AC-CLOG-002.3), and
+(AC-CLOG-002.4), marks mechanically derived entries, and
 carries no proposed impact until a producer sets one (AC-CLOG-002.5). The
 schema today has no field for the first two and makes `proposed_bump`
 required.
@@ -44,8 +44,8 @@ required.
   commit hash).
 - `ChangelogEntry` SHALL gain `derived: Bool`, true WHEN the entry was
   derived from a commit subject rather than author-written prose.
-- `Changelog.proposed_bump` SHALL become optional: absent on an assembled
-  corpus, and required of a producer by the bridge.
+- `Changelog.proposed_bump` SHALL become optional, and is left unset by
+  every producer.
 - The contract SHALL state each of these semantics. `schema_version` SHALL
   stay 1.0, amended in place: nothing has been released against it.
 
@@ -78,14 +78,7 @@ commit adapter: commit records in, an assembled corpus out.
 **Behavior:**
 - The component SHALL emit one entry per commit record, in record order,
   and SHALL record the commit adapter in `sources` with the range it read.
-- An author-written block SHALL be a `## Release notes` heading in the
-  commit body (the pull request description, under squash merge),
-  running to the next `## ` heading or the end of the body; its first
-  paragraph is the summary and the rest is the detail.
-- WHEN a record's body carries an author-written block, the entry SHALL
-  take its summary, and its detail WHEN present, from the block verbatim,
-  with `derived` false.
-- Otherwise the entry SHALL be derived from the subject, with `derived`
+- Each entry SHALL be derived from the subject, with `derived`
   true: a conventional-commit type maps to `ChangeKind` (`feat` FEATURE,
   `fix` FIX, `perf` PERFORMANCE, `revert` REVERT, `refactor` REFACTOR,
   `docs` DOCUMENTATION, `build` BUILD, `ci` CI, `test` TEST, `style` STYLE,
@@ -131,11 +124,10 @@ configured producer, exchange the corpus, validate, compare, cache.
   generated from `schemas/changelog.strata`, and SHALL reject one that fails
   or declares an unimplemented major `schema_version`, before anything else
   reads it.
-- The bridge SHALL reject a returned corpus with no `proposed_bump`.
-- The bridge SHALL report agreement or disagreement between `proposed_bump`
-  and the computed impact, and SHALL NOT resolve a disagreement. A
-  maintainer confirms by naming the bump, which then governs and makes the
-  proposal advisory (`schemas/changelog.strata`).
+- The bridge SHALL ignore `proposed_bump` and SHALL NOT suggest or decide
+  a bump. The [[component-bump-suggester]] derives the suggested bump from
+  the entries' kinds, raised to the signal floor, and a person confirms it
+  or names a bump.
 - The bridge SHALL cache an accepted corpus as
   `.git/release/corpus/<from>..<to>.json`, where `from` and `to` are the
   range's commit hashes (`root` for a line with no release), and SHALL reuse
@@ -180,8 +172,8 @@ resolve the version, assemble, author, render, and print or write.
 - The command SHALL resolve the version through the version computation
   feature's operation, using `bump` WHEN given; IF no release is warranted,
   THEN it SHALL exit 1.
-- WHEN authoring returns a disagreement and no bump was named, the command
-  SHALL print the computed and proposed impacts and exit 1, writing
+- WHEN no bump was named, the command SHALL render under the suggested
+  bump the [[component-bump-suggester]] derives, as a preview, and confirm
   nothing.
 - The command SHALL set the corpus `version`, render it through the
   changelog rendering feature's renderer, and answer per
@@ -247,16 +239,11 @@ Bridge` delta; PROD = `Changelog Producer` delta (— MVP producers); CLCMD =
 | AC-CLOG-001.4 | **PRM (proves)** | integration |
 | AC-CLOG-001.5 | **PRM (proves)** | integration |
 | AC-CLOG-001.6 | **CB (proves)** — via relied-upon Commit Collector | integration |
-| AC-CLOG-001.7 | ACFG, **CB (proves)** | unit |
 | AC-CLOG-002.1 | SCH, **CB (proves)** | unit |
-| AC-CLOG-002.2 | **CB (proves)** | unit |
-| AC-CLOG-002.3 | SCH, **CB (proves)** | unit |
 | AC-CLOG-002.4 | SCH, **CB (proves)** | unit |
 | AC-CLOG-002.5 | SCH, **CB (proves)** | unit |
 | AC-CLOG-003.1 | **BR (proves)** | unit |
 | AC-CLOG-003.2 | **BR (proves)** | unit |
-| AC-CLOG-003.3 | **BR (proves)** | unit |
-| AC-CLOG-003.4 | BR, **CLCMD (proves)** | e2e |
 | AC-CLOG-003.5 | BR, **CLCMD (proves)** | e2e |
 | AC-CLOG-003.6 | **BR (proves)** | unit |
 | AC-CLOG-003.7 | **BR (proves)**, PROD | unit |

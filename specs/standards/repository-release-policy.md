@@ -2,8 +2,8 @@
 title: Repository Release Policy
 description: The release choices a project makes for itself — which
   branches are release lines, how long majors are supported, how fixes
-  propagate, what readiness means, how release notes are reviewed, and how
-  versions relate across artifacts.
+  propagate, what readiness means, how squash merges carry evidence, and
+  how versions relate across artifacts.
 slug: repository-release-policy
 type: standards
 status: draft
@@ -195,39 +195,20 @@ change landed in the interim.
 
 ---
 
-## Release Notes in Pull Requests
+## Squash Merges
 
-Release notes are authored per pull request and reviewed with the code, so
-that the release changelog and the version are built from reviewed records in
-git ([[adr-003]]).
+A squash commit that carries its pull request's title and description gives
+the release tooling the pull request's own account of the change as commit
+evidence ([[adr-003]]).
 
-**RRP-036:** A project SHALL configure squash merges into a release line to
+**RRP-036:** A project SHOULD configure squash merges into a release line to
 use the pull request title and description as the commit message.
 
 **Rationale:** The squash commit is the only record of a pull request that
-git keeps. A commit body made of the branch's commit messages drops the
-reviewed `## Release notes` block, and the release tooling then sees a commit
-with no reviewed signal ([[release-tooling-standards]], RTS-035).
-
----
-
-**RRP-037:** A pull request into a release line SHALL carry a
-`## Release notes` block in its description, and the project's required
-checks SHALL verify it with `release notes --check`.
-
-**Rationale:** A block that is missing, malformed, or stale because the pull
-request moved on after it was written is caught before merge rather than at
-release time, when the change's author and reviewer have moved on.
-
----
-
-**RRP-038:** The reviewer of a pull request into a release line SHALL review
-its `## Release notes` block with the code it describes, including the
-impact it proposes.
-
-**Rationale:** The block's impact counts toward the computed version without
-further confirmation, so the review is the only point at which a person checks
-it. A block approved without being read makes a model's proposal a version.
+git keeps. Its description becomes commit-body evidence for the model that
+authors the changelog, which then writes from the author's stated intent as
+well as the diff. A commit body made of the branch's commit messages still
+releases; the changelog has less to work from.
 
 ---
 
@@ -384,7 +365,8 @@ version.
 - [[adr-001]] — the tooling is branch-agnostic; the default branch is the
   default release line
 - [[adr-002]] — stage branches as the release trigger
-- [[adr-003]] — release notes and impact reviewed in pull requests
+- [[adr-003]] — the changelog is authored from commit evidence, including
+  the pull request description a squash commit carries
 - [[release-tooling-standards]] — what the tooling enforces, as distinct
   from what a project chooses
 - [[cli-distribution-policy]] — the distribution half of a project's

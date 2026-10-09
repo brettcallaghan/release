@@ -93,8 +93,8 @@ accepted primary signal.
 - [[adr-001]] — the tooling is branch-agnostic, which is why composability
   rather than configuration is the flexibility mechanism
 - [[adr-002]] — the reviewable release artifact the pipeline is built around
-- [[adr-003]] — a version computed deterministically from reviewed records
-  in git, which sets the testability bar these components meet
+- [[adr-003]] — a version recomputable from git through the confirmed bump
+  on the release commit, which sets the testability bar these components meet
 - [[adr-004]] — why no existing tool is adopted
 - [[release-tooling-standards]] — the requirements this shape must satisfy
 - [[container-release-cli]] — the container this decision describes

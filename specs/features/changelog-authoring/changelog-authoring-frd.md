@@ -1,9 +1,9 @@
 ---
 title: "FRD: Changelog Authoring"
-description: Collecting the evidence of what changed — commit records, file
-  lists and budgeted diffs — and exchanging it with an external producer that
-  composes release notes and pull-request notes and proposes an impact with
-  its reasons, which the tooling validates and reconciles rather than trusts.
+description: Collecting the evidence of what changed from git — commit
+  records, the pull request information commits carry, file lists and
+  budgeted diffs — and exchanging it with an external producer that returns
+  a structured changelog, which the tooling validates rather than trusts.
 slug: frd-changelog-authoring
 type: frd
 status: draft
@@ -26,27 +26,28 @@ commit subjects read like a commit log, because that is what they are. Good
 notes say what changed from the reader's point of view, group related work,
 leave out what no reader can observe, and explain what to do about anything
 that breaks. That is synthesis, and it needs the evidence: commit bodies,
+the pull request title and description a squash or merge commit carries,
 the files each commit touched, and the diffs themselves.
 
-This feature collects that evidence and hands it to a producer that can do
-the synthesis, then checks what comes back. It does so at two points:
-
-- **At pull request time**, `release notes` gives the producer the pull
-  request's commits and diff. The producer writes a `## Release notes` block
-  for the pull request description: one entry per user-visible change and a
-  proposed impact. The reviewer reviews the block with the code, and the
-  squash merge carries it into the commit body.
-- **At release time**, the tooling collects every commit since the base
-  version with its reviewed notes block, or its diff where it has none. The
-  producer composes the release changelog from that evidence and proposes an
-  impact with its reasons.
+This feature collects that evidence from git at release time and hands it to
+a producer that can do the synthesis, then checks what comes back. The
+tooling collects every commit since the base version: its record, the pull
+request information git carries for it, its changed files, its diff within
+the release's diff budget, and the signal the bump classifier read from it.
+The producer returns a structured changelog whose entries are changes, not
+commits, and accounts for every commit in the range: each is cited by an
+entry or listed as omitted with a reason.
 
 The producer is outside the tooling: a maintainer with a language model on
 their workstation, a skill driving one, a configured command, or a person in
-an editor. The tooling never calls a model, so no adopter needs an API
-credential to release. A proposal never becomes a version on its own; it is
-reconciled against the reviewed signals in git as [[frd-version-computation]]
-specifies ([[adr-003]]).
+an editor. Without a model (`--skip-notes`), the mechanical producer
+composes entries from conventional subjects. WHEN the configured producer
+is unavailable or fails, the tooling reports the failure and stops, naming
+`--skip-notes`; it never falls back to the mechanical producer on its own. The tooling never calls a model, so no
+adopter needs an API credential to release. The structured changelog never
+becomes a version on its own: the [[component-bump-suggester]] derives a
+suggested bump from its entry kinds, and a person confirms it, as
+[[frd-version-computation]] specifies ([[adr-003]]).
 
 This feature SHALL comply with [[release-tooling-standards]],
 [[repository-release-policy]] and [[contract-changelog]].
@@ -54,30 +55,26 @@ This feature SHALL comply with [[release-tooling-standards]],
 ## Terminology
 
 - **Evidence bundle** — what a producer reads: the commits in a range, each
-  with its record, its parsed notes block where it has one, and its diff
-  where one was collected, plus a report of what the diff budget left out.
-  Defined by [[contract-changelog]].
-- **Notes block** — the `## Release notes` section of a pull request
-  description, and therefore of the squash commit body, in the grammar
-  [[contract-changelog]] defines. It carries a proposed impact and one entry
-  per user-visible change, grouped under the repository's changelog headings
-  as the changelog section will show them.
-- **Pull request notes** — the content of a notes block as structured data:
-  the impact and the entries.
+  with its record, the pull request information git carries for it, its
+  changed files, its diff where one was collected and the signal the bump
+  classifier read, plus a report of what the diff budget left out. Defined
+  by [[contract-changelog]].
 - **Diff budget** — the most patch text, in bytes, one evidence bundle may
   carry. Diffs beyond it are truncated or omitted, and the omission is
   recorded.
-- **Corpus** — the structured release changelog defined by
-  [[contract-changelog]].
-- **Authored corpus** — a corpus returned by a producer, carrying entries, a
-  proposed impact and the reasons for it.
-- **Producer** — whatever authors a corpus or pull request notes: a language
-  model driven by a skill, a configured command, the mechanical producer, or
-  a person editing a file.
+- **Structured changelog** — what a producer returns: entries, each a change
+  with a kind, a scope, a summary, optional detail, migration text where it
+  is breaking, and the commits it is derived from, plus the omitted list.
+  [[contract-changelog]] calls it the authored corpus.
+- **Omitted list** — the commits a structured changelog cites in no entry,
+  each with a one-line reason. It is shown for review and never rendered in
+  the changelog.
+- **Producer** — whatever authors a structured changelog: a language model
+  driven by a skill, a configured command, the mechanical producer, or a
+  person editing a file.
 - **Mechanical producer** — the producer of last resort, built into the
-  tooling. It composes entries from notes blocks and conventional commit
-  subjects without judgement, and serves releases without notes and
-  model-free automation.
+  tooling. It composes entries from conventional commit subjects without
+  judgement, and serves releases without notes and model-free automation.
 - **Composition** — deciding what the entries are: splitting one commit into
   several changes, merging several commits into one change, omitting
   internal-only work, and setting each entry's kind.
@@ -98,14 +95,16 @@ Feature: Evidence Collection
   I want what each commit says and what it changed collected for the producer
   So that notes are authored from the change itself rather than from commit subjects
 
-  Commit records are always collected, with their full bodies, trailers and
-  the list of files each changed. Diffs are part of the default path: they are
-  the only honest record of a change nobody described. They are collected
-  within a configurable byte budget, with lockfiles, vendored and generated
-  paths excluded, and whatever the budget leaves out is reported rather than
-  dropped silently. Pull-request metadata from the hosting platform is an
-  optional fallback for commits that carry no notes block, because squash
-  merging already puts the title and description in git.
+  Evidence comes from git. Commit records are always collected, with their
+  full bodies, trailers, any conventional type, scope and breaking marker,
+  the pull request number, title and description where a squash or merge
+  commit carries them, and the list of files each changed. Diffs are part of
+  the default path: they are the only honest record of a change nobody
+  described. They are collected within the release's byte budget, with
+  lockfiles, vendored and generated paths excluded, and whatever the budget
+  leaves out is reported rather than dropped silently. Pull-request metadata
+  from the hosting platform is an optional enrichment, off by default, for
+  commits whose body lacks the description; nothing depends on it.
 
   @AC-CLOG-001.1
   Scenario: A pull request number is read from a squash commit subject
@@ -113,11 +112,24 @@ Feature: Evidence Collection
     When the tooling collects commit records
     Then the record carries that pull request number
 
+  @AC-CLOG-001.14
+  Scenario: A pull request is read from a merge commit
+    Given a merge commit whose subject names pull request 42 and whose body carries the pull request's title
+    When the tooling collects commit records
+    Then the record carries pull request number 42 and that title without consulting the hosting platform
+
   @AC-CLOG-001.2
   Scenario: A commit's full body is collected
     Given a squash commit whose body is the pull request description
     When the tooling collects commit records
     Then the record carries that body in full without consulting the hosting platform
+
+  @AC-CLOG-001.15
+  Scenario: A commit's trailers and conventional header are parsed into its record
+    Given a commit with the subject "feat(cut)!: rename --dry to --dry-run" and the trailer "Release-Type: major"
+    When the tooling collects commit records
+    Then the record carries its hash, author, date and trailers
+    And the record carries the conventional type "feat", the scope "cut" and a breaking marker
 
   @AC-CLOG-001.8
   Scenario: Every commit's changed files are collected
@@ -134,9 +146,8 @@ Feature: Evidence Collection
   @AC-CLOG-001.9
   Scenario: Diffs are collected by default
     Given the repository configures nothing about diffs
-    And a commit in the range carries no notes block
     When the tooling collects evidence for a release
-    Then the evidence carries that commit's diff
+    Then the evidence carries each commit's diff within the release diff budget
 
   @AC-CLOG-001.10
   Scenario: Excluded paths are left out of collected diffs
@@ -162,7 +173,7 @@ Feature: Evidence Collection
   @AC-CLOG-001.3
   Scenario: Missing descriptions are fetched from the hosting platform when enabled
     Given the pull-request adapter is enabled
-    And a commit carrying a pull request number and no notes block in its body
+    And a commit carrying a pull request number and a body that holds no pull request description
     When the tooling collects evidence
     Then the tooling fetches the title and description for that pull request from the hosting platform
 
@@ -199,12 +210,13 @@ Feature: Evidence Bundle
   I want the producer to receive everything collected, uninterpreted
   So that the producer judges the change from the evidence and not from a draft the tooling already cut up
 
-  The evidence bundle replaces a pre-assembled draft as the producer's input.
-  It carries every commit in the range, oldest first, with what git said about
-  it, the parsed notes block where one exists, and the diff where one was
-  collected. It never classifies a change and never authors one: an entry, a
-  kind or an impact in the bundle would be a guess presented as data. It is
-  kept with the authored result, so a reviewer can see what the producer was
+  The evidence bundle is the producer's input. It carries every commit in the
+  range, oldest first: what git said about it, the pull request information
+  git carries for it, its changed files, the diff where one was collected,
+  and the signal the bump classifier read from its records. It never
+  classifies a change and never authors one: an entry, a kind or an impact
+  of its own in the bundle would be a guess presented as data. It is kept
+  with the structured changelog, so a reviewer can see what the producer was
   shown.
 
   @AC-CLOG-002.1
@@ -216,7 +228,7 @@ Feature: Evidence Bundle
   Scenario: Every commit in the range is carried, oldest first
     Given a range of three commits
     When the tooling builds an evidence bundle for a release
-    Then the bundle carries all three commits, oldest first, each with its subject, body, trailers and changed files
+    Then the bundle carries all three commits, oldest first, each with its subject, body, trailers, pull request information where git carries it, and changed files
 
   @AC-CLOG-002.7
   Scenario: The bundle states its purpose and range
@@ -236,6 +248,13 @@ Feature: Evidence Bundle
     When the tooling builds an evidence bundle
     Then the bundle's budget report states the bytes carried, the files omitted or truncated, and why each was
 
+  @AC-CLOG-002.11
+  Scenario: Each commit carries the signal the bump classifier read
+    Given a range of two commits, one carrying the trailer "Release-Type: minor" and one carrying no signal
+    When the tooling builds an evidence bundle
+    Then the first commit's evidence carries the signal minor
+    And the second commit's evidence states that it carries no signal
+
   @AC-CLOG-002.5 @negative
   Scenario: The bundle proposes no impact and authors no entry
     When the tooling builds an evidence bundle
@@ -248,7 +267,7 @@ Feature: Evidence Bundle
     Then the bundle assigns that commit no change kind
 
   @AC-CLOG-002.10
-  Scenario: The evidence bundle is kept with the authored result
+  Scenario: The evidence bundle is kept with the structured changelog
     Given an authoring exchange has completed for a range
     When a reviewer inspects the cached result for that range
     Then the evidence bundle the producer was given is available alongside it
@@ -264,16 +283,19 @@ Feature: Authoring Exchange
 
   As a maintainer
   I want the tooling to exchange evidence with a producer and check what returns
-  So that generated prose is reviewed and a generated impact never becomes a version unconfirmed
+  So that generated prose is checked before a person reviews it and never becomes a version unconfirmed
 
   The exchange is files, not calls. Producers are plugins and the default one
   runs outside the tooling, which is why no adopter needs an API credential to
-  cut a release. The producer reads the evidence bundle and returns an
-  authored corpus. What returns is validated against the schema and checked
-  against the evidence it cites, and its proposed impact is reconciled against
-  the impact computed from reviewed signals, as the version computation
-  feature specifies. Authoring is slow and may be paid for, so the result is
-  cached against the commit range it describes.
+  cut a release. The producer reads the evidence bundle and returns a
+  structured changelog. What returns is validated against the schema and
+  checked against the evidence it cites: every entry names its sources in
+  the evidence, every breaking entry carries migration text, and every commit
+  in the range is cited by an entry or listed as omitted with a reason, so
+  nothing is dropped silently. The suggested bump is derived from the
+  validated changelog, as the version computation feature specifies.
+  Authoring is slow and may be paid for, so the result is cached against the
+  commit range it describes.
 
   @AC-CLOG-003.12
   Scenario: The producer receives the evidence bundle
@@ -282,55 +304,64 @@ Feature: Authoring Exchange
     Then the producer's input is an evidence bundle carrying that commit's body in full
 
   @AC-CLOG-003.1
-  Scenario: A returned corpus is validated before anything reads it
-    Given a producer has returned a corpus that does not validate against the schema
+  Scenario: A returned structured changelog is validated before anything reads it
+    Given a producer has returned a structured changelog that does not validate against the schema
     When the tooling reads it
     Then the tooling rejects it and no consumer receives it
 
   @AC-CLOG-003.2
   Scenario: An unimplemented schema version is rejected
-    Given a returned corpus declaring a schema version the tooling does not implement
-    When the tooling reads it
-    Then the tooling rejects it
-
-  @AC-CLOG-003.13
-  Scenario: A proposal without its reasons is rejected
-    Given a returned corpus carrying a proposed impact and no rationale
+    Given a returned structured changelog declaring a schema version the tooling does not implement
     When the tooling reads it
     Then the tooling rejects it
 
   @AC-CLOG-003.14 @negative
   Scenario: A source outside the evidence is rejected
-    Given a returned corpus with an entry citing a commit that is not in the evidence bundle
+    Given a returned structured changelog with an entry citing a commit that is not in the evidence bundle
     When the tooling reads it
     Then the tooling rejects it and no consumer receives it
 
-  @AC-CLOG-003.3
-  Scenario: Agreement between the proposal and reviewed signals proceeds
-    Given every commit in the range carries a reviewed signal
-    And the computed impact is minor
-    And a returned corpus proposing an impact of minor
-    When the tooling reconciles them
-    Then the tooling proceeds with an impact of minor
+  @AC-CLOG-003.15 @negative
+  Scenario: An entry citing no source is rejected
+    Given a returned structured changelog with an entry whose sources are empty
+    When the tooling reads it
+    Then the tooling rejects it and no consumer receives it
 
-  @AC-CLOG-003.4
-  Scenario: A proposal above the computed impact halts for confirmation
-    Given a returned corpus proposing an impact of minor
-    And the computed impact is patch
-    And the maintainer names no bump
-    When the tooling reconciles them
-    Then the tooling halts and requires a person to confirm the impact
+  @AC-CLOG-003.16 @negative
+  Scenario: A commit neither cited nor omitted is rejected
+    Given a range of three commits
+    And a returned structured changelog whose entries cite two of them and whose omitted list is empty
+    When the tooling reads it
+    Then the tooling rejects it and names the commit it does not account for
+
+  @AC-CLOG-003.17 @negative
+  Scenario: An omitted commit without a reason is rejected
+    Given a returned structured changelog that lists a commit as omitted with an empty reason
+    When the tooling reads it
+    Then the tooling rejects it and names that commit
+
+  @AC-CLOG-003.18 @negative
+  Scenario: A breaking entry without migration text is rejected
+    Given a returned structured changelog with a breaking entry that carries no migration text
+    When the tooling reads it
+    Then the tooling rejects it and names that entry
+
+  @AC-CLOG-003.19 @negative
+  Scenario: A summary that is not one or two sentences is rejected
+    Given a returned structured changelog with an entry whose summary is empty or runs to three sentences
+    When the tooling reads it
+    Then the tooling rejects it and names that entry
 
   @AC-CLOG-003.5 @negative
-  Scenario: A proposal never determines the version unconfirmed
-    Given a returned corpus proposing an impact of major
-    And every commit in the range carries a reviewed signal no higher than minor
-    When the tooling resolves the version after a person confirms the computed impact
-    Then the version is computed from the confirmed impact and not from the proposal
+  Scenario: The structured changelog never determines the version unconfirmed
+    Given a returned structured changelog with a breaking entry
+    And the maintainer names no bump and has not confirmed the suggested bump
+    When the tooling resolves the version
+    Then the tooling returns no version and halts with the suggested bump for a person to confirm
 
   @AC-CLOG-003.6
   Scenario: Returned prose is preserved exactly
-    Given a returned corpus whose prose contains markdown formatting and non-ASCII characters
+    Given a returned structured changelog whose prose contains markdown formatting and non-ASCII characters
     When the tooling reads and later renders it
     Then the prose is carried through byte-for-byte
 
@@ -346,22 +377,22 @@ Feature: Authoring Exchange
     Then the tooling invokes that producer
 
   @AC-CLOG-003.9
-  Scenario: An authored corpus is cached against its commit range
+  Scenario: A structured changelog is cached against its commit range
     Given an authoring exchange has completed for a commit range
     When the tooling performs an authoring exchange for the same range
-    Then the tooling reuses the cached corpus without invoking a producer
+    Then the tooling reuses the cached structured changelog without invoking a producer
 
   @AC-CLOG-003.10
-  Scenario: A cached corpus can be discarded
-    Given a cached corpus exists for the commit range being released
+  Scenario: A cached structured changelog can be discarded
+    Given a cached structured changelog exists for the commit range being released
     When the maintainer requests that authoring be redone
-    Then the tooling invokes the producer and replaces the cached corpus
+    Then the tooling invokes the producer and replaces the cached structured changelog
 
   @AC-CLOG-003.11
   Scenario: Authoring can be skipped entirely
     Given the maintainer requests a release without notes
     When the tooling reaches the authoring exchange
-    Then the tooling invokes no configured producer and proceeds with the corpus the mechanical producer composes
+    Then the tooling invokes no configured producer and proceeds with the structured changelog the mechanical producer composes
 ```
 
 ### FEAT-CLOG-004: Release Composition
@@ -379,35 +410,43 @@ Feature: Release Composition
   An entry is a change, not a commit. The producer decides what the changes
   are: it may split one commit into several entries, merge several commits
   into one entry, and omit work no reader can observe. It sets each entry's
-  kind from the evidence, writes a one-sentence summary and, where the change
-  needs it, a sentence or two of detail, and proposes the release's impact
-  with its rationale and the sources that drove it. The tooling accepts any
-  composition whose sources are in the evidence, and reports what no entry
-  cites so a reviewer can check that nothing visible was dropped.
+  kind and scope from the evidence, writes a summary of one or two full
+  sentences and, where the change needs it, further detail, writes migration
+  text for every breaking entry, and names the commits each entry is derived
+  from. A commit no entry cites is listed as omitted with a one-line reason,
+  which a reviewer sees and a reader of the changelog does not. The tooling
+  accepts any composition that accounts for every commit and whose sources
+  are in the evidence.
 
   @AC-CLOG-004.1
   Scenario: One commit may yield several entries
     Given a squash commit whose evidence shows four user-visible changes
-    When the tooling reads a returned corpus with four entries each citing that commit
+    When the tooling reads a returned structured changelog with four entries each citing that commit
     Then the tooling accepts it and renders four entries
 
   @AC-CLOG-004.2
   Scenario: Several commits may yield one entry
     Given two commits that together deliver one user-visible change
-    When the tooling reads a returned corpus with one entry citing both commits
+    When the tooling reads a returned structured changelog with one entry citing both commits
     Then the tooling accepts it and renders one entry citing both
 
   @AC-CLOG-004.3
-  Scenario: Internal-only work may be omitted
+  Scenario: Internal-only work may be omitted with a reason
     Given a commit that changes only tests and continuous integration configuration
-    When the tooling reads a returned corpus with no entry citing that commit
+    When the tooling reads a returned structured changelog with no entry citing that commit and that commit listed as omitted with a reason
     Then the tooling accepts it
 
   @AC-CLOG-004.4
-  Scenario: Commits no entry cites are reported
-    Given a returned corpus that cites no entry for one commit in the range
-    When the tooling presents the authored notes for review
-    Then the tooling names that commit as cited by no entry
+  Scenario: Omitted commits are shown for review with their reasons
+    Given a returned structured changelog that lists one commit in the range as omitted with a reason
+    When the tooling presents the structured changelog for review
+    Then the tooling names that commit as omitted and shows its reason
+
+  @AC-CLOG-004.13 @negative
+  Scenario: Omission reasons are not rendered in the changelog
+    Given a returned structured changelog that lists one commit as omitted with a reason
+    When the tooling renders the changelog section
+    Then the section carries neither that commit nor its reason
 
   @AC-CLOG-004.5
   Scenario: The producer sets each entry's kind from the evidence
@@ -416,234 +455,51 @@ Feature: Release Composition
     When the vended changelog producer composes the release
     Then the entry describing that flag has the kind feature
 
-  @AC-CLOG-004.6
-  Scenario: An entry states its change in one sentence, with optional detail
+  @AC-CLOG-004.11
+  Scenario: Each entry carries its kind, scope and sources
     When the vended changelog producer composes the release
-    Then each entry's summary is one sentence stating the change from the reader's point of view
+    Then each entry carries a kind, a scope where the change has one, and the commits it is derived from
+
+  @AC-CLOG-004.6
+  Scenario: An entry states its change in one or two sentences, with optional detail
+    When the vended changelog producer composes the release
+    Then each entry's summary is one or two full sentences stating the change from the reader's point of view
     And any further explanation is carried in the entry's detail
 
-  @AC-CLOG-004.7
-  Scenario: The proposal carries its rationale and drivers
+  @AC-CLOG-004.12
+  Scenario: A breaking entry says what to do about it
+    Given a commit whose diff removes a command-line flag
     When the vended changelog producer composes the release
-    Then the corpus carries a proposed impact, a rationale for it, and the sources of the changes that drove it
-
-  @AC-CLOG-004.8 @negative
-  Scenario: A driver outside the evidence is rejected
-    Given a returned corpus whose proposal drivers cite a pull request that is not in the evidence bundle
-    When the tooling reads it
-    Then the tooling rejects it
-
-  @AC-CLOG-004.9
-  Scenario: The mechanical producer carries a notes block's entries verbatim
-    Given a commit whose body carries a notes block with two entries
-    When the mechanical producer composes the release
-    Then the corpus carries those two entries with their prose unchanged and not marked as derived
+    Then the entry describing that removal is breaking and carries migration text naming what replaces the flag
 
   @AC-CLOG-004.10
-  Scenario: The mechanical producer derives an entry from a subject where there is no block
-    Given a commit whose body carries no notes block
+  Scenario: The mechanical producer derives an entry from a conventional subject
+    Given a commit whose subject is "fix(cut): refuse an existing stage branch"
     When the mechanical producer composes the release
-    Then the corpus carries one entry for that commit, derived from its subject and marked as derived
-```
+    Then the structured changelog carries one entry for that commit with the kind fix and the scope cut, derived from its subject and marked as derived
 
-### FEAT-CLOG-005: Pull Request Notes
-
-**Acceptance Criteria:**
-
-```gherkin
-@FEAT-CLOG-005
-Feature: Pull Request Notes
-
-  As a reviewer
-  I want the release notes for a pull request written into its description before I review it
-  So that I review the notes and their impact together with the code they describe
-
-  The best time to describe a change is while someone who understands it is
-  looking at it. `release notes` collects the pull request's commits and diff,
-  has the producer author pull request notes from them, renders the notes as
-  a notes block, and writes the block into the pull request description or
-  prints it for someone to paste. The block records the head commit it was
-  written for, so `release notes --check`, which needs no producer and no
-  model credential, can fail a pull request whose block is missing, malformed
-  or stale. The block's entries sit under the repository's changelog
-  headings, rendered as the changelog section renders them, so a heading
-  rather than a type prefix gives each entry its kind.
-
-  @AC-CLOG-005.1
-  Scenario: The pull request's commits and diff are collected
-    Given a pull request whose branch carries three commits since its merge base
-    When the maintainer runs release notes for that pull request
-    Then the producer's input is an evidence bundle for the pull request carrying those three commits, each with its diff, within the pull request diff budget
-
-  @AC-CLOG-005.2
-  Scenario: The producer's pull request notes are validated
-    Given a producer has returned pull request notes that do not validate against the schema
-    When the tooling reads them
-    Then the tooling rejects them and writes nothing to the pull request
-
-  @AC-CLOG-005.3
-  Scenario: The notes are rendered as a notes block recording the head commit
-    Given a producer has returned valid pull request notes for head commit 3f2a9c1
-    When the tooling renders them
-    Then the result is a notes block in the contract's grammar whose marker records head 3f2a9c1
-
-  @AC-CLOG-005.4
-  Scenario: The block is written into the pull request description
-    Given a pull request description holding a summary paragraph and an earlier notes block
-    When the maintainer runs release notes for that pull request
-    Then the description's notes block is replaced by the new one and the rest of the description is unchanged
-
-  @AC-CLOG-005.5
-  Scenario: The block can be printed instead of written
-    When the maintainer runs release notes asking for the block to be printed
-    Then the tooling prints the notes block and makes no change to the pull request
-
-  @AC-CLOG-005.6 @negative
-  Scenario: A current block is not re-authored unless asked
-    Given a pull request description whose notes block records the current head commit
-    When the maintainer runs release notes without asking for authoring to be redone
-    Then the tooling invokes no producer and leaves the block unchanged
-
-  @AC-CLOG-005.7
-  Scenario: A current, well-formed block passes the check
-    Given a pull request description whose notes block is well formed and records the current head commit
-    When release notes --check runs
-    Then the check passes
-
-  @AC-CLOG-005.8
-  Scenario: A missing block fails the check
-    Given a pull request description with no notes block
-    When release notes --check runs
-    Then the check fails and says the notes block is missing
-
-  @AC-CLOG-005.9
-  Scenario: A malformed block fails the check
-    Given a pull request description whose notes block has an entry line outside the contract's grammar
-    When release notes --check runs
-    Then the check fails and names the offending line
-
-  @AC-CLOG-005.10
-  Scenario: A stale block fails the check
-    Given a pull request description whose notes block records head commit 3f2a9c1
-    And the pull request's diff has changed since 3f2a9c1
-    When release notes --check runs
-    Then the check fails and says the notes block is stale
-
-  @AC-CLOG-005.11
-  Scenario: A moved head with an unchanged diff passes the check
-    Given a pull request description whose notes block records head commit 3f2a9c1
-    And the pull request's head has moved since 3f2a9c1 without changing its diff
-    When release notes --check runs
-    Then the check passes
-
-  @AC-CLOG-005.12 @negative
-  Scenario: The check invokes no producer
-    When release notes --check runs
-    Then the tooling invokes no producer and needs no language model credential
-
-  @AC-CLOG-005.13
-  Scenario: Entries are rendered under the configured changelog headings
-    Given the changelog settings name the breaking heading "💥 Breaking changes" and the groups FEATURE "🚀 Features" and FIX "🪲 Bugs"
-    And a producer has returned pull request notes with one feature entry scoped to cut and one fix entry
-    When the tooling renders them
-    Then the block holds a "### 🚀 Features" section and then a "### 🪲 Bugs" section, each with its entry
-    And each entry line reads "- **cut:** " or "- " followed by its summary, with no type prefix and no source reference
-
-  @AC-CLOG-005.14 @negative
-  Scenario: Work the changelog does not render is left out of the block
-    Given the changelog settings render FEATURE and FIX and no other kind
-    And a pull request whose changes include a feature and a CI configuration change
-    When the producer authors the pull request notes
-    Then the notes carry an entry for the feature and none for the CI change
-
-  @AC-CLOG-005.15
-  Scenario: An entry's section determines its kind
-    Given the changelog settings name the breaking heading "💥 Breaking changes" and the group FEATURE "🚀 Features"
-    And a notes block with one entry under "### 🚀 Features" and one entry, with a Migration paragraph, under "### 💥 Breaking changes"
-    When the tooling parses the block
-    Then the first entry has kind FEATURE and is not breaking
-    And the second entry is breaking and has no kind
-
-  @AC-CLOG-005.16 @negative
-  Scenario: An unrecognised section heading makes the block malformed
-    Given the changelog settings and the default headings do not include "Improvements"
-    And a pull request description whose notes block has a "### Improvements" section
-    When release notes --check runs
-    Then the check fails, says the notes block is malformed, and names the heading
-```
-
-### FEAT-CLOG-006: Notes Blocks at Release Time
-
-**Acceptance Criteria:**
-
-```gherkin
-@FEAT-CLOG-006
-Feature: Notes Blocks at Release Time
-
-  As a maintainer
-  I want the notes reviewed on each pull request used when the release is cut
-  So that reviewed prose and reviewed impact are not authored a second time from scratch
-
-  A squash merge that uses the pull request description carries the notes
-  block into the commit body. At release time the block is parsed from the
-  body and used twice: as evidence the producer composes from, and as a
-  reviewed impact signal the version computation reads. A commit with a block
-  needs no diff, because someone already reviewed what it says against the
-  code. A commit whose block cannot be parsed is treated as having none, and
-  the failure is reported, because history cannot be corrected.
-
-  @AC-CLOG-006.1
-  Scenario: A notes block in a commit body is parsed into the commit's evidence
-    Given a commit whose body carries a well-formed notes block with an impact of minor and two entries
-    When the tooling builds an evidence bundle for a release
-    Then that commit's evidence carries the parsed notes with the impact minor and both entries
-
-  @AC-CLOG-006.2
-  Scenario: A notes block's impact is a reviewed signal
-    Given a commit whose body carries a notes block reading Release-Type: minor
-    When the tooling classifies impact for the release
-    Then that commit's signal is minor
-
-  @AC-CLOG-006.3
-  Scenario: A commit with a notes block needs no diff at release time
-    Given a commit whose body carries a well-formed notes block
-    When the tooling collects evidence for a release
-    Then the tooling does not collect that commit's diff
-
-  @AC-CLOG-006.4
-  Scenario: The block ends at the next second-level heading or the end of the body
-    Given a commit body carrying a notes block followed by Co-authored-by trailer lines
-    When the tooling parses the notes block
-    Then the trailer lines are not part of any entry
-
-  @AC-CLOG-006.5
-  Scenario: A malformed block in history is reported and treated as absent
-    Given a commit whose body carries a notes block that does not parse
-    When the tooling builds an evidence bundle for a release
-    Then the tooling reports that commit's block as malformed
-    And that commit's evidence carries its diff and no parsed notes
-    And the block contributes no signal for that commit
-
-  @AC-CLOG-006.6
-  Scenario: A block under a default heading parses after the headings change
-    Given the changelog settings name the group FEATURE "🚀 Features"
-    And a commit whose body carries a notes block with an entry under "### Features"
-    When the tooling builds an evidence bundle for a release
-    Then that commit's evidence carries the entry with kind FEATURE
+  @AC-CLOG-004.14
+  Scenario: The mechanical producer lists an unclassified commit with no kind
+    Given a commit whose subject carries no conventional-commit type
+    When the mechanical producer composes the release
+    Then the structured changelog carries one entry for that commit, with no kind, derived from its subject and marked as derived
+    And the rendered section places that entry under the other heading
 ```
 
 ## References
 
-- [[adr-003]] — the producer authors notes and proposes impact from
-  evidence; reviewed records in git decide the version
+- [[adr-003]] — the producer authors a structured changelog from commit
+  evidence; a person confirms the bump suggested from it
 - [[adr-004]] — changelog authoring is a replaceable step, authored from
   diffs
-- [[contract-changelog]] — the evidence bundle, the corpus, and the notes
-  block grammar exchanged across this feature
-- [[frd-version-computation]] — how the proposal is reconciled
-- [[repository-release-policy]] — how the notes block reaches git
+- [[contract-changelog]] — the evidence bundle and the structured changelog
+  exchanged across this feature
+- [[frd-version-computation]] — how the suggested bump is derived from the
+  structured changelog and confirmed
+- [[repository-release-policy]] — how a squash merge carries the pull request
+  title and description into git
 - [[module-release-core]] — the module whose components realize this
   feature, among them [[component-commit-collector]],
   [[component-diff-collector]], [[component-pr-metadata-collector]],
-  [[component-changelog-authoring-bridge]] and
-  [[component-changelog-producer]]
+  [[component-evidence-builder]], [[component-changelog-authoring-bridge]],
+  [[component-changelog-producer]] and [[component-mechanical-producer]]

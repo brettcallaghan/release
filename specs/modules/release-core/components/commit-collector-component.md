@@ -1,8 +1,9 @@
 ---
 title: "Component Blueprint: Commit Collector"
 entity_name: Commit Collector
-description: Commits between two refs, with pull-request identity, trailers,
-  descriptions and changed-file lists parsed out of the commits themselves.
+description: Commits between two refs, with trailers, conventional-commit
+  parts, the pull request number, title and description git carries, and
+  changed-file lists, parsed out of the commits themselves.
 slug: component-commit-collector
 type: component-blueprint
 status: draft
@@ -20,43 +21,56 @@ test_paths:
 ## Overview
 
 Reads the commits in a range and extracts everything a release needs from them
-without touching a hosting platform. For squash-merged repositories that is
-more than it sounds: a squash commit subject carries the pull-request title and
-its number, and where the repository is configured to use the pull-request
-description as the squash body, the description is in git too.
+without touching a hosting platform. For repositories that merge through pull
+requests that is more than it sounds: a squash commit's subject carries the
+pull request title and its number, and where the repository uses the pull
+request description as the squash body, the description is in git too. A
+merge commit carries the number in its subject and the title in its body.
 
-So this component — not [[component-pr-metadata-collector]] — is the
-primary source of pull-request titles and descriptions, and with them of the
-reviewed `## Release notes` blocks those descriptions carry. The hosting
-platform collector exists for what is missing, not for what is normal.
+So this component — not [[component-pr-metadata-collector]] — is the source
+of pull request titles and descriptions, which reach the producer as
+evidence for the changelog. The hosting platform collector is an optional
+enrichment for commits whose body lacks the description, not a dependency.
 
 Each record also lists the files its commit changed, with line counts. The
 list is cheap and always collected; it tells a producer where a change
-landed even when its diff was cut to fit the budget or never read.
+landed even when its diff was cut to fit the budget.
 
 - **Role:** the record set every downstream component reads, and the
   component that identifies which pull requests a release covers.
 - **Scope:** in — commit enumeration, subject and body parsing,
-  pull-request number extraction, trailer parsing, the changed-file list;
-  out — reading diffs, parsing a notes block, and fetching anything from a
+  conventional-commit parsing, pull request number, title and description
+  extraction, trailer parsing, the changed-file list; out — reading diffs,
+  deciding what a trailer or type means, and fetching anything from a
   hosting platform.
 - **Composed into:** [[module-release-core]] — feeds
-  [[component-notes-codec]], [[component-bump-classifier]],
-  [[component-diff-collector]] and [[component-evidence-builder]]; see it
-  for relationships.
+  [[component-bump-classifier]], [[component-diff-collector]] and
+  [[component-evidence-builder]]; see it for relationships.
 - **Source & tests:** `internal/gitread`.
 
 ## Interface
 
 - **Surface:** an ordered `CommitRecord` per commit, as defined by
-  `schemas/collection.strata`, for a base and a target ref.
+  `schemas/collection.strata`, for a base and a target ref: hash, subject,
+  body, trailers, author, author date, the conventional type, scope and
+  breaking marker where the subject has them, the changed files, and the
+  pull request number, title and description where git carries them.
 - **Range:** every commit reachable from the target ref and not from the
   base tag, merge commits included, newest first as `git log` lists them.
   WHEN there is no base tag, every commit reachable from the target ref.
-  At pull-request time the base is the merge base of the pull request's
-  base branch and its head.
-- **Pull-request number:** a subject ending ` (#<n>)` yields `n`; the
-  subject is left unchanged.
+- **Conventional parts:** a subject of the form
+  `<type>[(<scope>)][!]: <description>` yields its type, its scope, and
+  `!` as the breaking marker; a subject of any other form yields none of
+  them. The parts are recorded, not interpreted.
+- **Pull request information:**
+  - A squash commit, whose subject ends ` (#<n>)`, yields number `n`, the
+    subject without that suffix as the title, and the body, less its final
+    trailer paragraph, as the description. The subject is left unchanged.
+  - A merge commit whose subject reads `Merge pull request #<n> from
+    <branch>` yields number `n`, the body's first paragraph as the title,
+    and the rest of the body, less its final trailer paragraph, as the
+    description.
+  - Any other commit carries no pull request information.
 - **Trailers:** git's own parse of the message's final paragraph
   (`%(trailers:only,unfold)`, the `git interpret-trailers` rules), so a key
   containing a space is never a trailer. WHEN a key repeats, its last value
@@ -68,18 +82,22 @@ landed even when its diff was cut to fit the budget or never read.
   for which git counts no lines, has both counts 0. A merge commit's list is
   empty, as `git log` reports it.
 - **Guarantees:**
-  - The component SHALL extract a pull-request number from a squash commit
-    subject where the hosting platform appended one.
+  - The component SHALL extract the pull request number, title and
+    description from a squash commit and from a merge commit, as above.
   - The component SHALL parse trailers from the commit body as key-value
     pairs.
+  - The component SHALL record a subject's conventional type, scope and
+    breaking marker where it has them.
   - The component SHALL preserve the commit body verbatim in addition to
     anything parsed from it.
   - The component SHALL list every file a non-merge commit changed,
     including paths the diff budget excludes.
-  - WHEN a commit carries no pull-request number, the component SHALL emit
-    the record with the number absent rather than skipping the commit.
-  - The component SHALL NOT require network access.
-  - The component SHALL NOT interpret a trailer's meaning.
+  - WHEN a commit carries no pull request number, the component SHALL emit
+    the record with the pull request information absent rather than
+    skipping the commit.
+  - The component SHALL NOT require network access or call a hosting
+    platform.
+  - The component SHALL NOT interpret a trailer or a conventional type.
 
 ## Cross-Cutting Standards
 
@@ -94,12 +112,12 @@ in the same change.
 
 ---
 
-WHEN a trailer key acquires meaning, that meaning SHALL be implemented in
-the component that consumes it, not here.
+WHEN a trailer key or a conventional type acquires meaning, that meaning
+SHALL be implemented in the component that consumes it, not here.
 
 **Rationale:** Keeping extraction free of interpretation is what lets the
-bump classifier, the notes codec, the evidence builder and future consumers
-read the same records without each needing its own collector.
+bump classifier, the evidence builder, the mechanical producer and future
+consumers read the same records without each needing its own collector.
 
 ---
 
@@ -108,11 +126,12 @@ hosting platform, or none.
 
 - **Verification gates:** the component's unit suite against fixture
   repositories covering squash commits with and without descriptions,
-  merge commits, direct commits, and renamed, deleted and binary files.
+  merge commits, direct commits, conventional and non-conventional
+  subjects, and renamed, deleted and binary files.
 
 ## Key Decisions
 
-- [[adr-003]] — the bump is computed from reviewed records in commits,
+- [[adr-003]] — the changelog is authored from commit evidence in git,
   which is what makes this component's output release-critical rather than
   cosmetic.
 
@@ -121,8 +140,7 @@ hosting platform, or none.
 None. The tooling does not inspect the repository's squash-message setting.
 Squash merges carrying the pull request description are a policy of the
 adopting project ([[repository-release-policy]]); a commit whose body lacks
-its block is a commit with no reviewed signal, which
-[[component-impact-reconciler]] handles.
+the description still reaches the producer with its subject, files and diff.
 
 ## References
 

@@ -2,7 +2,8 @@
 title: Release Tooling Standards
 description: What the release tooling guarantees and validates — stage
   branch and release commit shape, pre-publication verification, version
-  computation and impact confirmation, and its configuration surface.
+  computation, bump suggestion and confirmation, and its configuration
+  surface.
 slug: release-tooling-standards
 type: standards
 status: draft
@@ -95,12 +96,13 @@ stage branches or fire a release from a protected-branch push.
 
 ---
 
-**RTS-034:** A release commit SHALL carry the confirmed impact of the release
-it records as a `Release-Type:` trailer.
+**RTS-034:** A release commit SHALL carry the confirmed bump of the release it
+records as a `Release-Type:` trailer.
 
-**Rationale:** An impact confirmed by a person, or named by a maintainer,
-exists nowhere else in git. Recording it on the release commit keeps the
-published version recomputable and checkable from a clone ([[adr-003]]).
+**Rationale:** A bump confirmed by a person, or named by a maintainer, exists
+nowhere else in git. Recording it on the release commit keeps the published
+version recomputable and checkable from a clone without re-running a model
+([[adr-003]]).
 
 ---
 
@@ -115,18 +117,20 @@ and no per-major query is needed.
 
 ---
 
-**RTS-011:** The release tooling SHALL compute the impact of a range
-deterministically from the reviewed signals its commits carry: the impact of
-a `## Release notes` block, a `Release-Type:` trailer, a conventional-commit
-type, or a breaking-change marker.
+**RTS-011:** The release tooling SHALL compute the signal floor of a range
+deterministically from the explicit records its commits carry in git:
+`Release-Type:` trailers, conventional-commit types and breaking-change
+markers, and SHALL report the commits that carry none of them as
+unclassified.
 
-**Rationale:** Each of these is reviewed before it reaches git, so the
-computed impact needs no model and no network to reproduce. A commit may carry
-none of them; RTS-036 governs the impact of such a range.
+**Rationale:** Each of these records is written by a person and reaches git
+with the commit, so the floor needs no model and no network to reproduce. A
+commit may carry none of them; the suggested bump of RTS-014 covers such a
+commit, and reporting it shows what the floor did not see.
 
 ---
 
-**RTS-012:** The release tooling SHALL NOT read an impact signal that lives
+**RTS-012:** The release tooling SHALL NOT read a bump signal that lives
 outside the repository's git history.
 
 **Rationale:** A version must be derivable from a clone, so that it is
@@ -136,21 +140,26 @@ rules out pull request labels and other hosting-platform state as signals.
 ---
 
 **RTS-013:** The release tooling SHALL NOT derive a version number from a
-language model's output that no reviewed record in git confirms.
+language model's output that no person has confirmed.
 
-**Rationale:** A model's output varies between runs. A proposal becomes a
-version only through a record a person reviewed: a notes block reviewed in
-its pull request, or the `Release-Type:` trailer of RTS-034 on the release
-commit ([[adr-003]]).
+**Rationale:** A model's output varies between runs. A suggested bump becomes
+a version only through a person's confirmation, recorded as the
+`Release-Type:` trailer of RTS-034 on the release commit ([[adr-003]]).
 
 ---
 
-**RTS-014:** The release tooling SHALL show an authored impact proposal and
-the reasons given for it to a person before it pushes a stage branch.
+**RTS-014:** The release tooling SHALL derive a suggested bump from the
+entry kinds of the authored changelog — major WHEN any entry is breaking, else
+minor WHEN any entry is a feature, else patch WHEN any entry is a fix, a
+performance change, a refactoring or a revert, else none — raised to the signal floor
+of RTS-011 WHERE the floor is higher, and SHALL show the suggestion and its
+reasons to a person before it pushes a stage branch.
 
-**Rationale:** The proposal is the model's reading of the evidence. Seeing
-its reasons is what lets a person confirm it, or notice that it is wrong,
-before the version is fixed.
+**Rationale:** The changelog is the model's reading of the evidence, so the
+suggestion follows from what it says changed. The floor keeps an explicit
+record in git from being outvoted by the model. The reasons — the entries that
+drove the suggestion, and whether the floor raised it — are what let a person
+confirm it, or notice that it is wrong, before the version is fixed.
 
 ---
 
@@ -189,7 +198,11 @@ produce version 1.0.0.
 
 **RTS-020:** WHERE no releasable change (RTS-037) exists since the latest
 reachable tag, the release tooling SHALL refuse to create a stage branch
-unless the maintainer names a bump and explicitly forces the release.
+unless the maintainer names a bump and explicitly forces the release. WHERE
+the range is releasable only because an entry has no kind and the suggested
+bump is none, the release tooling SHALL halt for a named bump, SHALL NOT
+accept the suggestion in place of one, and SHALL NOT require a force for
+it.
 
 **Rationale:** A named bump states the impact but not that anything
 changed. Staging it over a range with nothing releasable publishes a release
@@ -198,37 +211,34 @@ rebuild).
 
 ---
 
-**RTS-035:** The release tooling SHALL read a `## Release notes` block in a
-commit body as a reviewed impact signal for that commit and as changelog
-evidence for it.
+**RTS-036:** WHEN no bump is named, the release tooling SHALL halt before it
+pushes a stage branch until a person confirms the suggested bump, by
+answering an interactive prompt or by accepting the suggestion explicitly.
+WHEN a named bump is below the signal floor, the release tooling SHALL refuse
+it unless the release is forced. WHEN a named bump is below the suggested bump
+but not below the signal floor, the release tooling SHALL warn and proceed.
 
-**Rationale:** Under squash merging the block reaches git in the commit body,
-after it was reviewed with the code in its pull request
-([[repository-release-policy]]). Its impact is a reviewed signal, and its
-entries are the reviewed account of what the commit changed.
-
----
-
-**RTS-036:** WHEN the impact of a range rests on any commit that carries no
-reviewed signal, or an authored proposal is higher than the computed impact,
-the release tooling SHALL halt until a person confirms the impact, by naming
-a bump or by answering an interactive prompt.
-
-**Rationale:** Either case means the version would otherwise depend on a
-model's judgement that nobody reviewed. Non-interactively the tooling stops
-with the proposal, so an agent confirms by naming the bump after showing the
-proposal to the person it acts for.
+**Rationale:** Without a confirmation the version would depend on a model's
+judgement that nobody checked. Non-interactively the tooling stops with the
+suggestion and its reasons, so an agent confirms after showing them to the
+person it acts for. A named bump is a person's decision, so it overrides the
+suggestion with a warning; overriding an explicit record in git takes a
+deliberate force.
 
 ---
 
 **RTS-037:** The release tooling SHALL treat a range as holding a releasable
-change WHEN a reviewed signal in it indicates an impact of patch or above, or
-the authored corpus for it holds at least one user-visible change. A range
+change WHEN its suggested bump (RTS-014), the signal floor included, is patch
+or above, or WHEN any entry of the authored changelog has no kind. A range
 with no commits holds none.
 
 **Rationale:** Many commits carry no signal at all, so the signals alone
-under-report what changed. The authored corpus is written from the commits'
-evidence and says whether a user would notice the release.
+under-report what changed; the entries' kinds say what the producer read.
+An entry with no kind is a change the producer could not classify, which
+only the mechanical producer writes, for a commit whose subject is not a
+conventional commit: it may matter to a user, so a person names its bump.
+A range of documentation and chore entries alone, or of omitted commits
+alone, holds nothing to release.
 
 ---
 
@@ -330,7 +340,7 @@ format.
   branching topology is policy rather than tooling
 - [[adr-002]] — stage branches as the release trigger, verified
   independently of the branch name
-- [[adr-003]] — reviewed impact with evidence-authored notes
+- [[adr-003]] — AI-authored changelog with a suggested, confirmed bump
 - [[repository-release-policy]] — the branching, support and readiness
   policy a project chooses
 - [[cli-distribution-policy]] — artifact publication and distribution

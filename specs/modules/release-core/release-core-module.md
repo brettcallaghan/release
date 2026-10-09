@@ -1,9 +1,10 @@
 ---
 title: "Module Blueprint: Release Core"
 entity_name: Release Core
-description: The library that computes versions, authors release notes from
-  evidence, renders changelogs, and stages releases — every component of the
-  release process, behind one in-process interface.
+description: The library that collects commit evidence from git, has a
+  structured changelog authored from it, suggests a bump for a person to
+  confirm, computes versions, renders changelogs, and stages releases —
+  every component of the release process, behind one in-process interface.
 slug: module-release-core
 type: module-blueprint
 status: draft
@@ -23,8 +24,9 @@ version: "0.1"
 ## Overview
 
 Every capability of the release process lives here: reading tags and commits,
-collecting diffs, building the evidence a producer authors from, classifying
-and reconciling impact, computing versions, rendering changelogs, and staging
+collecting diffs, building the evidence a producer authors from, computing
+the signal floor, suggesting a bump and taking a person's confirmation of
+it, computing versions, rendering changelogs, and staging
 a release as a branch and a pull request. The command-line tool is a wrapper
 around this module and holds no release logic of its own.
 
@@ -50,81 +52,36 @@ the first time something outside this repository depends on it.
 
 ## Flows
 
-The module reads the code twice: once when a pull request is opened, so its
-release notes are reviewed with the code, and once when a release is cut, so
-the changelog is composed from those reviewed notes and from the diffs of
-any commit that has none ([[adr-003]]).
-
-### Pull request time
-
-```mermaid
-flowchart LR
-  subgraph PR["Pull request (before merge)"]
-    CC1["Commit Collector<br/>merge-base..head"] -->|commit records| EB1[Evidence Builder]
-    DC1["Diff Collector<br/>files + budgeted hunks"] -->|per-commit diffs| EB1
-    EB1 -->|evidence bundle| AB1[Changelog Authoring Bridge]
-    AB1 <-->|"claude -p release:notes"| P1[Changelog Producer]
-    AB1 -->|authored PR notes| NC1[Notes Codec]
-    NC1 -->|"## Release notes block"| PW[PR Notes Writer]
-    PW -->|"gh pr edit"| PRD[(PR description)]
-  end
-  PRD -->|reviewer reviews block with the code| SQ["Squash merge<br/>title + description"]
-  SQ -->|block now in the commit body| GIT[(git history)]
-```
-
-The `Notes` operation runs this flow.
-
-1. [[component-commit-collector]] reads the commits between the merge base
-   of the pull request's base branch and its head, each with its body,
-   trailers and changed-file list.
-2. [[component-diff-collector]] reads each commit's diff, leaving out the
-   excluded paths and keeping within the pull-request budget, and reports
-   anything it truncated or omitted.
-3. [[component-evidence-builder]] joins the records and diffs into an
-   evidence bundle with purpose `PULL_REQUEST`.
-4. [[component-changelog-authoring-bridge]] hands the bundle to the
-   configured [[component-changelog-producer]], which for `claude` runs the
-   `release:notes` skill, and validates the `PullRequestNotes` it returns:
-   one entry per user-visible change and a proposed impact for the pull
-   request.
-5. [[component-notes-codec]] renders the notes as a `## Release notes` block,
-   pinned to the head commit it was authored from.
-6. [[component-pr-notes-writer]] replaces the block in the pull request
-   description, or the front end prints the block for an agent to paste.
-7. The reviewer reviews the block with the code. The squash merge, using the
-   pull request title and description ([[repository-release-policy]]),
-   carries the reviewed block into the commit body, where release time reads
-   it.
-
-`release notes --check` runs none of these steps. The PR Notes Writer reads
-the description, the Notes Codec parses its block, and the block is stale
-WHEN the pull request's diff has changed since the head its marker records.
-No producer runs, so the check needs no model and fits a required check in
-CI.
+The module reads the code once, when a release is cut. Everything it needs
+is in git: the commits since the base release tag, the pull request title
+and description a squash or merge commit carries, the changed files and the
+diffs. A model authors a structured changelog from that evidence, the bump
+is suggested from the changelog and floored by the explicit signals in git,
+and a person confirms it before anything is written ([[adr-003]]).
 
 ### Release time
 
 ```mermaid
 flowchart TB
-  TR[Tag Reader] -->|base version| CC[Commit Collector]
-  CC -->|commit records with bodies| NC[Notes Codec]
-  NC -->|reviewed notes, per commit| EB[Evidence Builder]
-  NC -->|commits without a block| DC[Diff Collector]
-  DC -->|per-commit diffs, budgeted| EB
-  NC -->|reviewed impacts| BC[Bump Classifier]
-  CC -->|"trailers, conventional types,<br/>breaking markers"| BC
-  BC -->|"computed impact +<br/>unclassified commits"| IR[Impact Reconciler]
-  EB -->|release evidence bundle| AB[Changelog Authoring Bridge]
-  AB <-->|"claude -p release:changelog"| P[Changelog Producer]
-  AB -->|"authored corpus +<br/>proposal with reasons"| IR
-  H(["maintainer: named bump<br/>or prompt"]) --> IR
-  IR -->|confirmed impact| VC[Version Calculator]
+  TR[Tag Reader] -->|"base version + range"| CC[Commit Collector]
+  CC -->|"commit records: subject, body, trailers,<br/>conventional parts, files, PR info from git"| DC[Diff Collector]
+  CC -->|commit records| BC[Bump Classifier]
+  CC -->|commit records| EB[Evidence Builder]
+  DC -->|"per-commit diffs within the<br/>release budget + budget report"| EB
+  BC -->|"per-commit signals"| EB
+  EB -->|evidence bundle| AB[Changelog Authoring Bridge]
+  AB <-->|"bundle / structured changelog<br/>(claude -p release:changelog, command)"| P[Changelog Producer]
+  AB <-->|"bundle / structured changelog<br/>(skip-notes, no model)"| MP[Mechanical Producer]
+  AB -->|"validated structured changelog"| BS[Bump Suggester]
+  BC -->|"signal floor + drivers,<br/>unclassified commits"| BS
+  H(["maintainer: named bump<br/>or confirmation"]) -->|"named bump / acceptance"| BS
+  BS -->|"confirmed bump"| VC[Version Calculator]
   VC -->|version| R[Changelog Renderer]
-  AB -->|authored corpus| R
-  R --> W[Changelog Writer]
-  W --> SO[Stage Orchestrator]
-  IR -->|"Release-Type trailer"| SO
-  SO -->|"cut/X branch +<br/>stage PR"| GH[(origin)]
+  AB -->|"structured changelog"| R
+  R -->|"rendered section"| W[Changelog Writer]
+  W -->|"CHANGELOG.md in scratch checkout"| SO[Stage Orchestrator]
+  BS -->|"confirmed bump → Release-Type trailer,<br/>suggestion + reasons"| SO
+  SO -->|"cut/X branch + stage PR:<br/>changelog, suggestion, reasons"| GH[(origin)]
 ```
 
 The `Prepare` operation runs this flow up to the renderer; the Stage
@@ -132,44 +89,76 @@ Orchestrator composes it with the writes.
 
 1. [[component-tag-reader]] finds the latest release tag reachable from the
    pinned target, which is the base version and the start of the range.
-2. [[component-commit-collector]] reads every commit in the range, with its
-   body, trailers and changed-file list.
-3. [[component-notes-codec]] parses each commit body's `## Release notes`
-   block. A commit with a block yields its reviewed notes and their impact;
-   a commit without one, or with one that does not parse, is passed on for
-   its diff.
-4. [[component-diff-collector]] reads the diff of each commit without a
-   block, within the release budget. Commits with a block need no diff: the
-   reviewed notes already describe them.
-5. [[component-bump-classifier]] computes the impact from the reviewed
-   signals — notes-block impacts, `Release-Type:` trailers, conventional
-   types and breaking markers — and reports the commits that carry none.
-6. [[component-evidence-builder]] builds the release evidence bundle: per
-   commit, its record, its parsed notes or its diff, and the signal the
-   classifier read.
-7. [[component-changelog-authoring-bridge]] exchanges the bundle with the
+2. [[component-commit-collector]] reads every commit in the range from git:
+   hash, subject, body, trailers, author and date, the conventional type,
+   scope and breaking marker where the subject has them, the changed files,
+   and the pull request number, title and description where a squash or
+   merge commit carries them. No hosting platform is called.
+   [[component-pr-metadata-collector]] is an optional, non-MVP enrichment
+   for a commit whose body lacks the description.
+3. [[component-diff-collector]] reads each commit's diff within the release
+   budget, leaving out excluded paths, and reports what it truncated or
+   omitted.
+4. [[component-bump-classifier]] computes the *signal floor* from the
+   explicit records in git — `Release-Type:` trailers, conventional types
+   and breaking markers — and reports the commits that carry none, the
+   unclassified commits. It needs no model. `release version` uses only
+   this step, with a named bump where one is given.
+5. [[component-evidence-builder]] joins the records, diffs and signals into
+   the evidence bundle: one `CommitEvidence` per commit, carrying its
+   record with the pull request information git holds, its files, its diff
+   and the signal the classifier read.
+6. [[component-changelog-authoring-bridge]] exchanges the bundle with the
    configured [[component-changelog-producer]] (`release:changelog` for
    `claude`), or with [[component-mechanical-producer]] when notes are
-   skipped. It validates the authored corpus: entries are changes, not
-   commits, and the corpus proposes an impact with its reasons.
-8. [[component-impact-reconciler]] takes the computed impact, the
-   unclassified commits, the proposal and any named bump, and returns the
-   confirmed impact, or a halt carrying the proposal and its reasons for a
-   person to confirm. A front end prompts, or stops and asks for a named
-   bump, and calls again.
-9. [[component-version-calculator]] computes the version from the confirmed
-   impact; [[component-changelog-renderer]] renders the authored corpus for
-   it.
-10. [[component-stage-orchestrator]] writes the section with
-    [[component-changelog-writer]], commits it with the confirmed impact as a
-    `Release-Type:` trailer, and opens the stage pull request showing the
-    proposal and its reasons.
+   skipped (`--skip-notes`), and validates the **structured
+   changelog** it returns: entries are changes, not commits; each has a
+   kind, a scope, a summary, migration text where it is breaking, and the
+   commits it is derived from; and every commit is cited by an entry or
+   listed as omitted with a reason. WHEN the configured producer is
+   unavailable or fails, the bridge reports the failure and the command
+   stops, naming `--skip-notes`; it does not fall back on its own.
+7. [[component-bump-suggester]] derives the **suggested bump** from the
+   entry kinds (any breaking entry major, else any feature minor, else any
+   fix, performance change, refactoring or revert patch, else none), raises it to
+   the signal floor where the floor is higher, and gives its reasons. Given
+   a named bump, it refuses one below the floor unless forced, and warns on
+   one below the suggestion. With no named bump it halts until the
+   suggestion is accepted. A range is releasable WHEN the suggestion is
+   patch or above, or an entry has no kind; WHEN the suggestion is none
+   and an entry has no kind, it halts for a named bump, which needs no
+   force; WHEN the suggestion is none and every entry has a kind, nothing
+   is releasable and a named bump proceeds only forced. A front end prompts, or accepts with `--yes`, or
+   stops and reports the halt, and calls again with the answer.
+8. [[component-version-calculator]] computes the version from the confirmed
+   bump; [[component-changelog-renderer]] renders the structured changelog
+   for it under the configured headings; [[component-changelog-writer]]
+   places the section in the changelog file.
+9. [[component-stage-orchestrator]] commits the section with the confirmed
+   bump as a `Release-Type:` trailer, so the version is recomputable from
+   git without re-running a model, and opens the stage pull request showing
+   the changelog, the suggested bump and its reasons. Reviewing it is where a
+   person reviews the model's changelog before anything is published.
+
+Without a model, the mechanical producer writes entries from conventional
+subjects and lists unclassified commits under the other heading, the
+suggestion is the signal floor alone, and a range whose floor is none and
+which holds an entry with no kind halts for a named bump.
+
+### Extension: pull request release notes (deferred)
+
+A later `release notes` command may author a reviewed `## Release notes`
+block per pull request from its diff, and the squash merge would carry it
+into git. The Evidence Builder would then attach a parsed block to its
+commit's evidence, and the Bump Classifier could read its impact as a
+reviewed signal. The core flow works without it, and nothing in the core
+requires it.
 
 ## Interface
 
 - **Surface:** one operation per release capability — resolve a base version,
-  classify impact, reconcile it, compute a next version, collect records and
-  diffs, build evidence, author pull-request notes, prepare a changelog,
+  compute the signal floor, suggest and confirm a bump, compute a next
+  version, collect records and diffs, build evidence, prepare a changelog,
   render it, write it, stage a release. Each is callable independently; the
   staging operation composes the rest.
 - **Guarantees:**
@@ -189,60 +178,43 @@ Orchestrator composes it with the writes.
 - **Version resolution:** `internal/resolve`. `Resolve` takes a repository
   path, a target ref, an optional named bump, an optional graduation flag
   and a policy, and returns the base version (or its absence) with its tag,
-  the impact, whether it was named, the impact the commits' reviewed signals
-  indicate whatever was named (none meaning nothing releasable on the
-  signals alone), the commits that determined the impact with the signal
-  each indicated, the commits that carry no enabled signal, and the next
-  version, a no-release result or a policy violation. It composes
-  [[component-tag-reader]], [[component-commit-collector]],
-  [[component-notes-codec]], [[component-bump-classifier]] and
-  [[component-version-calculator]], maps the classifier's bump onto the
-  calculator's own impact, and never writes to the repository. A repository
-  that cannot be read is an error; a refused or unwarranted release is a
-  result.
-- **Pull request notes:** `internal/changelog`. `Notes` takes the
-  repository, a head ref, a base branch, the loaded configuration, the
-  producers by name, the pull request's current description (or none), and
-  the redo request. WHEN the description holds a block that is current and
-  redo was not requested, it returns that block and invokes no producer.
-  Otherwise it pins the head to its commit hash, collects the commits from the
-  merge base to the head with their diffs within
-  `changelog.diff_budget.pull_request`, builds an evidence
-  bundle with purpose `PULL_REQUEST`
-  ([[component-evidence-builder]]), exchanges it
-  ([[component-changelog-authoring-bridge]]), and returns the authored
-  `PullRequestNotes`, the head hash and the block
-  [[component-notes-codec]] renders from them. `CheckNotes` takes a pull
-  request description, its base branch and its head, compares the diff
-  from the merge base at the head the block's marker records with the diff
-  at the current head (by `git patch-id --stable`; a marker head that is
-  not present locally counts as changed), and returns
-  [[component-notes-codec]]'s verdict: the parsed block, or why it is
-  missing, malformed or stale. It invokes no producer. Writing
-  the block into the description is [[component-pr-notes-writer]]'s.
+  the impact, whether it was named, the signal floor whatever was named
+  (none meaning nothing releasable on the signals alone), the commits that
+  determined the floor with the signal each indicated, the unclassified
+  commits, and the next version, a no-release result or a policy violation.
+  It reads only the explicit signals in git and invokes no producer. It
+  composes [[component-tag-reader]], [[component-commit-collector]],
+  [[component-bump-classifier]] and [[component-version-calculator]],
+  maps the classifier's bump onto the calculator's own impact, and never
+  writes to the repository. A repository that cannot be read is an error; a
+  refused or unwarranted release is a result.
 - **Changelog operation:** `internal/changelog`. `Prepare` takes the
-  repository, a target ref, an optional named bump, the loaded
-  configuration, the producers by name, an optional corpus path, and the
-  redo and skip requests. It pins the target to its commit hash, so the
-  commits read, the range recorded and the cache key describe one head,
-  then resolves the base version and the computed impact, builds the
-  release evidence bundle ([[component-evidence-builder]]) from the range's
-  commits, their parsed notes blocks, and the diffs of the commits without
-  one, exchanges it ([[component-changelog-authoring-bridge]]), reconciles
-  the impact ([[component-impact-reconciler]]), computes the version from
-  the confirmed impact, sets the corpus `version`, and renders it
-  ([[component-changelog-renderer]]). An unwarranted release, and a halt
-  for confirmation carrying the proposal and its reasons, are results; it
-  writes only the authoring cache, never the changelog file.
-- **Impact reconciliation:** `internal/reconcile`. `Reconcile` takes the
-  computed impact with its drivers, the unclassified commits, the authored
-  proposal with its rationale and drivers (or none), and an optional named
-  bump, and returns the confirmed impact with who decided it, or a halt
-  with its reasons ([[component-impact-reconciler]]). It is pure.
+  repository, a target ref, an optional named bump, whether the release is
+  forced, whether the suggestion is accepted, the loaded configuration, the
+  producers by name, an optional changelog path, and the redo and skip
+  requests. It pins the target to its commit hash, so the commits read, the
+  range recorded and the cache key describe one head, then resolves the base
+  version and the signal floor, collects every commit's diff within
+  `changelog.diff_budget.release`, builds the evidence bundle
+  ([[component-evidence-builder]]), exchanges it
+  ([[component-changelog-authoring-bridge]]), suggests and decides the
+  bump ([[component-bump-suggester]]), computes the version from the
+  confirmed bump, sets the changelog `version`, and renders it
+  ([[component-changelog-renderer]]). An unwarranted release, a refused
+  named bump, and a halt for confirmation carrying the suggestion and its
+  reasons are results; it writes only the authoring cache, never the
+  changelog file.
+- **Bump suggestion:** `internal/suggest`. `Suggest` takes the structured
+  changelog's entries and omissions, the signal floor with its drivers, the unclassified commits, an optional
+  named bump, and whether the release is forced and the suggestion
+  accepted, and returns the confirmed bump with who decided it and the
+  suggestion with its reasons, a halt with them, a refusal of a named
+  bump below the floor, or a range that is not releasable
+  ([[component-bump-suggester]]). It is pure.
 - **Default policy:** `DefaultPolicy` — tag prefix `v`, stage prefix
   `cut/`, `leaps` off, `pre1_remap` on, and every commit signal enabled:
-  `notes-block`, `release-type`, `conventional-type` and
-  `breaking-marker`. The configuration model extends it.
+  `release-type`, `conventional-type` and `breaking-marker`. The
+  configuration model extends it.
 - **Configuration model:** `internal/config`. `Config` holds every
   repository-specific setting, and `Default` gives each its default:
   `target` (the repository's default branch), `tag_prefix` `v`,
@@ -263,9 +235,8 @@ Orchestrator composes it with the writes.
     invokes: `claude` (the default), `command` or `mechanical`;
     `changelog.producer_command` is the command the `command` producer
     runs, unset by default.
-  - `changelog.diff_budget` bounds the patch text in one evidence bundle,
-    in bytes: `release` (default 204800) for a release and `pull_request`
-    (default 102400) for a pull request.
+  - `changelog.diff_budget.release` bounds the patch text in one evidence
+    bundle, in bytes; the default is 204800.
   - `changelog.diff_exclude` lists the paths whose patches no evidence
     bundle carries, matched as `release_paths` entries are, with `**`
     matching any number of path segments. The default is `**/go.sum`,
@@ -275,9 +246,9 @@ Orchestrator composes it with the writes.
     An excluded path still appears in its commit's file list.
   - `adapters.diffs` turns the Diff Collector on and defaults to `true`.
     `adapters.pull_requests` turns on the Pull Request Metadata Collector,
-    an optional fallback for commits whose body has no notes block, and
-    defaults to `false`. The commit adapter is always on and has no
-    setting.
+    an optional enrichment for commits whose body lacks the pull request
+    description, and defaults to `false`. The commit adapter is always on
+    and has no setting.
   - `Validate` SHALL refuse an empty `stage_prefix`, a `signals` entry
     naming no known signal, a `changelog.groups` kind that is not a
     `ChangeKind` name or is listed twice, a malformed `release_branches`
@@ -330,28 +301,26 @@ excluding configured paths and reporting what it truncated.
 ### Pull Request Metadata Collector
 
 [[component-pr-metadata-collector]] — pull-request metadata fetched from the
-hosting platform. **Not part of the MVP:** an optional fallback for commits
-whose body carries no notes block, when the platform is reachable.
-
-### Notes Codec
-
-[[component-notes-codec]] — the `## Release notes` block parsed from a
-commit body or pull request description, and rendered from authored notes.
+hosting platform. **Not part of the MVP:** an optional enrichment for
+commits whose body lacks the pull request description, when the platform is
+reachable. Never a version signal.
 
 ### Evidence Builder
 
 [[component-evidence-builder]] — the evidence bundle a producer authors
-from: per commit, its record, its reviewed notes, and its diff where needed.
+from: per commit, its record with the pull request information git carries,
+its files, its diff and its signal.
 
 ### Bump Classifier
 
-[[component-bump-classifier]] — release impact computed deterministically
-from reviewed signals in git, with the commits that carry none.
+[[component-bump-classifier]] — the signal floor computed deterministically
+from explicit signals in git, with the commits that carry none.
 
-### Impact Reconciler
+### Bump Suggester
 
-[[component-impact-reconciler]] — the confirmed impact from the computed
-impact, the authored proposal and a named bump, or a halt with reasons.
+[[component-bump-suggester]] — the suggested bump from the structured
+changelog's entry kinds, raised to the signal floor, with its reasons; and
+the confirmed bump from an acceptance or a named bump, or a halt.
 
 ### Version Calculator
 
@@ -361,33 +330,30 @@ version policy.
 ### Changelog Authoring Bridge
 
 [[component-changelog-authoring-bridge]] — the seam across which a producer
-receives an evidence bundle and returns an authored corpus or authored
-pull-request notes.
+receives an evidence bundle and returns a structured changelog, validated
+so that every commit is cited or omitted with a reason.
 
 ### Changelog Producer
 
-[[component-changelog-producer]] — the component type that authors from
-evidence: a language model, a command, the mechanical producer, or a person.
+[[component-changelog-producer]] — the component type that authors a
+structured changelog from evidence: a language model, a command, the
+mechanical producer, or a person.
 
 ### Mechanical Producer
 
 [[component-mechanical-producer]] — the producer of last resort: entries
-from notes blocks and conventional subjects, with no model.
+from conventional subjects, unclassified commits under the other heading,
+with no model.
 
 ### Changelog Renderer
 
-[[component-changelog-renderer]] — a corpus rendered to markdown, one
-rendering per target.
+[[component-changelog-renderer]] — a structured changelog rendered to
+markdown, one rendering per target.
 
 ### Changelog Writer
 
 [[component-changelog-writer]] — a rendered section placed into the changelog
 file.
-
-### PR Notes Writer
-
-[[component-pr-notes-writer]] — a rendered notes block written into a pull
-request description.
 
 ### Stage Orchestrator
 
@@ -416,13 +382,12 @@ compatibility obligations.
 
 ---
 
-The module SHALL version the changelog corpus, the evidence bundle and the
-notes block it exchanges independently of itself, under
-[[contract-changelog]].
+The module SHALL version the structured changelog and the evidence bundle
+it exchanges independently of itself, under [[contract-changelog]].
 
-**Rationale:** The corpus and the pull-request notes are written by
-producers outside this repository, and the notes block is edited by people,
-so their compatibility is a contract concern rather than a library-versioning
+**Rationale:** The changelog is written by producers outside this
+repository, and edited by people when a release needs correcting by hand, so
+its compatibility is a contract concern rather than a library-versioning
 one.
 
 ## Cross-Cutting Standards
@@ -430,15 +395,15 @@ one.
 This module SHALL comply with:
 
 - [[release-tooling-standards]] — stage-branch and release-commit shape,
-  version computation, confirmation of an unreviewed impact, and the
-  configuration surface.
+  version computation, the signal floor, the suggested bump and its
+  confirmation, and the configuration surface.
 
 The following govern the adopting project rather than this module, and it
 SHALL NOT enforce them:
 
 - [[repository-release-policy]] — branch roles, support window, propagation,
-  readiness, squash-merge settings, the notes block's review, and the
-  verification of a release commit.
+  readiness, squash-merge settings, and the verification of a release
+  commit.
 - [[cli-distribution-policy]] — publication, resolution, provenance,
   channels, withdrawal.
 
@@ -450,10 +415,9 @@ same change.
 
 ---
 
-WHEN the changelog schema, the evidence schema or the notes-block grammar
-changes, `schemas/changelog.strata`, `schemas/evidence.strata`,
-[[contract-changelog]] and every generated binding SHALL be updated in the
-same change.
+WHEN the changelog schema or the evidence schema changes,
+`schemas/changelog.strata`, `schemas/evidence.strata`, [[contract-changelog]]
+and every generated binding SHALL be updated in the same change.
 
 ---
 
@@ -462,9 +426,9 @@ updated in the same change.
 
 ---
 
-A component that computes a version, classifies or reconciles impact, parses
-or renders a notes block, builds evidence, or renders a corpus SHALL be a
-pure function of its inputs.
+A component that computes a version, computes the signal floor, suggests or
+decides a bump, builds evidence, or renders a changelog SHALL be a pure
+function of its inputs.
 
 **Rationale:** These are the parts whose correctness matters most and whose
 failures are hardest to see. Purity is what makes them exhaustively testable
@@ -497,10 +461,11 @@ on a platform the tooling does not integrate with.
   majors is the adopting project's policy.
 - [[adr-002]] — a release is staged as a branch carrying the release commit
   and merged by pull request.
-- [[adr-003]] — reviewed impact with evidence-authored notes: a model
-  authors notes from diffs and reviewed per-PR notes and proposes impact;
-  reviewed records in git decide the version, and a person confirms any
-  impact without one, which is committed as a `Release-Type:` trailer.
+- [[adr-003]] — AI-authored changelog with a suggested, confirmed bump: a
+  model authors a structured changelog from commit evidence in git, the
+  bump is suggested from its entry kinds and floored by explicit git
+  signals, and a person confirms it, which is committed as a
+  `Release-Type:` trailer.
 - [[adr-004]] — the adopting repositories do not use conventional commits
   consistently, so no per-commit signal is required.
 - [[adr-005]] — the release process is a composable library behind a thin
@@ -518,8 +483,8 @@ introduce later, not because a second front end is planned.
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
 - [[container-release-cli]] — the container composing this module
-- [[contract-changelog]] — the corpus, evidence bundle and notes block this
-  module exchanges
+- [[contract-changelog]] — the structured changelog and evidence bundle
+  this module exchanges
 - [[frd-version-computation]], [[frd-changelog-authoring]],
   [[frd-changelog-rendering]], [[frd-release-staging]],
   [[frd-tool-configuration]] — the features this module realizes

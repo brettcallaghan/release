@@ -85,8 +85,8 @@ is a pure function, so it can be tested exhaustively without a repository.
     version it previews.
   - WHEN the impact is none, the component SHALL report that no release is
     warranted rather than returning a version. This is the path taken when a
-    maintainer names no bump and the producer concludes nothing releasable
-    landed.
+    maintainer names no bump and `release version` reads a signal floor of
+    none.
   - The component SHALL be a pure function of its inputs.
   - The component SHALL NOT derive any constraint from the name of the
     branch it is computing for.
