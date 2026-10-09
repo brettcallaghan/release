@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -52,7 +53,9 @@ func TestCutReleaseSkillRunsInstallCLIFromThePlugin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0o111 == 0 {
+	// Windows has no executable bit to read; the skill runs the script
+	// through bash, and git carries the mode for the other platforms.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Errorf("install-cli is not executable: %v", info.Mode())
 	}
 }
