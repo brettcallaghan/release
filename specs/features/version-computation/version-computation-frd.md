@@ -6,7 +6,7 @@ description: Resolving a release line's base version, classifying release
   policy, and deriving the names a release uses.
 slug: frd-version-computation
 type: frd
-status: approved
+status: draft
 updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001

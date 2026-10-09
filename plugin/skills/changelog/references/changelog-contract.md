@@ -5,7 +5,7 @@ description: The evidence a producer reads, the structured changelog it
   may vary and the deterministic tooling that validates and renders them.
 slug: contract-changelog
 type: contract
-status: approved
+status: draft
 updated_at: 2026-10-09T00:00:00Z
 provider: module-release-core
 visibility: public

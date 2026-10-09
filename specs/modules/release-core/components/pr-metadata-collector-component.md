@@ -1,13 +1,13 @@
 ---
 title: "Component Blueprint: Pull Request Metadata Collector"
 entity_name: Pull Request Metadata Collector
-description: "Not part of the MVP. Pull-request metadata fetched from the
-  hosting platform for one pull request or a list — title, description,
-  author, labels and branch."
+description: "Not part of the MVP. An optional fallback: pull-request
+  metadata fetched from the hosting platform for commits whose body carries
+  no notes block — title, description, author, labels and branch."
 slug: component-pr-metadata-collector
 type: component-blueprint
-status: approved
-updated_at: 2026-10-07T00:00:00Z
+status: draft
+updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:
@@ -34,19 +34,24 @@ hosting platform appends to each squash commit subject, so identifying the
 pull requests merged into a branch since its last release needs no platform
 call at all.
 
-**Deferred beyond the first milestone.** Every repository adopting this
-tooling squash-merges with the pull-request description as the commit body, so
-title, description and author already reach the release through git. This
-component earns its place when a repository does not do that, or when labels
-become something a project wants read.
+**An optional fallback, deferred beyond the first milestone.** A squash
+merge that uses the pull-request description as the commit body
+([[repository-release-policy]]) already carries the title, the description
+and its `## Release notes` block into git. This component serves the commits
+where that did not happen: a pull request merged before the repository's
+squash setting changed, or merged with an edited message. WHEN
+`adapters.pull_requests` is on and the platform is reachable, it fetches the
+description of each such commit's pull request, so its block can still be
+read. The description fetched is evidence for authoring only; it is never a
+version signal, because it lives outside git.
 
 - **Role:** pull-request metadata the hosting platform holds.
 - **Scope:** in — fetching the declared fields for a given pull request or
   list; out — deciding which pull requests to fetch, merging records, and any
   write to the platform.
 - **Composed into:** [[module-release-core]] — a sibling of
-  [[component-commit-collector]], not a layer over it; see the module for
-  relationships.
+  [[component-commit-collector]], not a layer over it, feeding
+  [[component-evidence-builder]]; see the module for relationships.
 - **Source & tests:** `internal/platform`.
 
 ## Interface
@@ -64,6 +69,8 @@ become something a project wants read.
     its absence distinctly from a failure.
   - The component SHALL NOT write to the hosting platform.
   - The component SHALL NOT determine which pull requests to fetch.
+  - The component SHALL NOT run WHEN `adapters.pull_requests` is `false`,
+    which is the default.
 
 ## Cross-Cutting Standards
 

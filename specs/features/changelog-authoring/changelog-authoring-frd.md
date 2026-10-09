@@ -6,7 +6,7 @@ description: Collecting the evidence of what changed — commit records, file
   its reasons, which the tooling validates and reconciles rather than trusts.
 slug: frd-changelog-authoring
 type: frd
-status: approved
+status: draft
 updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-003

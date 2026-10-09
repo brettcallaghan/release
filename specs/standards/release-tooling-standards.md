@@ -5,7 +5,7 @@ description: What the release tooling guarantees and validates — stage
   computation and impact confirmation, and its configuration surface.
 slug: release-tooling-standards
 type: standards
-status: approved
+status: draft
 updated_at: 2026-10-09T00:00:00Z
 version: "0.5"
 ---
