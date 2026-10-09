@@ -136,7 +136,9 @@ Without `--target` it cuts the configured `target`, or else the branch
 
 The release core never prompts: when no bump is named it returns the
 suggested bump and its reasons as a halt, and the confirmation this
-container obtains is the input to the next call, as a named bump.
+container obtains is the input to the next call, as an acceptance or a
+named bump. That call reads the authored changelog from the cache, so the
+suggestion confirmed is the one shown.
 
 - A named bump needs no confirmation. Below the signal floor it is refused
   unless `--force` is given; below the suggestion it proceeds with a

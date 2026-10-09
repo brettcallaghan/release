@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/brettcallaghan/release/internal/authoring"
+	"github.com/brettcallaghan/release/internal/bump"
 	"github.com/brettcallaghan/release/internal/changelog"
 	"github.com/brettcallaghan/release/internal/changelogfile"
 	"github.com/brettcallaghan/release/internal/config"
@@ -50,20 +51,27 @@ type Request struct {
 	Sh string
 	// Target is the target branch's name on origin.
 	Target string
-	// Named is the bump the maintainer named, or nil to classify one.
+	// Named is the bump the maintainer named, or nil to have the suggestion
+	// decide it, once a person accepts it.
 	Named *releasemodel.Bump
+	// Accepted confirms the suggested bump WHEN no bump is named. Without it,
+	// a cut with no named bump ends in a *Halt.
+	Accepted bool
 	// Config is the loaded configuration.
 	Config config.Config
 	// Producers returns every changelog producer, by name, for the checkout
 	// at dir, adding env to each producer process's environment. It is
-	// called with the scratch checkout and RELEASE_VERSION.
+	// called with the scratch checkout, and with RELEASE_VERSION WHEN a bump
+	// is named.
 	Producers func(dir string, env []string) map[string]authoring.Producer
 	// Redo discards a cached changelog and authors again.
 	Redo bool
-	// Skip stages without an authoring exchange. It requires Named.
+	// Skip authors with the mechanical producer in place of an authoring
+	// exchange.
 	Skip bool
 	// Force stages a named bump WHEN nothing releasable exists since the
-	// base version. It requires Named.
+	// base version, and accepts one below the signal floor. It requires
+	// Named.
 	Force bool
 	// NoPullRequest stops after the push.
 	NoPullRequest bool
@@ -133,6 +141,43 @@ func (r *NoRelease) Error() string {
 	return "the version policy refuses this release: " + r.Next.Reason
 }
 
+// version sets the version and the stage branch from next, refusing a
+// version the policy refuses and a stage branch that exists, here or on
+// origin.
+func (g git) version(ctx context.Context, res *Result, next version.Result, stagePrefix string) error {
+	if next.Kind != version.Release {
+		return &NoRelease{Next: next}
+	}
+	res.Version = next.Version.String()
+	res.Branch = semver.StageBranchName(stagePrefix, next.Version)
+	if exists, err := g.ok(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+res.Branch); err != nil {
+		return err
+	} else if exists {
+		return &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists locally; delete it (git branch -D %s) or release another version", res.Branch, res.Branch)}
+	}
+	remote, err := g.out(ctx, "ls-remote", "--heads", "origin", "refs/heads/"+res.Branch)
+	if err != nil {
+		return fmt.Errorf("checking origin for %s: %w", res.Branch, err)
+	}
+	if remote != "" {
+		return &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists on origin; close its pull request and delete it there, or release another version", res.Branch)}
+	}
+	return nil
+}
+
+// drivers is the commits that set the signal floor, with their signals.
+func drivers(r resolve.Resolution) []bump.CommitDriver {
+	records := make(map[string]releasemodel.CommitRecord, len(r.Commits))
+	for _, c := range r.Commits {
+		records[c.Hash] = c
+	}
+	out := make([]bump.CommitDriver, 0, len(r.DeterminedBy))
+	for _, d := range r.DeterminedBy {
+		out = append(out, bump.CommitDriver{Commit: records[d.Hash], Signal: d.Signal})
+	}
+	return out
+}
+
 // belowFloor says that a named bump is below the signal floor, how to force
 // it, and the commits that set the floor.
 func belowFloor(r *suggest.Refusal) string {
@@ -149,16 +194,24 @@ func belowFloor(r *suggest.Refusal) string {
 // and how to confirm it by naming it.
 func unconfirmed(s suggest.Result) string {
 	if s.Halt != nil && s.Halt.OnlyNamed {
-		var b strings.Builder
-		b.WriteString("the authored changelog suggests no bump, but these entries carry no kind, so only a named bump can release them: name it (release cut <major|minor|patch>):")
-		for _, d := range s.Halt.Unkinded {
-			fmt.Fprintf(&b, "\n  - %s", d.Summary)
-		}
-		return b.String()
+		return "the authored changelog suggests no bump, but entries carry no kind, so only a named bump can release them: name it (release cut <major|minor|patch>)"
 	}
-	suggestion := strings.ToLower(string(s.Suggestion))
-	return fmt.Sprintf("the suggested bump is %s and no person has confirmed it: confirm it by naming it (release cut %s)", suggestion, suggestion)
+	suggestion := lower(s.Suggestion)
+	return fmt.Sprintf("the suggested bump %s awaits confirmation: accept it (release cut --yes) or name a bump (release cut %s)", suggestion, suggestion)
 }
+
+// Halt is a cut that stopped for a person to confirm the bump: no bump was
+// named and the suggestion was not accepted, or, WHEN OnlyNamed, the
+// suggestion is none and an entry has no kind, which only a named bump
+// answers. Nothing was written. The Result's Changelog carries the
+// suggestion, its reasons and where the authored changelog is cached, so a
+// second call confirming it reads the same changelog.
+type Halt struct {
+	Suggestion suggest.Result
+	OnlyNamed  bool
+}
+
+func (h *Halt) Error() string { return unconfirmed(h.Suggestion) }
 
 // WriteFailure is a write that failed after Writes were made. Remedy lists
 // the commands that finish or discard the release.
@@ -171,18 +224,15 @@ type WriteFailure struct {
 func (f *WriteFailure) Error() string { return f.Err.Error() }
 func (f *WriteFailure) Unwrap() error { return f.Err }
 
-// Cut runs the cut sequence. A refusal is a *Refusal or *NoRelease, and
-// nothing was written; a failed write after another
+// Cut runs the cut sequence. A refusal is a *Refusal or *NoRelease, and a
+// bump awaiting confirmation a *Halt; in each, nothing was written; a failed write after another
 // succeeded is a *WriteFailure; any other error means the repository, a
 // producer or a tool failed before any write. The Result describes what was
 // reached, including on a refusal or failure.
 func Cut(ctx context.Context, req Request) (res Result, err error) {
 	res.Target = req.Target
-	if req.Skip && req.Named == nil {
-		return res, &Refusal{Reason: "staging without notes needs a named bump: name major, minor or patch with --skip-notes"}
-	}
 	if req.Force && req.Named == nil {
-		return res, &Refusal{Reason: "--force needs a named bump: it stages that bump when nothing releasable exists; name major, minor or patch"}
+		return res, &Refusal{Reason: "--force needs a named bump: it stages that bump when nothing releasable exists, or below the signal floor; name major, minor or patch"}
 	}
 	if req.Config.Commands.Propagate == nil {
 		return res, &Refusal{Reason: "commands.propagate is unconfigured: cutting a release writes the version into the repository's manifests through it; " +
@@ -217,35 +267,30 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		return res, err
 	}
 
-	// 1. Resolve the version.
+	// 1. Resolve the base version and the signal floor. WHEN a bump is
+	// named, refuse it below the floor unless forced, then compute the
+	// version and check the stage branch; otherwise both wait for step 5.
 	if res.Resolution, err = resolve.Resolve(ctx, resolve.Request{
 		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Policy: req.Config.Policy(),
 	}); err != nil {
 		return res, err
 	}
-	if res.Resolution.Next.Kind != version.Release {
-		return res, &NoRelease{Next: res.Resolution.Next}
-	}
-	v := res.Resolution.Next.Version
-	res.Version = v.String()
-	if res.Resolution.Named && res.Resolution.Floor == releasemodel.BumpNone && !req.Force {
+	if len(res.Resolution.Commits) == 0 && !req.Force {
+		if req.Named == nil {
+			return res, &NoRelease{Next: res.Resolution.Next}
+		}
 		return res, &Refusal{Reason: fmt.Sprintf("nothing releasable %s; pass --force to cut %s anyway",
-			res.Resolution.NothingReleasable(), res.Version)}
+			res.Resolution.NothingReleasable(), res.Resolution.Next.Version)}
 	}
-	res.Branch = semver.StageBranchName(req.Config.StagePrefix, v)
-
-	// 2. Refuse a stage branch that already exists, here or on origin.
-	if exists, err := g.ok(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+res.Branch); err != nil {
-		return res, err
-	} else if exists {
-		return res, &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists locally; delete it (git branch -D %s) or release another version", res.Branch, res.Branch)}
-	}
-	remote, err := g.out(ctx, "ls-remote", "--heads", "origin", "refs/heads/"+res.Branch)
-	if err != nil {
-		return res, fmt.Errorf("checking origin for %s: %w", res.Branch, err)
-	}
-	if remote != "" {
-		return res, &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists on origin; close its pull request and delete it there, or release another version", res.Branch)}
+	if req.Named != nil {
+		if res.Resolution.BelowFloor && !req.Force {
+			return res, &Refusal{Reason: belowFloor(&suggest.Refusal{
+				Named: *req.Named, Floor: res.Resolution.Floor, FloorDrivers: drivers(res.Resolution),
+			})}
+		}
+		if err := g.version(ctx, &res, res.Resolution.Next, req.Config.StagePrefix); err != nil {
+			return res, err
+		}
 	}
 
 	scratch, err := os.MkdirTemp("", "release-cut-*")
@@ -263,25 +308,28 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	if _, err := g.run(ctx, "-c", noHooks, "worktree", "add", "--quiet", "--detach", wt, res.Base); err != nil {
 		return res, fmt.Errorf("creating the scratch checkout: %w", err)
 	}
-	env := []string{"RELEASE_VERSION=" + res.Version}
-	sh := delegate.Shell{Sh: req.Sh, Env: env}
+	// The version is known before authoring only WHEN a bump is named.
+	var env []string
+	if req.Named != nil {
+		env = []string{"RELEASE_VERSION=" + res.Version}
+	}
 
-	// 3. Preflight, WHEN configured.
+	// 2. Preflight, WHEN configured.
 	if len(req.Config.Commands.Preflight) > 0 {
-		if err := step(sh.RunAll(ctx, "preflight", req.Config.Commands.Preflight, wt)); err != nil {
+		if err := step(delegate.Shell{Sh: req.Sh, Env: env}.RunAll(ctx, "preflight", req.Config.Commands.Preflight, wt)); err != nil {
 			return res, err
 		}
 	}
 
-	// 4, 5. Collect the evidence, author it (mechanically WHEN skipped), set
-	// the version and render.
+	// 3, 4. Collect the evidence, author it (mechanically WHEN skipped),
+	// suggest the bump and decide it.
 	var producers map[string]authoring.Producer
 	if req.Producers != nil {
 		producers = req.Producers(wt, env)
 	}
 	if res.Changelog, err = changelog.Prepare(ctx, changelog.Request{
-		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Forced: req.Force, Config: req.Config,
-		Producers: producers, Redo: req.Redo, Skip: req.Skip,
+		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Forced: req.Force, Accepted: req.Accepted,
+		Config: req.Config, Producers: producers, Redo: req.Redo, Skip: req.Skip,
 	}); err != nil {
 		return res, err
 	}
@@ -291,8 +339,25 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	case changelog.Refused:
 		return res, &Refusal{Reason: belowFloor(res.Changelog.Refusal)}
 	case changelog.Halted:
-		return res, &Refusal{Reason: unconfirmed(res.Changelog.Suggestion)}
+		return res, &Halt{Suggestion: res.Changelog.Suggestion, OnlyNamed: res.Changelog.Suggestion.Halt.OnlyNamed}
 	}
+	if req.Named != nil && !res.Changelog.Suggestion.Releasable && !req.Force {
+		since := "since " + res.Resolution.BaseTag
+		if res.Resolution.BaseTag == "" {
+			since = "with no release tag reachable"
+		}
+		return res, &Refusal{Reason: fmt.Sprintf("nothing releasable %s: the authored changelog suggests no bump and every entry has a kind; pass --force to cut %s anyway",
+			since, res.Version)}
+	}
+
+	// 5. With no named bump, the version comes from the confirmed
+	// suggestion: compute it, then check the stage branch.
+	if req.Named == nil {
+		if err := g.version(ctx, &res, res.Changelog.Next, req.Config.StagePrefix); err != nil {
+			return res, err
+		}
+	}
+	sh := delegate.Shell{Sh: req.Sh, Env: []string{"RELEASE_VERSION=" + res.Version}}
 
 	// 6. Write the changelog section, then propagate the version. A
 	// symbolic link would carry the write out of the scratch checkout.

@@ -1,1 +1,1 @@
-release cut: --force needs a named bump: it stages that bump when nothing releasable exists; name major, minor or patch
+release cut: --force needs a named bump: it stages that bump when nothing releasable exists, or below the signal floor; name major, minor or patch

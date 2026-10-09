@@ -125,9 +125,9 @@ func (f *cutFixture) producerRuns() int {
 	return strings.Count(string(data), "run\n")
 }
 
-// writeAuthored makes the producer answer with one feature citing every
-// commit in the range, carrying the bundle's sources through.
-func (f *cutFixture) writeAuthored() {
+// writeAuthored makes the producer answer with one entry of kind citing
+// every commit in the range, carrying the bundle's sources through.
+func (f *cutFixture) writeAuthored(kind string) {
 	f.t.Helper()
 	ev := evidenceAt(f.t, f.work)
 	sources := []any{}
@@ -136,7 +136,7 @@ func (f *cutFixture) writeAuthored() {
 	}
 	data, err := json.Marshal(map[string]any{
 		"schema_version": "1.0.0",
-		"entries": []any{map[string]any{"kind": "FEATURE", "summary": "Compute for any release line.", "breaking": false, "derived": false,
+		"entries": []any{map[string]any{"kind": kind, "summary": "Compute for any release line.", "breaking": false, "derived": false,
 			"sources": sources}},
 		"sources": ev.Sources,
 	})
@@ -251,7 +251,7 @@ func TestThePullRequestIsTitledForTheVersion(t *testing.T) {
 // AC: AC-STG-001.9
 func TestThePullRequestBodyCarriesTheReleaseNotes(t *testing.T) {
 	f := newCutFixture(t, "feat: add a --target flag (#12)")
-	f.writeAuthored()
+	f.writeAuthored("FEATURE")
 	if _, stderr, code := f.cut("minor"); code != 0 {
 		t.Fatalf("exit = %d\n%s", code, stderr)
 	}
@@ -265,6 +265,7 @@ func TestThePullRequestBodyCarriesTheReleaseNotes(t *testing.T) {
 // AC: AC-STG-001.4
 func TestNothingReleasableMeansNoBranch(t *testing.T) {
 	f := newCutFixture(t, "docs: describe the flag")
+	f.writeAuthored("DOCUMENTATION")
 	before := refs(t, f.bare)
 	a, stderr, code := f.cut()
 	if code != 1 || !strings.Contains(stderr, "no release is warranted") {

@@ -1,0 +1,7 @@
+release cut: the suggested bump major awaits confirmation: accept it (release cut --yes) or name a bump (release cut major)
+  suggested bump: major
+    - A maintainer can compute a version for any release line — naïvely fast.
+  signal floor: minor
+    - 238393dee49924ef28901ac042110166d4739c49 feat: add a --target flag (#12) (conventional-type)
+  unclassified commits:
+    - 53b6ea9aa35aa95ab7d00846da292db29f5ac460 docs: describe the flag

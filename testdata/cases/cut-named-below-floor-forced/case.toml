@@ -1,5 +1,5 @@
-description = "--skip-notes without a bump refuses, because neither a named bump nor an authored proposal can settle the impact"
-cites = ["AC-STG-001.12", "contract-release-cli#commands"]
+description = "--force accepts a named bump below the signal floor: patch is staged as 1.8.1, with a warning that it is below the floor"
+cites = ["AC-VER-005.15", "contract-release-cli#release-cut-bump"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
@@ -12,6 +12,6 @@ git = [
   ["push", "-q", "origin", "main", "--tags"],
   ["remote", "set-head", "origin", "main"],
 ]
-args = ["cut", "--skip-notes", "--dry-run"]
-exit_code = 1
+args = ["cut", "patch", "--skip-notes", "--force", "--dry-run"]
+exit_code = 0
 artifacts = ["stdout.txt", "stderr.txt"]

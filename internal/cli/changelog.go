@@ -162,17 +162,7 @@ func newChangelogCmd(s *streams) *cobra.Command {
 
 // changelogAnswer is the command's answer, keys in the contract's order.
 func (s *streams) changelogAnswer(res changelog.Result) yMap {
-	reasons := ySeq{}
-	for _, d := range res.Suggestion.Reasons.Entries {
-		reasons = append(reasons, driverNode(d))
-	}
-	unclassified := ySeq{}
-	for _, c := range res.Suggestion.Unclassified {
-		unclassified = append(unclassified, yMap{
-			{"hash", yStr(c.Hash)},
-			{"subject", yStr(c.Subject)},
-		})
-	}
+	reasons, unclassified := suggestionNodes(res)
 	path := yamlNode(yNull())
 	if res.CorpusPath != "" {
 		path = yStr(s.display(res.CorpusPath))
@@ -191,6 +181,22 @@ func (s *streams) changelogAnswer(res changelog.Result) yMap {
 		// renderings carry the same value.
 		{"section", yStr(strings.TrimSpace(res.Rendering.Section))},
 	}
+}
+
+// suggestionNodes are the suggestion's reasons and the unclassified
+// commits, as release changelog and a halted release cut answer them.
+func suggestionNodes(res changelog.Result) (reasons, unclassified ySeq) {
+	reasons, unclassified = ySeq{}, ySeq{}
+	for _, d := range res.Suggestion.Reasons.Entries {
+		reasons = append(reasons, driverNode(d))
+	}
+	for _, c := range res.Suggestion.Unclassified {
+		unclassified = append(unclassified, yMap{
+			{"hash", yStr(c.Hash)},
+			{"subject", yStr(c.Subject)},
+		})
+	}
+	return reasons, unclassified
 }
 
 // driverNode is an entry that drove the suggestion: its kind, lower-cased,

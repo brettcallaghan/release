@@ -1,0 +1,10 @@
+release_paths = ["VERSION"]
+
+[commands]
+propagate = "printf \"%s\\n\" \"$RELEASE_VERSION\" > VERSION"
+
+[changelog]
+producer = "command"
+# The producer runs in cut's scratch checkout; authored.json is beside the
+# repository's own .git.
+producer_command = 'cat "$(git rev-parse --git-common-dir)/../authored.json"'

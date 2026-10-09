@@ -164,9 +164,11 @@ rather than the tooling learning any manifest format.
       with its subject and reason under `## Omitted commits`, unless told not
       to.
 - **Configured commands and the changelog producer** run in the scratch
-  checkout with `RELEASE_VERSION` set to the version being released WHEN a
-  bump is named, and unset otherwise, since the version is not known until
-  the suggestion is confirmed. The
+  checkout. `commands.preflight` and the producer run with
+  `RELEASE_VERSION` set to the version being released WHEN a bump is named,
+  and unset otherwise, since the version is not known until the suggestion
+  is confirmed; `commands.propagate` and `commands.validate` run after
+  step 5 and always have it set. The
   component's own git operations there (creating the checkout, the branch
   and the commit) run with no repository hooks, so the commit is exactly
   what was checked; a `CHANGELOG.md` that is a symbolic link is refused.

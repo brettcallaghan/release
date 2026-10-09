@@ -2,10 +2,17 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/brettcallaghan/release/internal/authoring/producers"
+	"github.com/brettcallaghan/release/internal/changelog"
+	"github.com/brettcallaghan/release/internal/config"
 )
 
 // cutRepo is a repository with a feature since v1.8.0, pushed to a bare
@@ -87,4 +94,110 @@ func TestSkipAndRedoNotesCannotBeCombined(t *testing.T) {
 	if code := s.execute([]string{"-C", work, "cut", "huge"}); code != int(StatusInvalid) {
 		t.Errorf("invalid bump: exit = %d, want 2", code)
 	}
+}
+
+// authoredCutRepo is cutRepo configured with a command producer that records
+// each run in .git/runs.log and answers with a changelog of one feature
+// citing every commit, carrying the bundle's sources through.
+func authoredCutRepo(t *testing.T) (work, bare string, runs func() int) {
+	t.Helper()
+	work, bare = cutRepo(t)
+	cfg := config.Default()
+	prepared, err := changelog.Prepare(context.Background(), changelog.Request{
+		Dir: work, Target: "main", Config: cfg, Skip: true, Producers: producers.Registry(cfg.Changelog, work),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sources := []any{}
+	for _, ce := range prepared.Evidence.Commits {
+		sources = append(sources, map[string]any{"__type": "Commit", "hash": ce.Record.Hash})
+	}
+	data, err := json.Marshal(map[string]any{
+		"schema_version": "1.0.0",
+		"entries": []any{map[string]any{"kind": "FEATURE", "summary": "Add a flag.", "breaking": false, "derived": false,
+			"sources": sources}},
+		"sources": prepared.Evidence.Sources,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	common := filepath.Join(work, ".git")
+	writeFile(t, common, "authored.json", string(data))
+	writeFile(t, work, "release.toml", "release_paths = [\"VERSION\"]\n[commands]\npropagate = \"echo $RELEASE_VERSION > VERSION\"\n"+
+		"[changelog]\nproducer = \"command\"\nproducer_command = '"+
+		`d="$(git rev-parse --git-common-dir)"; echo run >> "$d/runs.log"; cat "$d/authored.json"`+"'\n")
+	return work, bare, func() int {
+		data, err := os.ReadFile(filepath.Join(common, "runs.log"))
+		if err != nil {
+			return 0
+		}
+		return strings.Count(string(data), "run\n")
+	}
+}
+
+func cutWithTerminal(t *testing.T, work, answers string, args ...string) (stdout, stderr string, code int) {
+	t.Helper()
+	var out, errb bytes.Buffer
+	s := &streams{out: &out, err: &errb, in: strings.NewReader(answers), interactive: true}
+	code = s.execute(append([]string{"-C", work, "cut", "--no-pull-request"}, args...))
+	return out.String(), errb.String(), code
+}
+
+// AC: AC-STG-001.19
+// AC: AC-VER-005.5
+func TestATerminalIsAskedForTheBumpWithTheSuggestionAndItsReasons(t *testing.T) {
+	work, bare, runs := authoredCutRepo(t)
+	stdout, stderr, code := cutWithTerminal(t, work, "\ny\n")
+	if code != 0 || !branchExists(bare, "cut/1.9.0") {
+		t.Fatalf("accepted: exit = %d\n%s%s", code, stdout, stderr)
+	}
+	prompt, _, _ := strings.Cut(stderr, "Proceed?")
+	for _, want := range []string{"suggested bump: minor", "- Add a flag.", "signal floor: minor", "feat: add a flag (conventional-type)", "Bump? [minor]"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("before the first write, stderr lacks %q:\n%s", want, prompt)
+		}
+	}
+	if n := runs(); n != 1 {
+		t.Errorf("the producer ran %d times; the confirming call must read the cached changelog", n)
+	}
+	if msg := gitOutput(t, bare, "log", "-1", "--format=%B", "cut/1.9.0"); !strings.Contains(msg, "Release-Type: minor") {
+		t.Errorf("release commit:\n%s\nwant the accepted minor as its trailer", msg)
+	}
+}
+
+func TestATerminalAnswerNamingABumpIsTheConfirmedBump(t *testing.T) {
+	work, bare, runs := authoredCutRepo(t)
+	_, stderr, code := cutWithTerminal(t, work, "major\ny\n")
+	if code != 0 || !branchExists(bare, "cut/2.0.0") || branchExists(bare, "cut/1.9.0") {
+		t.Fatalf("exit = %d\n%s\nwant cut/2.0.0 from the named major", code, stderr)
+	}
+	if n := runs(); n != 1 {
+		t.Errorf("the producer ran %d times; the confirming call must read the cached changelog", n)
+	}
+	if msg := gitOutput(t, bare, "log", "-1", "--format=%B", "cut/2.0.0"); !strings.Contains(msg, "Release-Type: major") {
+		t.Errorf("release commit:\n%s\nwant the named major as its trailer", msg)
+	}
+}
+
+func TestATerminalAnswerDecliningWritesNothing(t *testing.T) {
+	for _, answer := range []string{"n\n", "huge\n", ""} {
+		work, bare, _ := authoredCutRepo(t)
+		_, stderr, code := cutWithTerminal(t, work, answer)
+		if code != int(StatusRefused) || !strings.Contains(stderr, "declined") || strings.Contains(stderr, "Proceed?") {
+			t.Errorf("answer %q: exit = %d, stderr:\n%s\nwant a refusal before the write prompt", answer, code, stderr)
+		}
+		if branchExists(work, "cut/1.9.0") || branchExists(bare, "cut/1.9.0") {
+			t.Errorf("answer %q: a declined cut wrote", answer)
+		}
+	}
+}
+
+func gitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return string(out)
 }

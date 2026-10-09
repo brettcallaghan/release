@@ -240,7 +240,6 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 		setup func(*fixture, *Request)
 		want  string
 	}{
-		"skip without a bump":    {func(_ *fixture, r *Request) { r.Named = nil }, "needs a named bump"},
 		"propagate unconfigured": {func(_ *fixture, r *Request) { r.Config.Commands.Propagate = nil }, "commands.propagate is unconfigured"},
 		"preflight fails": {func(_ *fixture, r *Request) {
 			r.Config.Commands.Preflight = []string{"true", "echo preflight said no; exit 4"}
@@ -486,12 +485,24 @@ func TestAnUnconfirmedSuggestionHaltsBeforeAnyWrite(t *testing.T) {
 	f.writeAuthored(&req, "Compute for any release line.")
 	req.Named = nil
 	res, err := Cut(context.Background(), req)
-	var r *Refusal
-	if !errors.As(err, &r) || !strings.Contains(r.Reason, "release cut minor") {
-		t.Fatalf("err = %v, want a refusal naming the confirming command", err)
+	var h *Halt
+	if !errors.As(err, &h) || h.OnlyNamed || h.Suggestion.Suggestion != releasemodel.BumpMinor || !strings.Contains(h.Error(), "release cut --yes") {
+		t.Fatalf("err = %v, want a halt with the minor suggestion naming --yes", err)
 	}
-	if len(res.Writes) != 0 || f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") {
+	if len(res.Writes) != 0 || res.Branch != "" || f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") || f.ghArgs() != nil {
 		t.Errorf("a halted cut wrote: %v", res.Writes)
+	}
+
+	// Accepting reads the cached changelog: the producer is not run again.
+	req.Config.Changelog.ProducerCommand = ptr("exit 7")
+	changelog := req.Config.Changelog
+	req.Producers = func(dir string, env []string) map[string]authoring.Producer {
+		return producers.Registry(changelog, dir, env...)
+	}
+	req.Accepted = true
+	res, err = Cut(context.Background(), req)
+	if err != nil || res.Version != "1.9.0" || res.Changelog.Authoring.Obtained != authoring.FromCache {
+		t.Fatalf("accepted: version %q, obtained %v, err %v; want 1.9.0 from the cached changelog", res.Version, res.Changelog.Authoring.Obtained, err)
 	}
 }
 

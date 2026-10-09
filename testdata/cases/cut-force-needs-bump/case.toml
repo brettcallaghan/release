@@ -1,5 +1,5 @@
 description = "--force without a bump refuses, because there is no named bump to force"
-cites = ["contract-release-cli#commands"]
+cites = ["contract-release-cli#commands", "contract-release-cli#release-cut-bump"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
