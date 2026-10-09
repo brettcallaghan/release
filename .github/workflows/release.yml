@@ -87,6 +87,13 @@ jobs:
             fail "CHANGELOG.md's newest section is '${top:-none}', not $version"
           fi
 
+          # The plugin manifest ships the same version as the stage; a release
+          # is never tagged while it carries another.
+          plugin_version="$(jq -r .version plugin/.claude-plugin/plugin.json)"
+          if [ "$plugin_version" != "$version" ]; then
+            fail "plugin/.claude-plugin/plugin.json's version is '$plugin_version', not $version"
+          fi
+
           # A tag already on this commit is a re-run; anywhere else, a collision.
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             at="$(git rev-parse "$tag^{commit}")"
