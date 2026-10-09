@@ -1,0 +1,16 @@
+description = "with the default configuration the producer receives the evidence bundle: the range's three commits oldest first, each with its subject, full body, trailers, pull request information where git carries it, changed files and diff; the producer here echoes it and fails"
+cites = ["AC-CLOG-001.9", "AC-CLOG-002.6", "AC-CLOG-003.12"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["add", "src/greet.txt"],
+  ["commit", "-q", "--cleanup=verbatim", "-m", "feat(cli): greet the user (#21)\n\nGreets the user by name on start.\nAdds a greeting template.\nReads the name from the environment.\nFalls back to \"friend\"."],
+  ["add", "src/farewell.txt"],
+  ["commit", "-q", "-m", "fix: say goodbye on exit\n\nThe farewell was never printed.\n\nRefs: #4"],
+  ["add", "README.md"],
+  ["commit", "-q", "-m", "docs: describe the greeter"],
+]
+args = ["changelog", "--target", "main"]
+exit_code = 1
+artifacts = ["stdout.txt", "stderr.txt"]

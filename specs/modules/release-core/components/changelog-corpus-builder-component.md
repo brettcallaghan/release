@@ -10,10 +10,8 @@ updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog
-source_paths:
-  - internal/corpus
-test_paths:
-  - internal/corpus
+source_paths: []
+test_paths: []
 ---
 
 # Changelog Corpus Builder
@@ -22,7 +20,9 @@ test_paths:
 
 **Retired.** [[component-evidence-builder]] replaces it as the producer's
 input, and [[component-mechanical-producer]] takes over its model-free
-entries. `internal/corpus` stays until the evidence-first epic removes it.
+entries. No code implements it: its package, `internal/corpus`, is gone, and
+the changelog operation exchanges the evidence bundle instead. The rest of
+this document describes the component as it was.
 
 Assembles the structured corpus an author works from. It reads records
 from the enabled source adapters, merges any author-written notes already
@@ -52,7 +52,7 @@ Three adapters are specified, each with its own blueprint:
   derivation; out — authoring prose, and rendering.
 - **Composed into:** [[module-release-core]] — consumes the collectors,
   feeds [[component-changelog-authoring-bridge]]; see it for relationships.
-- **Source & tests:** `internal/corpus`.
+- **Source & tests:** none; `internal/corpus` is removed.
 
 ## Interface
 

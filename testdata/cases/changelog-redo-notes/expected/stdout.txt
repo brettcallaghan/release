@@ -1,4 +1,20 @@
 version: 1.9.0
+bump: minor
+named: false
+suggested: minor
+floor: minor
+reasons:
+  - kind: feature
+    breaking: false
+    scope: null
+    summary: Fresh prose from the producer.
+    sources:
+      - "#12"
+      - 238393dee49924ef28901ac042110166d4739c49
+raised_by_floor: false
+unclassified:
+  - hash: 53b6ea9aa35aa95ab7d00846da292db29f5ac460
+    subject: "docs: describe the flag"
 corpus_path: notes.json
 section: |-
   ## 1.9.0
@@ -11,10 +27,10 @@ section: |-
 
   ### Features
 
-  - Fresh prose from the producer. (#12)
+  - Fresh prose from the producer. (#12, 238393d)
 
     Pass `--target <branch>`.
 
   ### Fixes
 
-  - **cli:** handle empty input (#11)
+  - **cli:** Handle empty input. (#11, e48de63)

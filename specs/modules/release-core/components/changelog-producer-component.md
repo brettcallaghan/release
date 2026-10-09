@@ -151,7 +151,9 @@ WHEN the skill the Claude CLI producer invokes changes the shape it returns,
 - **Verification gates:** the conformance suite every producer runs, plus the
   individual producer's own tests. The conformance suite covers the empty
   bundle, schema validity of the result, every commit cited or omitted, and
-  that `version` is left unset.
+  that `version` is left unset. It is `producertest.Run` in
+  `internal/authoring/producers/producertest`, which takes any
+  `authoring.Producer`.
 
 ## Key Decisions
 

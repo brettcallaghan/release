@@ -1,0 +1,10 @@
+description = "a named bump over a range with no commits answers the named version and warns that release cut needs --force"
+cites = ["contract-release-cli#commands"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.1", "v1.8.1"],
+]
+args = ["version", "patch", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

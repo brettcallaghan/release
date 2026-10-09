@@ -251,6 +251,8 @@ func TestADeclaredChangelogGroupListReplacesTheDefaultWhole(t *testing.T) {
 		OtherHeading:    "Misc",
 		BreakingHeading: "Breaking changes",
 		Producer:        "claude",
+		DiffBudget:      config.DiffBudget{Release: 204800},
+		DiffExclude:     config.DefaultDiffExclude(),
 	}
 	if !reflect.DeepEqual(cfg.Changelog, want) {
 		t.Errorf("changelog = %+v\nwant %+v", cfg.Changelog, want)
@@ -294,8 +296,47 @@ func TestThisRepositorysConfigurationLoads(t *testing.T) {
 		OtherHeading:    "Other changes",
 		BreakingHeading: "💥 Breaking changes",
 		Producer:        "claude",
+		DiffBudget:      config.DiffBudget{Release: 204800},
+		DiffExclude:     config.DefaultDiffExclude(),
 	}
 	if !reflect.DeepEqual(cfg.Changelog, want) {
 		t.Errorf("changelog = %+v\nwant %+v", cfg.Changelog, want)
+	}
+}
+
+// AC: AC-CFG-003.6
+func TestADiffBudgetThatIsNotAPositiveIntegerIsRefusedNamingTheSetting(t *testing.T) {
+	for _, value := range []string{"0", "-1", `"100KB"`} {
+		t.Run(value, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, dir, "release.toml", "[changelog.diff_budget]\nrelease = "+value+"\n")
+			got := refusalReasons(t, func() error { _, err := load(t, dir, ""); return err }())
+			if len(got) != 1 || !strings.Contains(got[0], "changelog.diff_budget.release") {
+				t.Errorf("reasons = %v, want one naming changelog.diff_budget.release", got)
+			}
+		})
+	}
+}
+
+// AC: AC-CFG-003.3
+func TestADeclaredDiffExclusionListReplacesTheDefaultWhole(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "release.toml", "[changelog]\ndiff_exclude = [\"gen/**\"]\n")
+	cfg, err := load(t, dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"gen/**"}; !reflect.DeepEqual(cfg.Changelog.DiffExclude, want) {
+		t.Errorf("diff_exclude = %v, want %v", cfg.Changelog.DiffExclude, want)
+	}
+}
+
+// AC: AC-CFG-003.4
+func TestTheDiffAdapterIsAcceptedWhenTurnedOn(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "release.toml", "[adapters]\ndiffs = true\n")
+	cfg, err := load(t, dir, "")
+	if err != nil || !cfg.Adapters.Diffs {
+		t.Errorf("diffs = %v, err = %v; want accepted and on", cfg.Adapters.Diffs, err)
 	}
 }

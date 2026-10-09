@@ -1,0 +1,6 @@
+[changelog]
+producer = "command"
+producer_command = "cat >&2; exit 3"
+
+[adapters]
+diffs = false

@@ -1,5 +1,5 @@
-description = "the configured command producer authors the corpus; its proposal agrees with the computed impact, so the section renders from its prose"
-cites = ["AC-CLOG-003.3", "AC-CLOG-003.8", "contract-release-cli#guarantees"]
+description = "with no named bump the configured producer authors the changelog from the evidence bundle and the section renders under the suggested bump as a preview; the answer carries the bump, the suggestion, the floor, the reasons and the unclassified commits"
+cites = ["AC-CLOG-003.12", "AC-CLOG-003.8", "contract-release-cli#guarantees", "contract-release-cli#release-changelog-bump"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],

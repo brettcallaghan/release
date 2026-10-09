@@ -1,0 +1,13 @@
+base: 1.8.0
+impact: patch
+named: false
+determined_by:
+  - hash: 83acb5f7336bc33e6f2c3fcd5e19b7ab2daaaa8c
+    subject: "fix: handle empty input (#11)"
+    signal: conventional-type
+unclassified:
+  - hash: 3e1445a5f36e7e2e457c0d05c83154aa076ae870
+    subject: "docs: describe the flag"
+  - hash: 3332e9906fe9dceaaa0a1861bcc56333e0c75723
+    subject: Update the vendored parser (#12)
+next: 1.8.1

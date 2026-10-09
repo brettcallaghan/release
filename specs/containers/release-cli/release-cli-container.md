@@ -103,7 +103,9 @@ has the Bump Suggester ([[component-bump-suggester]]) derive the suggested
 bump from the authored entries' kinds, raised to the signal floor, sets the
 corpus `version` from the named bump or else the suggestion, and renders it.
 It never prompts and confirms nothing: without a named bump the section is a
-preview under the suggestion. Its answer is one mapping with keys `version`,
+preview under the suggestion, and the one halt a preview cannot answer, a
+suggestion of none with an entry that has no kind, is a refusal naming
+those entries and `release changelog <bump>`. Its answer is one mapping with keys `version`,
 `bump`, `named`, `suggested`, `floor`, `reasons` (the entries that drove the
 suggestion), `raised_by_floor`, `unclassified`, `corpus_path` (where the
 authored corpus is kept, relative to the repository root when inside it;

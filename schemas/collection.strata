@@ -30,11 +30,28 @@ struct CommitRecord {
     body: String
 
     """
-    The pull request number parsed out of the subject, where one is present.
+    The pull request the commit carries, where it carries one.
 
     Absent for a commit pushed directly to a release line.
     """
-    pull_request: Int?
+    pull_request: PullRequestInfo?
+
+    """
+    The author date, RFC 3339, as `git log --format=%aI` prints it.
+    """
+    author_date: String
+
+    """
+    Every file the commit changed.
+    """
+    files: [FileChange]
+
+    """
+    The parsed conventional-commit subject, where the subject is one.
+
+    Absent for a subject that does not follow the convention.
+    """
+    conventional: Conventional?
 
     """
     Trailers parsed from the body as key-value pairs.
@@ -101,4 +118,173 @@ struct PullRequestRecord {
     request has been merged.
     """
     merge_commit: String?
+}
+
+"""
+One file a commit changed.
+"""
+struct FileChange {
+    """
+    The path after the change.
+    """
+    path: String
+
+    """
+    The path before the change. Set for a rename or copy.
+    """
+    previous_path: String?
+
+    """
+    How the commit changed the file.
+    """
+    status: FileStatus
+
+    """
+    Lines added.
+    """
+    additions: Int
+
+    """
+    Lines deleted.
+    """
+    deletions: Int
+}
+
+"""
+How a commit changed a file.
+"""
+enum FileStatus {
+    """
+    The file did not exist before the commit.
+    """
+    ADDED
+
+    """
+    The file existed before and after the commit.
+    """
+    MODIFIED
+
+    """
+    The file does not exist after the commit.
+    """
+    DELETED
+
+    """
+    The file moved from `previous_path`.
+    """
+    RENAMED
+
+    """
+    The file was copied from `previous_path`.
+    """
+    COPIED
+}
+
+"""
+The changes one commit made, as patch text.
+"""
+struct DiffRecord {
+    """
+    The commit the diff is of.
+    """
+    commit: String
+
+    """
+    The per-file patches.
+    """
+    files: [FileDiff]
+
+    """
+    Whether the budget cut some patch text.
+    """
+    truncated: Bool
+}
+
+"""
+The patch of one file.
+"""
+struct FileDiff {
+    """
+    The file's path.
+    """
+    path: String
+
+    """
+    The unified diff text for this file.
+    """
+    patch: String
+
+    """
+    Whether the budget cut this patch.
+    """
+    truncated: Bool
+}
+
+"""
+The parts of a conventional-commit subject.
+"""
+struct Conventional {
+    """
+    The type as written, for example `feat`.
+    """
+    type: String
+
+    """
+    The scope, where the subject names one.
+    """
+    scope: String?
+
+    """
+    Whether the subject carries a `!` marker or the body a `BREAKING CHANGE:`
+    footer.
+    """
+    breaking: Bool
+}
+
+"""
+The pull request a commit carries.
+"""
+struct PullRequestInfo {
+    """
+    The pull request number.
+    """
+    number: Int
+
+    """
+    The pull request title, where known.
+    """
+    title: String?
+
+    """
+    The pull request description, where known.
+    """
+    description: String?
+
+    """
+    Where the number, title and description were read from.
+    """
+    origin: PullRequestOrigin
+}
+
+"""
+Where a pull request's information was read from.
+"""
+enum PullRequestOrigin {
+    """
+    A squash commit: the number from the subject's trailing ` (#<n>)`, the
+    title from the subject without it, the description from the body.
+    """
+    SQUASH
+
+    """
+    A merge commit: the number from the subject, the title and description
+    from the body.
+    """
+    MERGE
+
+    """
+    Fetched from the hosting platform by the optional pull request adapter
+    because the commit body lacked it.
+    """
+    PLATFORM
 }

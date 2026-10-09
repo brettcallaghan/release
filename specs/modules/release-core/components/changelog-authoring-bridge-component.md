@@ -98,29 +98,39 @@ saw.
   - The component SHALL NOT suggest or decide a bump.
   - The component SHALL NOT call a language model itself.
   - The component SHALL NOT require network access of its own.
-- **Operation:** `authoring.Exchange` takes the evidence bundle, the
-  configured producer name with the producers a configuration may select,
-  the cache path, and the redo and skip requests. It answers with the
-  accepted changelog, which producer authored it, and whether it was
-  authored mechanically, read from the cache, or authored by the configured
-  producer.
+- **Operation:** `authoring.ExchangeEvidence` takes the evidence bundle, the
+  configured producer name with the producers a configuration may select
+  (the registry includes `mechanical`), the cache path, and the redo and
+  skip requests. It answers with the accepted changelog, which producer
+  authored it, and whether it was authored mechanically, read from the
+  cache, or authored by the configured producer. A producer that fails or
+  is unavailable is returned as `*ProducerFailure`, which names
+  `--skip-notes`. `authoring.AcceptChangelog` is the validation alone.
+  `proposed_bump` is ignored: neither compared nor rejected.
+  `authoring.ChangelogCachePath` names a range's cache file.
 - **Validation rules:**
-  - **Shape.** `Accept` rejects, before anything decodes the document for
+  - **Shape.** `AcceptChangelog` rejects, before anything decodes the document for
     use, one that is not a JSON object, one whose `schema_version` is not a
     version or has a major other than the one implemented, and one that
     does not validate against the generated JSON Schema. A cached or named
     changelog is accepted the same way as a returned one.
-  - **Range.** A changelog whose corpus-level `sources` differ from the
-    bundle's `sources` is rejected: a producer copies them unchanged, and a
-    changelog for another range does not apply.
+  - **Range.** A changelog returned by a producer whose corpus-level
+    `sources` differ from the bundle's `sources` is rejected: a producer
+    copies them unchanged. A changelog read from a file (the cache, or a
+    named corpus) is compared on the range only: every adapter run in its
+    `sources` and in the bundle's records the same `from` and `to`, and a
+    differing adapter set or diff budget does not matter. One for another
+    range is rejected as such.
   - **Entries are changes.** Entries are not matched to commits one for
     one. An entry may cite several commits, and one commit may be cited by
-    several entries. Every entry cites at least one source, and an entry
+    several entries. Every entry cites at least one commit, and an entry
     citing a commit absent from the bundle, or a pull request no commit in
     the bundle carries, is rejected.
   - **Entry fields.** Each entry has a `kind` from `ChangeKind`, or none
     for the other heading; an optional `scope`; a non-empty `summary`
-    holding no blank line; an optional `detail`; and `migration` WHEN it
+    holding no blank line and no more than two sentences (a sentence end
+    is `.`, `!` or `?` followed by whitespace and an uppercase letter, or
+    by the end of the summary); an optional `detail`; and `migration` WHEN it
     is `breaking`.
   - **Every commit accounted for.** Every commit in the bundle is cited by
     at least one entry or listed in `omitted`, each `omitted` item naming a
@@ -136,6 +146,10 @@ saw.
     producer's output byte for byte, and is replaced by an atomic rename
     of a fully written temporary file, so a failed write keeps the
     changelog already there.
+  - The evidence bundle the producer was given is kept beside it, written
+    whenever a producer authors, as the cache file's name with
+    `.evidence.json` in place of `.json`; for a maintainer-named changelog
+    `x.json` it is `x.evidence.json`.
   - WHEN the cache file exists and redo was not requested, the bridge reads
     it and invokes no producer. WHEN redo is requested, it invokes the
     producer and replaces the file only after accepting the result, so a

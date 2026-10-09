@@ -2,4 +2,9 @@ base: 2.0.0
 impact: none
 named: false
 determined_by: []
+unclassified:
+  - hash: 8bbb760c7188ee2a7d1bb61c4f14f055706c48af
+    subject: "chore: tidy"
+  - hash: b6ec8927cf764d222f5d513965a8e08f6ee05520
+    subject: "docs: fix a typo"
 next: null

@@ -1,0 +1,509 @@
+{
+  "$ref": "#/definitions/Evidence",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Adapter": {
+      "description": "A source of changelog material.",
+      "enum": [
+        "COMMITS",
+        "PULL_REQUESTS",
+        "DIFFS"
+      ],
+      "type": "string"
+    },
+    "AdapterRun": {
+      "description": "One adapter's contribution to a corpus: which adapter, and the range it read.",
+      "properties": {
+        "adapter": {
+          "$ref": "#/definitions/Adapter",
+          "description": "The adapter that contributed."
+        },
+        "budget": {
+          "description": "The diff budget report of the evidence the corpus was authored from. Set\non the run of the `DIFFS` adapter.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/BudgetReport"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from": {
+          "description": "The full hash of the range's base commit: the commit the previous release\nwas tagged on. Absent for a release line with no release yet, whose range\nstarts at its root.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "description": "The full hash of the range's head commit: the newest commit the adapter\nread.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "adapter",
+        "to"
+      ],
+      "type": "object"
+    },
+    "BudgetReport": {
+      "description": "How much patch text a bundle carries against its limit.",
+      "properties": {
+        "limit": {
+          "$ref": "#/definitions/__Int",
+          "description": "Bytes of patch text permitted."
+        },
+        "omitted": {
+          "description": "The patches the budget left out or cut.",
+          "items": {
+            "$ref": "#/definitions/OmittedDiff"
+          },
+          "type": "array"
+        },
+        "total": {
+          "$ref": "#/definitions/__Int",
+          "description": "Bytes of patch text before the budget applied."
+        },
+        "used": {
+          "$ref": "#/definitions/__Int",
+          "description": "Bytes of patch text carried."
+        }
+      },
+      "required": [
+        "limit",
+        "total",
+        "used",
+        "omitted"
+      ],
+      "type": "object"
+    },
+    "Bump": {
+      "description": "The release impact of a change or of a release as a whole.",
+      "enum": [
+        "MAJOR",
+        "MINOR",
+        "PATCH",
+        "NONE"
+      ],
+      "type": "string"
+    },
+    "CommitEvidence": {
+      "description": "Everything the bundle holds about one commit.",
+      "properties": {
+        "conventional": {
+          "description": "The parsed conventional subject, where the subject is one.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Conventional"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diff": {
+          "description": "The commit's diff. Absent WHEN the budget carried none of it.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/DiffRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pull_request": {
+          "description": "The pull request the commit carries, where it carries one.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/PullRequestInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record": {
+          "$ref": "#/definitions/CommitRecord",
+          "description": "The commit record: hash, subject, body, trailers, author and files."
+        },
+        "signal": {
+          "description": "The classifier's reading of the commit. Absent when unclassified.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Bump"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "record"
+      ],
+      "type": "object"
+    },
+    "CommitRecord": {
+      "description": "The records the collectors produce.\n\nCollection is deliberately free of interpretation: these records carry what\ngit and the hosting platform said, parsed into fields but not given meaning.\nDeciding what a trailer means, or which records become changelog entries, is\nthe business of the components that consume them.",
+      "properties": {
+        "author_date": {
+          "description": "The author date, RFC 3339, as `git log --format=%aI` prints it.",
+          "type": "string"
+        },
+        "author_email": {
+          "description": "The commit author's email address, as git recorded it.",
+          "type": "string"
+        },
+        "author_name": {
+          "description": "The commit author's name, as git recorded it.",
+          "type": "string"
+        },
+        "body": {
+          "description": "The commit body — everything after the subject.\n\nWhere a repository squashes using the pull request description, this is\nthat description, which is how pull request prose reaches the release\nwithout the hosting platform being consulted.",
+          "type": "string"
+        },
+        "conventional": {
+          "description": "The parsed conventional-commit subject, where the subject is one.\n\nAbsent for a subject that does not follow the convention.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Conventional"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files": {
+          "description": "Every file the commit changed.",
+          "items": {
+            "$ref": "#/definitions/FileChange"
+          },
+          "type": "array"
+        },
+        "hash": {
+          "description": "The full commit hash.",
+          "type": "string"
+        },
+        "pull_request": {
+          "description": "The pull request the commit carries, where it carries one.\n\nAbsent for a commit pushed directly to a release line.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/PullRequestInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject": {
+          "description": "The commit subject — its first line.\n\nFor a squash merge this is the pull request title, with the pull request\nreference the hosting platform appends still present.",
+          "type": "string"
+        },
+        "trailers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Trailers parsed from the body as key-value pairs.\n\nRecorded without interpretation. A release-type trailer means something\nto the bump classifier and nothing here.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "hash",
+        "subject",
+        "body",
+        "author_date",
+        "files",
+        "trailers",
+        "author_name",
+        "author_email"
+      ],
+      "type": "object"
+    },
+    "Conventional": {
+      "description": "The parts of a conventional-commit subject.",
+      "properties": {
+        "breaking": {
+          "description": "Whether the subject carries a `!` marker or the body a `BREAKING CHANGE:`\nfooter.",
+          "type": "boolean"
+        },
+        "scope": {
+          "description": "The scope, where the subject names one.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "description": "The type as written, for example `feat`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "breaking"
+      ],
+      "type": "object"
+    },
+    "DiffRecord": {
+      "description": "The changes one commit made, as patch text.",
+      "properties": {
+        "commit": {
+          "description": "The commit the diff is of.",
+          "type": "string"
+        },
+        "files": {
+          "description": "The per-file patches.",
+          "items": {
+            "$ref": "#/definitions/FileDiff"
+          },
+          "type": "array"
+        },
+        "truncated": {
+          "description": "Whether the budget cut some patch text.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "commit",
+        "files",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "Evidence": {
+      "description": "The evidence a producer authors a release's changelog from.\n\nThe tooling builds an Evidence instance and a producer reads it; a producer\nnever builds one. It states what git said without interpreting it.",
+      "properties": {
+        "base_version": {
+          "description": "The version the range starts from, without a tag prefix. Absent for a\nrelease line with no release yet.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "budget": {
+          "$ref": "#/definitions/BudgetReport",
+          "description": "How much patch text the bundle carries against its limit."
+        },
+        "commits": {
+          "description": "The commits in the range, oldest first.",
+          "items": {
+            "$ref": "#/definitions/CommitEvidence"
+          },
+          "type": "array"
+        },
+        "purpose": {
+          "$ref": "#/definitions/EvidencePurpose",
+          "description": "What the bundle is evidence for."
+        },
+        "range": {
+          "$ref": "#/definitions/Range",
+          "description": "The commit range the bundle covers."
+        },
+        "schema_version": {
+          "description": "Version of this schema that the instance conforms to.",
+          "type": "string"
+        },
+        "sources": {
+          "description": "The adapters that contributed material to the bundle.",
+          "items": {
+            "$ref": "#/definitions/AdapterRun"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "purpose",
+        "range",
+        "commits",
+        "sources",
+        "budget"
+      ],
+      "type": "object"
+    },
+    "EvidencePurpose": {
+      "description": "What a bundle is evidence for.",
+      "enum": [
+        "RELEASE"
+      ],
+      "type": "string"
+    },
+    "FileChange": {
+      "description": "One file a commit changed.",
+      "properties": {
+        "additions": {
+          "$ref": "#/definitions/__Int",
+          "description": "Lines added."
+        },
+        "deletions": {
+          "$ref": "#/definitions/__Int",
+          "description": "Lines deleted."
+        },
+        "path": {
+          "description": "The path after the change.",
+          "type": "string"
+        },
+        "previous_path": {
+          "description": "The path before the change. Set for a rename or copy.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/definitions/FileStatus",
+          "description": "How the commit changed the file."
+        }
+      },
+      "required": [
+        "path",
+        "status",
+        "additions",
+        "deletions"
+      ],
+      "type": "object"
+    },
+    "FileDiff": {
+      "description": "The patch of one file.",
+      "properties": {
+        "patch": {
+          "description": "The unified diff text for this file.",
+          "type": "string"
+        },
+        "path": {
+          "description": "The file's path.",
+          "type": "string"
+        },
+        "truncated": {
+          "description": "Whether the budget cut this patch.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "patch",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "FileStatus": {
+      "description": "How a commit changed a file.",
+      "enum": [
+        "ADDED",
+        "MODIFIED",
+        "DELETED",
+        "RENAMED",
+        "COPIED"
+      ],
+      "type": "string"
+    },
+    "OmissionReason": {
+      "description": "Why a patch is not carried whole.",
+      "enum": [
+        "EXCLUDED",
+        "BINARY",
+        "OVER_BUDGET"
+      ],
+      "type": "string"
+    },
+    "OmittedDiff": {
+      "description": "A patch the bundle left out or cut.",
+      "properties": {
+        "commit": {
+          "description": "The commit the patch belongs to.",
+          "type": "string"
+        },
+        "path": {
+          "description": "The file the patch is of.",
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/definitions/OmissionReason",
+          "description": "Why the patch is not carried whole."
+        },
+        "truncated": {
+          "description": "Whether part of the patch was carried.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "commit",
+        "path",
+        "reason",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "PullRequestInfo": {
+      "description": "The pull request a commit carries.",
+      "properties": {
+        "description": {
+          "description": "The pull request description, where known.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "number": {
+          "$ref": "#/definitions/__Int",
+          "description": "The pull request number."
+        },
+        "origin": {
+          "$ref": "#/definitions/PullRequestOrigin",
+          "description": "Where the number, title and description were read from."
+        },
+        "title": {
+          "description": "The pull request title, where known.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "number",
+        "origin"
+      ],
+      "type": "object"
+    },
+    "PullRequestOrigin": {
+      "description": "Where a pull request's information was read from.",
+      "enum": [
+        "SQUASH",
+        "MERGE",
+        "PLATFORM"
+      ],
+      "type": "string"
+    },
+    "Range": {
+      "description": "The commit range a bundle covers.",
+      "properties": {
+        "from": {
+          "description": "The full hash of the base commit. Absent for a release line with no\nrelease yet, whose range starts at its root.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to": {
+          "description": "The full hash of the head commit.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "to"
+      ],
+      "type": "object"
+    },
+    "__Int": {
+      "maximum": 9007199254740991,
+      "minimum": -9007199254740991,
+      "type": "integer"
+    }
+  }
+}

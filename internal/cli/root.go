@@ -12,6 +12,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -42,6 +43,8 @@ type streams struct {
 	// only condition under which a command prompts.
 	in          io.Reader
 	interactive bool
+	// stdin buffers in for the prompts; see reader.
+	stdin *bufio.Reader
 
 	cfg  config.Config
 	root string

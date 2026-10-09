@@ -123,7 +123,7 @@ keys, in this order:
 | `named` | Whether a bump was named |
 | `suggested` | The suggested bump |
 | `floor` | The signal floor |
-| `reasons` | The entries that drove the suggestion, each `kind`, `breaking`, `scope`, `summary` and `sources` |
+| `reasons` | The entries that drove the suggestion, each `kind` (lower-case, or null), `breaking`, `scope` (or null), `summary` and `sources` (`#<n>` for a pull request, the full hash for a commit, the id for an issue) |
 | `raised_by_floor` | Whether the signal floor raised the suggestion above the entries' kinds |
 | `unclassified` | The commits that carry no enabled signal, each `hash` and `subject` |
 | `corpus_path` | Where the authored corpus is kept, relative to the repository root when inside it; null under `--skip-notes` |
@@ -140,6 +140,11 @@ WHERE `--skip-notes` is given, the entries' kinds come from conventional
 subjects only, so the suggestion is the signal floor, and standard error
 says that no producer read the diffs.
 
+WHEN the suggestion is none and an entry has no kind, a preview cannot
+stand in for the named bump only a person can give: it refuses with no
+answer, and standard error names the entries without a kind and
+`release changelog <bump>`.
+
 WHEN the configured producer is unavailable or fails, the provider SHALL
 report the failure on standard error and stop, naming `--skip-notes` as the
 way to author with the mechanical producer. It SHALL NOT fall back to
@@ -148,7 +153,7 @@ another producer on its own. The same holds for `release cut`.
 | Exit | When |
 |---|---|
 | 0 | The section was rendered, and written under `--write` |
-| 1 | No release is warranted; the policy refuses the version; a named bump below the signal floor without `--force`; `--force` without a bump; the producer fails or its corpus is rejected |
+| 1 | No release is warranted; the policy refuses the version; a named bump below the signal floor without `--force`; `--force` without a bump; no bump named while the suggestion is none and an entry has no kind; the producer fails or its corpus is rejected |
 | 2 | `--skip-notes` with `--redo-notes` or `--corpus`; `--write` without a bump; an invalid bump; a missing producer prerequisite |
 
 ### `release cut [bump]`
@@ -204,6 +209,11 @@ person's confirmation:
   `floor`, `reasons`, `raised_by_floor`, `unclassified` and `corpus_path`,
   as `release changelog` defines them, in that order.
 
+WHEN the target's tip on origin moved between the prompt and the
+confirmation, or the range's start (its base release tag) changed, or the
+authored changelog now suggests another bump, the provider SHALL refuse,
+writing nothing: the suggestion shown no longer describes the range.
+
 WHEN no bump is named, the suggestion is none, and the authored changelog
 holds an entry with no kind, the provider SHALL halt the same way, with or
 without `--yes`, naming `release cut <bump>`: no producer classified those
@@ -223,7 +233,7 @@ floor. `--force` without a bump is a refusal.
 | Exit | When |
 |---|---|
 | 0 | The release was staged, or under `--dry-run` reported |
-| 1 | A refusal, having written nothing: a halt for an unconfirmed bump, which answers as above; and, answering nothing, nothing to release, a named bump below the signal floor without `--force`, `--force` without a bump, a declined prompt, an existing stage branch, an unconfigured `commands.propagate`, a platform CLI missing or not authenticated when a pull request is to be opened, a failing configured command, a path outside `release_paths`, a failing or rejected producer |
+| 1 | A refusal, having written nothing: a halt for an unconfirmed bump, which answers as above; and, answering nothing, nothing to release, a named bump below the signal floor without `--force`, `--force` without a bump, a declined prompt, the target, the range's start or the suggested bump changed while the prompt was open, an existing stage branch, an unconfigured `commands.propagate`, a platform CLI missing or not authenticated when a pull request is to be opened, a failing configured command, a path outside `release_paths`, a failing or rejected producer |
 | 2 | `--skip-notes` with `--redo-notes`; a bump other than `major`, `minor` or `patch`; a missing producer prerequisite |
 | 3 | A write failed after another succeeded; the answer lists every write made, and standard error names the commands that finish or discard the release |
 

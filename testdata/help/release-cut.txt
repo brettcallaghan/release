@@ -1,37 +1,41 @@
 cut fetches the target branch from origin and prepares the release from its
-tip in a scratch checkout: it resolves the version, authors and renders the
-changelog, writes it into CHANGELOG.md, runs commands.propagate to write the
-version into the manifests (with RELEASE_VERSION set), refuses a change to
-any path that is neither CHANGELOG.md nor in release_paths, and runs
-commands.validate. Only then does it write: it creates the stage branch at
-the fetched tip, commits the release as "Release <version>", pushes the
-branch to origin, and opens a pull request into the target with gh. Your
-working tree, index and current branch are never read or changed.
+tip in a scratch checkout: it resolves the base version and the signal floor,
+authors the changelog from the commits' evidence, suggests the bump, has it
+confirmed, writes the rendered section into CHANGELOG.md, runs
+commands.propagate to write the version into the manifests (with
+RELEASE_VERSION set), refuses a change to any path that is neither
+CHANGELOG.md nor in release_paths, and runs commands.validate. Only then
+does it write: it creates the stage branch at the fetched tip, commits the
+release as "Release <version>" with a Release-Type trailer carrying the
+confirmed bump, pushes the branch to origin, and opens a pull request into
+the target with gh. Your working tree, index and current branch are never
+read or changed.
 
-bump is major, minor or patch, and names the impact instead of inferring
-it. A named bump is refused when the commits since the base version indicate
-no bump (there are none, or none is releasable), unless --force is given.
-When standard input is a terminal, cut shows the writes it will make and
-asks once before the first. It never tags, publishes, merges, or changes the
-target branch. Exits 1 when it refuses (nothing to release, an impact
-disagreement, an existing stage branch, a failing configured command, a
-path outside release_paths), having written nothing, and 3 when a write
-failed after another succeeded, having reported every write it made. If the
-push fails, cut deletes the local stage branch it created.
+bump is major, minor or patch, and is a decision that needs no confirmation;
+below the suggestion it proceeds with a warning, and below the signal floor
+or over a range with nothing releasable it is refused unless --force is
+given. Without a bump the suggested bump must be confirmed: --yes accepts
+it; on a terminal cut shows it with its reasons and asks; otherwise cut
+halts, answering the suggestion, and exits 1. On a terminal cut also shows
+the writes it will make and asks once before the first, unless --yes. It
+never tags, publishes, merges, or changes the target branch. Exits 1 when it
+refuses or halts, having written nothing, and 3 when a write failed after
+another succeeded, having reported every write it made. If the push fails,
+cut deletes the local stage branch it created.
 
 Usage:
   release cut [bump] [flags]
 
 Flags:
       --dry-run           Report every intended action and the changelog section, and change nothing
-      --force             Cut the named bump even when nothing releasable exists since the base version. Requires bump
+      --force             Stage the named bump even when it is below the signal floor or the range holds nothing releasable. Requires bump
   -h, --help              help for cut
       --json              Render the answer as JSON instead of YAML
       --no-pull-request   Create and push the stage branch and stop; open no pull request
       --redo-notes        Discard any cached corpus and author again
-      --skip-notes        Stage without an authoring exchange. Requires bump
+      --skip-notes        Author with the mechanical producer in place of an authoring exchange
       --target branch     The release line to cut from: a branch on origin (default: the configured target, else the branch origin/HEAD points to)
-      --yes               Do not prompt before writing. Only meaningful interactively
+      --yes               Do not prompt: accept the suggested bump when none is named, and proceed to the writes
 
 Global Flags:
       --config file   Use this configuration file instead of discovering one

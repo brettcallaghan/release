@@ -1,0 +1,1 @@
+release changelog: no producer read the diffs: --skip-notes takes each entry's kind from its conventional subject, so the suggestion is the signal floor

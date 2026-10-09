@@ -1,6 +1,5 @@
 {
   "schema_version": "1.0.0",
-  "proposed_bump": "MINOR",
   "title": "Release lines on demand",
   "summary": "Compute for any line.\n\nNothing breaks.",
   "entries": [
@@ -14,21 +13,35 @@
         {
           "__type": "PullRequest",
           "number": 12
+        },
+        {
+          "__type": "Commit",
+          "hash": "238393dee49924ef28901ac042110166d4739c49"
         }
       ]
     },
     {
       "kind": "FIX",
       "scope": "cli",
-      "summary": "handle empty input",
+      "summary": "Handle empty input.",
       "breaking": false,
-      "derived": true,
+      "derived": false,
       "sources": [
         {
           "__type": "PullRequest",
           "number": 11
+        },
+        {
+          "__type": "Commit",
+          "hash": "e48de63b3644bbba5759d2038c1e7ea8a15c3add"
         }
       ]
+    }
+  ],
+  "omitted": [
+    {
+      "hash": "53b6ea9aa35aa95ab7d00846da292db29f5ac460",
+      "reason": "Documentation of the flag; the feature's entry covers it."
     }
   ],
   "sources": [
@@ -36,6 +49,17 @@
       "adapter": "COMMITS",
       "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
       "to": "53b6ea9aa35aa95ab7d00846da292db29f5ac460"
+    },
+    {
+      "adapter": "DIFFS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "53b6ea9aa35aa95ab7d00846da292db29f5ac460",
+      "budget": {
+        "limit": 204800,
+        "total": 0,
+        "used": 0,
+        "omitted": []
+      }
     }
   ]
 }

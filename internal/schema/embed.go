@@ -20,3 +20,10 @@ var ReleaseModel []byte
 //
 //go:embed changelog.schema.json
 var Changelog []byte
+
+// Evidence is the evidence bundle schema, rooted at Evidence: the one a
+// bundle is validated against before a producer reads it.
+// evidence.schema.json.
+//
+//go:embed evidence.schema.json
+var Evidence []byte

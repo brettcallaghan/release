@@ -1,0 +1,27 @@
+version: 1.8.1
+bump: patch
+named: true
+suggested: minor
+floor: patch
+reasons:
+  - kind: feature
+    breaking: false
+    scope: null
+    summary: The --verbose flag prints each step as it runs.
+    sources:
+      - d13e824555691d715373260fbb6d5ce99b43ed66
+raised_by_floor: false
+unclassified:
+  - hash: d13e824555691d715373260fbb6d5ce99b43ed66
+    subject: Add a --verbose flag
+corpus_path: .git/release/changelog/c2aea8f44df5afe616009556bcfc6b1f729a44cb..d13e824555691d715373260fbb6d5ce99b43ed66.json
+section: |-
+  ## 1.8.1
+
+  ### Features
+
+  - The --verbose flag prints each step as it runs. (d13e824)
+
+  ### Fixes
+
+  - **cli:** Handle empty input. (#11, e48de63)

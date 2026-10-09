@@ -10,10 +10,12 @@ section: |-
 
   ### Features
 
-  - A maintainer can compute a version for **any** release line. (#12)
-
-    Pass `--target <branch>`; it defaults to the configured target.
+  - add a --target flag (238393d, #12)
 
   ### Fixes
 
-  - **cli:** handle empty input (#11)
+  - **cli:** handle empty input (e48de63, #11)
+
+  ### Other changes
+
+  - Initial commit (c2aea8f)

@@ -16,22 +16,18 @@ import (
 // not. Every published artifact describing a release is rendered from one
 // instance, so no two artifacts can disagree.
 //
-// `proposed_bump` carries the producer's conclusion about release impact. It is
-// a proposal, never an authority: the release tooling computes the bump
-// independently and halts when the two disagree. Where a maintainer names the
-// bump explicitly, the named bump governs and the proposal is advisory.
+// A producer states the impact of each change through its entries' `kind` and
+// `breaking`, never the impact of the release: the release tooling suggests the
+// bump from those. Where a maintainer names the bump explicitly, the named bump
+// governs.
 type Changelog struct {
 	// Version of this schema that the instance conforms to.
 	//
 	// Consumers reject an instance declaring a schema version they do not
 	// implement rather than rendering it partially.
 	SchemaVersion string `json:"schema_version"`
-	// The release impact the producer concluded from the content.
-	//
-	// Absent on a corpus the tooling assembled, which proposes nothing, and
-	// required of every corpus a producer returns. Compared against the bump
-	// the tooling computes. A disagreement halts the release for human
-	// confirmation; it is never resolved by preferring one side.
+	// Left unset by every producer and ignored by the tooling, which suggests
+	// the bump from the entries' kinds and breaking flags.
 	ProposedBump *Bump `json:"proposed_bump,omitempty"`
 	// The resolved version this changelog describes, without a tag prefix — for
 	// example `1.4.0`.
@@ -63,10 +59,14 @@ type Changelog struct {
 	// Every adapter that contributed material to this corpus, and the commit
 	// range each read.
 	//
-	// Written when the corpus is assembled and carried through authoring
-	// unchanged, so a reviewer can tell what the prose was written from. Empty
-	// for a corpus nobody assembled, such as one written by hand.
+	// Carried from the evidence the corpus was authored from, so a reviewer can
+	// tell what the prose was written from. Empty for a corpus written by hand.
 	Sources []AdapterRun `json:"sources"`
+	// The commits no entry cites, each with why.
+	//
+	// Every commit in the evidence is either cited by an entry or listed here.
+	// Never rendered.
+	Omitted *[]OmittedCommit `json:"omitted,omitempty"`
 }
 
 func (v *Changelog) UnmarshalJSON(data []byte) error {
@@ -109,6 +109,37 @@ func (v *Changelog) UnmarshalJSON(data []byte) error {
 	} else if err := json.Unmarshal(m, &v.Sources); err != nil {
 		return prefixField("sources", err)
 	}
+	if m, ok := raw["omitted"]; ok {
+		if err := json.Unmarshal(m, &v.Omitted); err != nil {
+			return prefixField("omitted", err)
+		}
+	}
+	return nil
+}
+
+// A commit that no entry cites.
+type OmittedCommit struct {
+	// The full commit hash, as the evidence carries it.
+	Hash string `json:"hash"`
+	// One line saying why no entry cites the commit.
+	Reason string `json:"reason"`
+}
+
+func (v *OmittedCommit) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["hash"]; !ok || string(m) == "null" {
+		return fmt.Errorf("OmittedCommit: required field \"hash\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Hash); err != nil {
+		return prefixField("hash", err)
+	}
+	if m, ok := raw["reason"]; !ok || string(m) == "null" {
+		return fmt.Errorf("OmittedCommit: required field \"reason\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Reason); err != nil {
+		return prefixField("reason", err)
+	}
 	return nil
 }
 
@@ -123,6 +154,9 @@ type AdapterRun struct {
 	// The full hash of the range's head commit: the newest commit the adapter
 	// read.
 	To string `json:"to"`
+	// The diff budget report of the evidence the corpus was authored from. Set
+	// on the run of the `DIFFS` adapter.
+	Budget *BudgetReport `json:"budget,omitempty"`
 }
 
 func (v *AdapterRun) UnmarshalJSON(data []byte) error {
@@ -144,6 +178,11 @@ func (v *AdapterRun) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("AdapterRun: required field \"to\" is missing or null")
 	} else if err := json.Unmarshal(m, &v.To); err != nil {
 		return prefixField("to", err)
+	}
+	if m, ok := raw["budget"]; ok {
+		if err := json.Unmarshal(m, &v.Budget); err != nil {
+			return prefixField("budget", err)
+		}
 	}
 	return nil
 }
@@ -189,8 +228,13 @@ func (e Adapter) String() string {
 // A single itemized change.
 type ChangelogEntry struct {
 	// What kind of change this is. Determines which section renders it.
-	Kind ChangeKind `json:"kind"`
-	// One line stating the change from the reader's point of view.
+	//
+	// Every entry a model or a person authors carries one. Only the mechanical
+	// producer writes an entry with none, for a commit whose subject carries no
+	// conventional type; such an entry renders under the other heading.
+	Kind *ChangeKind `json:"kind,omitempty"`
+	// One or two full sentences stating the change from the reader's point of
+	// view.
 	//
 	// Written as an outcome a consumer can recognize, not as the work that
 	// produced it: "closed decoders reject undeclared keys", not "refactored the
@@ -224,12 +268,10 @@ type ChangelogEntry struct {
 	// arrived across more than one pull request.
 	Sources []ChangeSource `json:"sources"`
 	// Whether `summary` was derived mechanically from a commit subject rather
-	// than written by a person or a producer.
+	// than written by a person or a model.
 	//
-	// Set when the tooling assembles an entry from a commit that carried no
-	// author-written release-notes block. A producer that replaces the summary
-	// with prose of its own clears it; one that keeps the derived summary
-	// leaves it set, so a reviewer can see which lines nobody wrote.
+	// Set only by the mechanical producer, for a summary it derived from a
+	// commit subject: nobody wrote the sentence.
 	Derived bool `json:"derived"`
 }
 
@@ -238,10 +280,10 @@ func (v *ChangelogEntry) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	if m, ok := raw["kind"]; !ok || string(m) == "null" {
-		return fmt.Errorf("ChangelogEntry: required field \"kind\" is missing or null")
-	} else if err := json.Unmarshal(m, &v.Kind); err != nil {
-		return prefixField("kind", err)
+	if m, ok := raw["kind"]; ok {
+		if err := json.Unmarshal(m, &v.Kind); err != nil {
+			return prefixField("kind", err)
+		}
 	}
 	if m, ok := raw["summary"]; !ok || string(m) == "null" {
 		return fmt.Errorf("ChangelogEntry: required field \"summary\" is missing or null")
@@ -567,10 +609,18 @@ type CommitRecord struct {
 	// that description, which is how pull request prose reaches the release
 	// without the hosting platform being consulted.
 	Body string `json:"body"`
-	// The pull request number parsed out of the subject, where one is present.
+	// The pull request the commit carries, where it carries one.
 	//
 	// Absent for a commit pushed directly to a release line.
-	PullRequest *int64 `json:"pull_request,omitempty"`
+	PullRequest *PullRequestInfo `json:"pull_request,omitempty"`
+	// The author date, RFC 3339, as `git log --format=%aI` prints it.
+	AuthorDate string `json:"author_date"`
+	// Every file the commit changed.
+	Files []FileChange `json:"files"`
+	// The parsed conventional-commit subject, where the subject is one.
+	//
+	// Absent for a subject that does not follow the convention.
+	Conventional *Conventional `json:"conventional,omitempty"`
 	// Trailers parsed from the body as key-value pairs.
 	//
 	// Recorded without interpretation. A release-type trailer means something
@@ -605,6 +655,21 @@ func (v *CommitRecord) UnmarshalJSON(data []byte) error {
 	if m, ok := raw["pull_request"]; ok {
 		if err := json.Unmarshal(m, &v.PullRequest); err != nil {
 			return prefixField("pull_request", err)
+		}
+	}
+	if m, ok := raw["author_date"]; !ok || string(m) == "null" {
+		return fmt.Errorf("CommitRecord: required field \"author_date\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.AuthorDate); err != nil {
+		return prefixField("author_date", err)
+	}
+	if m, ok := raw["files"]; !ok || string(m) == "null" {
+		return fmt.Errorf("CommitRecord: required field \"files\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Files); err != nil {
+		return prefixField("files", err)
+	}
+	if m, ok := raw["conventional"]; ok {
+		if err := json.Unmarshal(m, &v.Conventional); err != nil {
+			return prefixField("conventional", err)
 		}
 	}
 	if m, ok := raw["trailers"]; !ok || string(m) == "null" {
@@ -692,6 +757,563 @@ func (v *PullRequestRecord) UnmarshalJSON(data []byte) error {
 		}
 	}
 	return nil
+}
+
+// One file a commit changed.
+type FileChange struct {
+	// The path after the change.
+	Path string `json:"path"`
+	// The path before the change. Set for a rename or copy.
+	PreviousPath *string `json:"previous_path,omitempty"`
+	// How the commit changed the file.
+	Status FileStatus `json:"status"`
+	// Lines added.
+	Additions int64 `json:"additions"`
+	// Lines deleted.
+	Deletions int64 `json:"deletions"`
+}
+
+func (v *FileChange) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["path"]; !ok || string(m) == "null" {
+		return fmt.Errorf("FileChange: required field \"path\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Path); err != nil {
+		return prefixField("path", err)
+	}
+	if m, ok := raw["previous_path"]; ok {
+		if err := json.Unmarshal(m, &v.PreviousPath); err != nil {
+			return prefixField("previous_path", err)
+		}
+	}
+	if m, ok := raw["status"]; !ok || string(m) == "null" {
+		return fmt.Errorf("FileChange: required field \"status\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Status); err != nil {
+		return prefixField("status", err)
+	}
+	if m, ok := raw["additions"]; !ok || string(m) == "null" {
+		return fmt.Errorf("FileChange: required field \"additions\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Additions); err != nil {
+		return prefixField("additions", err)
+	}
+	if m, ok := raw["deletions"]; !ok || string(m) == "null" {
+		return fmt.Errorf("FileChange: required field \"deletions\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Deletions); err != nil {
+		return prefixField("deletions", err)
+	}
+	return nil
+}
+
+// How a commit changed a file.
+type FileStatus string
+
+const (
+	// The file did not exist before the commit.
+	FileStatusAdded FileStatus = "ADDED"
+	// The file existed before and after the commit.
+	FileStatusModified FileStatus = "MODIFIED"
+	// The file does not exist after the commit.
+	FileStatusDeleted FileStatus = "DELETED"
+	// The file moved from `previous_path`.
+	FileStatusRenamed FileStatus = "RENAMED"
+	// The file was copied from `previous_path`.
+	FileStatusCopied FileStatus = "COPIED"
+)
+
+func (e FileStatus) MarshalJSON() ([]byte, error) {
+	switch e {
+	case FileStatusAdded, FileStatusModified, FileStatusDeleted, FileStatusRenamed, FileStatusCopied:
+		return json.Marshal(string(e))
+	}
+	return nil, fmt.Errorf("FileStatus: unknown value %q", string(e))
+}
+
+func (e *FileStatus) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch FileStatus(s) {
+	case FileStatusAdded, FileStatusModified, FileStatusDeleted, FileStatusRenamed, FileStatusCopied:
+		*e = FileStatus(s)
+		return nil
+	}
+	return fmt.Errorf("FileStatus: unknown value %q", s)
+}
+
+func (e FileStatus) String() string {
+	return string(e)
+}
+
+// The changes one commit made, as patch text.
+type DiffRecord struct {
+	// The commit the diff is of.
+	Commit string `json:"commit"`
+	// The per-file patches.
+	Files []FileDiff `json:"files"`
+	// Whether the budget cut some patch text.
+	Truncated bool `json:"truncated"`
+}
+
+func (v *DiffRecord) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["commit"]; !ok || string(m) == "null" {
+		return fmt.Errorf("DiffRecord: required field \"commit\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Commit); err != nil {
+		return prefixField("commit", err)
+	}
+	if m, ok := raw["files"]; !ok || string(m) == "null" {
+		return fmt.Errorf("DiffRecord: required field \"files\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Files); err != nil {
+		return prefixField("files", err)
+	}
+	if m, ok := raw["truncated"]; !ok || string(m) == "null" {
+		return fmt.Errorf("DiffRecord: required field \"truncated\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Truncated); err != nil {
+		return prefixField("truncated", err)
+	}
+	return nil
+}
+
+// The patch of one file.
+type FileDiff struct {
+	// The file's path.
+	Path string `json:"path"`
+	// The unified diff text for this file.
+	Patch string `json:"patch"`
+	// Whether the budget cut this patch.
+	Truncated bool `json:"truncated"`
+}
+
+func (v *FileDiff) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["path"]; !ok || string(m) == "null" {
+		return fmt.Errorf("FileDiff: required field \"path\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Path); err != nil {
+		return prefixField("path", err)
+	}
+	if m, ok := raw["patch"]; !ok || string(m) == "null" {
+		return fmt.Errorf("FileDiff: required field \"patch\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Patch); err != nil {
+		return prefixField("patch", err)
+	}
+	if m, ok := raw["truncated"]; !ok || string(m) == "null" {
+		return fmt.Errorf("FileDiff: required field \"truncated\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Truncated); err != nil {
+		return prefixField("truncated", err)
+	}
+	return nil
+}
+
+// The parts of a conventional-commit subject.
+type Conventional struct {
+	// The type as written, for example `feat`.
+	Type string `json:"type"`
+	// The scope, where the subject names one.
+	Scope *string `json:"scope,omitempty"`
+	// Whether the subject carries a `!` marker or the body a `BREAKING CHANGE:`
+	// footer.
+	Breaking bool `json:"breaking"`
+}
+
+func (v *Conventional) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["type"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Conventional: required field \"type\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Type); err != nil {
+		return prefixField("type", err)
+	}
+	if m, ok := raw["scope"]; ok {
+		if err := json.Unmarshal(m, &v.Scope); err != nil {
+			return prefixField("scope", err)
+		}
+	}
+	if m, ok := raw["breaking"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Conventional: required field \"breaking\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Breaking); err != nil {
+		return prefixField("breaking", err)
+	}
+	return nil
+}
+
+// The pull request a commit carries.
+type PullRequestInfo struct {
+	// The pull request number.
+	Number int64 `json:"number"`
+	// The pull request title, where known.
+	Title *string `json:"title,omitempty"`
+	// The pull request description, where known.
+	Description *string `json:"description,omitempty"`
+	// Where the number, title and description were read from.
+	Origin PullRequestOrigin `json:"origin"`
+}
+
+func (v *PullRequestInfo) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["number"]; !ok || string(m) == "null" {
+		return fmt.Errorf("PullRequestInfo: required field \"number\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Number); err != nil {
+		return prefixField("number", err)
+	}
+	if m, ok := raw["title"]; ok {
+		if err := json.Unmarshal(m, &v.Title); err != nil {
+			return prefixField("title", err)
+		}
+	}
+	if m, ok := raw["description"]; ok {
+		if err := json.Unmarshal(m, &v.Description); err != nil {
+			return prefixField("description", err)
+		}
+	}
+	if m, ok := raw["origin"]; !ok || string(m) == "null" {
+		return fmt.Errorf("PullRequestInfo: required field \"origin\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Origin); err != nil {
+		return prefixField("origin", err)
+	}
+	return nil
+}
+
+// Where a pull request's information was read from.
+type PullRequestOrigin string
+
+const (
+	// A squash commit: the number from the subject's trailing ` (#<n>)`, the
+	// title from the subject without it, the description from the body.
+	PullRequestOriginSquash PullRequestOrigin = "SQUASH"
+	// A merge commit: the number from the subject, the title and description
+	// from the body.
+	PullRequestOriginMerge PullRequestOrigin = "MERGE"
+	// Fetched from the hosting platform by the optional pull request adapter
+	// because the commit body lacked it.
+	PullRequestOriginPlatform PullRequestOrigin = "PLATFORM"
+)
+
+func (e PullRequestOrigin) MarshalJSON() ([]byte, error) {
+	switch e {
+	case PullRequestOriginSquash, PullRequestOriginMerge, PullRequestOriginPlatform:
+		return json.Marshal(string(e))
+	}
+	return nil, fmt.Errorf("PullRequestOrigin: unknown value %q", string(e))
+}
+
+func (e *PullRequestOrigin) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch PullRequestOrigin(s) {
+	case PullRequestOriginSquash, PullRequestOriginMerge, PullRequestOriginPlatform:
+		*e = PullRequestOrigin(s)
+		return nil
+	}
+	return fmt.Errorf("PullRequestOrigin: unknown value %q", s)
+}
+
+func (e PullRequestOrigin) String() string {
+	return string(e)
+}
+
+// The evidence a producer authors a release's changelog from.
+//
+// The tooling builds an Evidence instance and a producer reads it; a producer
+// never builds one. It states what git said without interpreting it.
+type Evidence struct {
+	// Version of this schema that the instance conforms to.
+	SchemaVersion string `json:"schema_version"`
+	// What the bundle is evidence for.
+	Purpose EvidencePurpose `json:"purpose"`
+	// The commit range the bundle covers.
+	Range Range `json:"range"`
+	// The version the range starts from, without a tag prefix. Absent for a
+	// release line with no release yet.
+	BaseVersion *string `json:"base_version,omitempty"`
+	// The commits in the range, oldest first.
+	Commits []CommitEvidence `json:"commits"`
+	// The adapters that contributed material to the bundle.
+	Sources []AdapterRun `json:"sources"`
+	// How much patch text the bundle carries against its limit.
+	Budget BudgetReport `json:"budget"`
+}
+
+func (v *Evidence) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["schema_version"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Evidence: required field \"schema_version\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.SchemaVersion); err != nil {
+		return prefixField("schema_version", err)
+	}
+	if m, ok := raw["purpose"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Evidence: required field \"purpose\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Purpose); err != nil {
+		return prefixField("purpose", err)
+	}
+	if m, ok := raw["range"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Evidence: required field \"range\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Range); err != nil {
+		return prefixField("range", err)
+	}
+	if m, ok := raw["base_version"]; ok {
+		if err := json.Unmarshal(m, &v.BaseVersion); err != nil {
+			return prefixField("base_version", err)
+		}
+	}
+	if m, ok := raw["commits"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Evidence: required field \"commits\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Commits); err != nil {
+		return prefixField("commits", err)
+	}
+	if m, ok := raw["sources"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Evidence: required field \"sources\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Sources); err != nil {
+		return prefixField("sources", err)
+	}
+	if m, ok := raw["budget"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Evidence: required field \"budget\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Budget); err != nil {
+		return prefixField("budget", err)
+	}
+	return nil
+}
+
+// What a bundle is evidence for.
+type EvidencePurpose string
+
+const (
+	// A release's changelog.
+	EvidencePurposeRelease EvidencePurpose = "RELEASE"
+)
+
+func (e EvidencePurpose) MarshalJSON() ([]byte, error) {
+	switch e {
+	case EvidencePurposeRelease:
+		return json.Marshal(string(e))
+	}
+	return nil, fmt.Errorf("EvidencePurpose: unknown value %q", string(e))
+}
+
+func (e *EvidencePurpose) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch EvidencePurpose(s) {
+	case EvidencePurposeRelease:
+		*e = EvidencePurpose(s)
+		return nil
+	}
+	return fmt.Errorf("EvidencePurpose: unknown value %q", s)
+}
+
+func (e EvidencePurpose) String() string {
+	return string(e)
+}
+
+// The commit range a bundle covers.
+type Range struct {
+	// The full hash of the base commit. Absent for a release line with no
+	// release yet, whose range starts at its root.
+	From *string `json:"from,omitempty"`
+	// The full hash of the head commit.
+	To string `json:"to"`
+}
+
+func (v *Range) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["from"]; ok {
+		if err := json.Unmarshal(m, &v.From); err != nil {
+			return prefixField("from", err)
+		}
+	}
+	if m, ok := raw["to"]; !ok || string(m) == "null" {
+		return fmt.Errorf("Range: required field \"to\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.To); err != nil {
+		return prefixField("to", err)
+	}
+	return nil
+}
+
+// Everything the bundle holds about one commit.
+type CommitEvidence struct {
+	// The commit record: hash, subject, body, trailers, author and files.
+	Record CommitRecord `json:"record"`
+	// The parsed conventional subject, where the subject is one.
+	Conventional *Conventional `json:"conventional,omitempty"`
+	// The pull request the commit carries, where it carries one.
+	PullRequest *PullRequestInfo `json:"pull_request,omitempty"`
+	// The commit's diff. Absent WHEN the budget carried none of it.
+	Diff *DiffRecord `json:"diff,omitempty"`
+	// The classifier's reading of the commit. Absent when unclassified.
+	Signal *Bump `json:"signal,omitempty"`
+}
+
+func (v *CommitEvidence) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["record"]; !ok || string(m) == "null" {
+		return fmt.Errorf("CommitEvidence: required field \"record\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Record); err != nil {
+		return prefixField("record", err)
+	}
+	if m, ok := raw["conventional"]; ok {
+		if err := json.Unmarshal(m, &v.Conventional); err != nil {
+			return prefixField("conventional", err)
+		}
+	}
+	if m, ok := raw["pull_request"]; ok {
+		if err := json.Unmarshal(m, &v.PullRequest); err != nil {
+			return prefixField("pull_request", err)
+		}
+	}
+	if m, ok := raw["diff"]; ok {
+		if err := json.Unmarshal(m, &v.Diff); err != nil {
+			return prefixField("diff", err)
+		}
+	}
+	if m, ok := raw["signal"]; ok {
+		if err := json.Unmarshal(m, &v.Signal); err != nil {
+			return prefixField("signal", err)
+		}
+	}
+	return nil
+}
+
+// How much patch text a bundle carries against its limit.
+type BudgetReport struct {
+	// Bytes of patch text permitted.
+	Limit int64 `json:"limit"`
+	// Bytes of patch text before the budget applied.
+	Total int64 `json:"total"`
+	// Bytes of patch text carried.
+	Used int64 `json:"used"`
+	// The patches the budget left out or cut.
+	Omitted []OmittedDiff `json:"omitted"`
+}
+
+func (v *BudgetReport) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["limit"]; !ok || string(m) == "null" {
+		return fmt.Errorf("BudgetReport: required field \"limit\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Limit); err != nil {
+		return prefixField("limit", err)
+	}
+	if m, ok := raw["total"]; !ok || string(m) == "null" {
+		return fmt.Errorf("BudgetReport: required field \"total\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Total); err != nil {
+		return prefixField("total", err)
+	}
+	if m, ok := raw["used"]; !ok || string(m) == "null" {
+		return fmt.Errorf("BudgetReport: required field \"used\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Used); err != nil {
+		return prefixField("used", err)
+	}
+	if m, ok := raw["omitted"]; !ok || string(m) == "null" {
+		return fmt.Errorf("BudgetReport: required field \"omitted\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Omitted); err != nil {
+		return prefixField("omitted", err)
+	}
+	return nil
+}
+
+// A patch the bundle left out or cut.
+type OmittedDiff struct {
+	// The commit the patch belongs to.
+	Commit string `json:"commit"`
+	// The file the patch is of.
+	Path string `json:"path"`
+	// Why the patch is not carried whole.
+	Reason OmissionReason `json:"reason"`
+	// Whether part of the patch was carried.
+	Truncated bool `json:"truncated"`
+}
+
+func (v *OmittedDiff) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if m, ok := raw["commit"]; !ok || string(m) == "null" {
+		return fmt.Errorf("OmittedDiff: required field \"commit\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Commit); err != nil {
+		return prefixField("commit", err)
+	}
+	if m, ok := raw["path"]; !ok || string(m) == "null" {
+		return fmt.Errorf("OmittedDiff: required field \"path\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Path); err != nil {
+		return prefixField("path", err)
+	}
+	if m, ok := raw["reason"]; !ok || string(m) == "null" {
+		return fmt.Errorf("OmittedDiff: required field \"reason\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Reason); err != nil {
+		return prefixField("reason", err)
+	}
+	if m, ok := raw["truncated"]; !ok || string(m) == "null" {
+		return fmt.Errorf("OmittedDiff: required field \"truncated\" is missing or null")
+	} else if err := json.Unmarshal(m, &v.Truncated); err != nil {
+		return prefixField("truncated", err)
+	}
+	return nil
+}
+
+// Why a patch is not carried whole.
+type OmissionReason string
+
+const (
+	// The path matches a configured diff exclusion.
+	OmissionReasonExcluded OmissionReason = "EXCLUDED"
+	// The file is binary.
+	OmissionReasonBinary OmissionReason = "BINARY"
+	// The release's patch budget ran out.
+	OmissionReasonOverBudget OmissionReason = "OVER_BUDGET"
+)
+
+func (e OmissionReason) MarshalJSON() ([]byte, error) {
+	switch e {
+	case OmissionReasonExcluded, OmissionReasonBinary, OmissionReasonOverBudget:
+		return json.Marshal(string(e))
+	}
+	return nil, fmt.Errorf("OmissionReason: unknown value %q", string(e))
+}
+
+func (e *OmissionReason) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	switch OmissionReason(s) {
+	case OmissionReasonExcluded, OmissionReasonBinary, OmissionReasonOverBudget:
+		*e = OmissionReason(s)
+		return nil
+	}
+	return fmt.Errorf("OmissionReason: unknown value %q", s)
+}
+
+func (e OmissionReason) String() string {
+	return string(e)
 }
 
 // prefixField re-attaches a struct's key to a decode error raised inside a

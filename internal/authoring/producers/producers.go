@@ -1,7 +1,8 @@
 // Package producers holds the changelog producers this release ships, each
 // conforming to the Changelog Producer component: the `claude` producer, the
 // default, and the `command` producer. Both run outside the process and
-// exchange the corpus as JSON over standard input and output, so neither
+// exchange JSON over standard input and output, the evidence bundle in and
+// the structured changelog out, so neither
 // holds a model client or a credential of its own.
 package producers
 
@@ -36,7 +37,7 @@ func (u *Unavailable) Error() string {
 }
 
 // alternatives is the hint a refusal gives.
-const alternatives = `select another producer with changelog.producer, or name the bump and pass --skip-notes`
+const alternatives = `select another producer with changelog.producer, or pass --skip-notes to author the changelog with the mechanical producer`
 
 // Registry is every producer a configuration can select, by name, for the
 // repository at dir. env, as KEY=value entries, is added to each producer
@@ -47,14 +48,15 @@ func Registry(c config.Changelog, dir string, env ...string) map[string]authorin
 		command.Command = *c.ProducerCommand
 	}
 	return map[string]authoring.Producer{
-		config.ProducerClaudeName:  Claude{Dir: dir, Env: env},
-		config.ProducerCommandName: command,
+		config.ProducerClaudeName:     Claude{Dir: dir, Env: env},
+		config.ProducerCommandName:    command,
+		config.ProducerMechanicalName: Mechanical{},
 	}
 }
 
 // Command is the `command` producer: it runs a configured command through
-// `sh -c` with the assembled corpus on standard input, and reads the
-// authored corpus from standard output.
+// `sh -c` with the evidence bundle on standard input, and reads the
+// structured changelog from standard output.
 type Command struct {
 	// Command is changelog.producer_command.
 	Command string
@@ -67,7 +69,7 @@ type Command struct {
 }
 
 // Produce runs the command. A non-zero exit is a failure.
-func (c Command) Produce(ctx context.Context, assembled []byte) ([]byte, error) {
+func (c Command) Produce(ctx context.Context, evidence []byte) ([]byte, error) {
 	if strings.TrimSpace(c.Command) == "" {
 		return nil, &Unavailable{Producer: config.ProducerCommandName, Prerequisite: "changelog.producer_command is unset", Hint: alternatives}
 	}
@@ -79,17 +81,17 @@ func (c Command) Produce(ctx context.Context, assembled []byte) ([]byte, error) 
 	if err != nil {
 		return nil, &Unavailable{Producer: config.ProducerCommandName, Prerequisite: fmt.Sprintf("%s is not on PATH", sh), Hint: alternatives}
 	}
-	return run(ctx, c.Dir, c.Env, assembled, bin, "-c", c.Command)
+	return run(ctx, c.Dir, c.Env, evidence, bin, "-c", c.Command)
 }
 
 // ClaudePrompt is what the `claude` producer asks of `claude -p`: run the
-// release plugin's changelog skill over the corpus on standard input.
-const ClaudePrompt = "Use the release:changelog skill to author the changelog corpus on standard input. " +
-	"Write only the authored corpus, as JSON, to standard output."
+// release plugin's changelog skill over the evidence bundle on standard input.
+const ClaudePrompt = "Use the release:changelog skill to author the structured changelog from the evidence bundle on standard input. " +
+	"Write only the changelog, as JSON, to standard output."
 
 // Claude is the `claude` producer, the default: it runs `claude -p` with a
-// prompt invoking the release:changelog skill, the assembled corpus on
-// standard input, and reads the authored corpus from standard output. It
+// prompt invoking the release:changelog skill, the evidence bundle on
+// standard input, and reads the structured changelog from standard output. It
 // uses the maintainer's own Claude Code session, so it needs no credential.
 type Claude struct {
 	// Bin is the claude executable; empty means "claude" from PATH.
@@ -101,7 +103,7 @@ type Claude struct {
 }
 
 // Produce runs claude. A non-zero exit is a failure.
-func (c Claude) Produce(ctx context.Context, assembled []byte) ([]byte, error) {
+func (c Claude) Produce(ctx context.Context, evidence []byte) ([]byte, error) {
 	name := c.Bin
 	if name == "" {
 		name = "claude"
@@ -114,7 +116,7 @@ func (c Claude) Produce(ctx context.Context, assembled []byte) ([]byte, error) {
 			Hint:         alternatives,
 		}
 	}
-	out, err := run(ctx, c.Dir, c.Env, assembled, bin, "-p", ClaudePrompt)
+	out, err := run(ctx, c.Dir, c.Env, evidence, bin, "-p", ClaudePrompt)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +142,7 @@ func unfence(out []byte) []byte {
 }
 
 // Failure is a producer process that ran and failed: it exited
-// unsuccessfully, or exited 0 and wrote no corpus.
+// unsuccessfully, or exited 0 and wrote no changelog.
 type Failure struct {
 	ExitCode int
 	Stderr   string
@@ -177,7 +179,7 @@ func run(ctx context.Context, dir string, env []string, stdin []byte, bin string
 		return nil, err
 	}
 	if len(bytes.TrimSpace(stdout.Bytes())) == 0 {
-		return nil, &Failure{Stderr: stderr.String(), Reason: "it wrote no corpus to standard output"}
+		return nil, &Failure{Stderr: stderr.String(), Reason: "it wrote no changelog to standard output"}
 	}
 	return stdout.Bytes(), nil
 }

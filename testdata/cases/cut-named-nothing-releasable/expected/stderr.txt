@@ -1,0 +1,1 @@
+release cut: nothing releasable since v1.8.0: the authored changelog suggests no bump and every entry has a kind; pass --force to cut 1.8.1 anyway

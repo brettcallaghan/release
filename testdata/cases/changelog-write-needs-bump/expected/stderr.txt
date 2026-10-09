@@ -1,0 +1,1 @@
+Error: --write needs a named bump: this command confirms no suggestion; name major, minor or patch

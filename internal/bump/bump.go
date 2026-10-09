@@ -1,7 +1,8 @@
-// Package bump is the Bump Classifier: the release impact of a range, from a
-// named bump, an authored changelog's entries, or signals in the commit
-// records, together with everything that drove it. It is a pure function of
-// its inputs and reads nothing outside them.
+// Package bump is the Bump Classifier: the signal floor of a range, from the
+// explicit records commits carry in git, together with everything that
+// drove it and the commits that carry no signal. It is a pure function of
+// its inputs and reads nothing outside them; in particular it never reads an
+// authored changelog or any other output of a producer (ADR-003).
 package bump
 
 import (
@@ -37,33 +38,54 @@ func AllSignals() Signals {
 
 // Input is everything the classifier reads.
 type Input struct {
-	// Named is the bump the maintainer named, or nil to infer one.
+	// Named is the bump the maintainer named, or nil to use the floor.
 	Named *releasemodel.Bump
-	// Changelog is the authored changelog's entries, or nil WHEN none was
-	// supplied. Its proposed_bump is deliberately not an input (ADR-003).
-	Changelog []releasemodel.ChangelogEntry
 	// Commits are the records in the range.
 	Commits []releasemodel.CommitRecord
 	// Enabled is the set of commit signals to read.
 	Enabled Signals
 }
 
-// CommitDriver is a commit that indicated the resolved impact, and the
-// signal through which it did.
+// CommitDriver is a commit that indicated the floor, and the signal through
+// which it did.
 type CommitDriver struct {
 	Commit releasemodel.CommitRecord
 	Signal Signal
 }
 
-// Result is the resolved impact and what determined it.
-type Result struct {
+// CommitSignal is what one commit indicates through the enabled signals.
+type CommitSignal struct {
+	Commit releasemodel.CommitRecord
+	// Classified is false WHEN the commit carries no enabled signal; Impact
+	// and Signal are then unset.
+	Classified bool
+	// Impact is the highest impact the commit indicates. A Release-Type:
+	// none trailer classifies a commit at none.
 	Impact releasemodel.Bump
-	// Named is true WHEN the impact is the maintainer's named bump.
+	// Signal is the signal that indicated Impact: the breaking marker over
+	// the release-type trailer over the conventional type, WHERE several
+	// indicate it.
+	Signal Signal
+}
+
+// Result is the resolved impact, the signal floor and what determined it.
+type Result struct {
+	// Impact is the named bump WHEN one was named, otherwise Floor.
+	Impact releasemodel.Bump
+	// Named is true WHEN Impact is the maintainer's named bump.
 	Named bool
-	// Entries are the changelog entries that indicated Impact.
-	Entries []releasemodel.ChangelogEntry
-	// Commits are the commit records that indicated Impact, in input order.
+	// Floor is the highest impact the commits' enabled signals indicate,
+	// none WHEN no commit carries one. It is computed whether or not a bump
+	// was named.
+	Floor releasemodel.Bump
+	// Commits are the commit records that indicated Floor, in input order,
+	// each reported once.
 	Commits []CommitDriver
+	// Signals is every commit's signal, in input order.
+	Signals []CommitSignal
+	// Unclassified are the commits that carry no enabled signal, in input
+	// order.
+	Unclassified []releasemodel.CommitRecord
 }
 
 // Rank orders bumps from none (0) to major (3). An unrecognized value ranks
@@ -80,63 +102,37 @@ func Rank(b releasemodel.Bump) int {
 	return 0
 }
 
-// Classify resolves the release impact.
+// Classify computes the signal floor and resolves the release impact.
 //
-// A named bump is returned as-is. Otherwise the highest impact any enabled
-// signal indicates wins, across the changelog's entries and the commit
-// records, and every entry and record indicating it is reported. A
-// Release-Type: none trailer indicates none, so it never lowers what another
-// signal indicates. With no signal anywhere the impact is none.
+// The floor is the highest impact any enabled signal indicates across the
+// commits, and every commit indicating it is reported once. A Release-Type:
+// none trailer indicates none, so it never lowers what another signal
+// indicates. With no signal anywhere the floor is none. A named bump is the
+// impact as-is, and the floor is still computed beside it.
 func Classify(in Input) Result {
-	if in.Named != nil {
-		return Result{Impact: *in.Named, Named: true}
-	}
-
-	res := Result{Impact: releasemodel.BumpNone}
-	raise := func(b releasemodel.Bump) {
-		if Rank(b) > Rank(res.Impact) {
-			res.Impact, res.Entries, res.Commits = b, nil, nil
-		}
-	}
-
-	type commitSignal struct {
-		bump   releasemodel.Bump
-		signal Signal
-	}
-	perCommit := make([]*commitSignal, len(in.Commits))
-	for i, c := range in.Commits {
+	res := Result{Floor: releasemodel.BumpNone}
+	for _, c := range in.Commits {
+		cs := CommitSignal{Commit: c}
 		if b, sig, ok := commitImpact(c, in.Enabled); ok {
-			perCommit[i] = &commitSignal{b, sig}
-			raise(b)
+			cs.Classified, cs.Impact, cs.Signal = true, b, sig
+			if Rank(b) > Rank(res.Floor) {
+				res.Floor = b
+			}
+		} else {
+			res.Unclassified = append(res.Unclassified, c)
+		}
+		res.Signals = append(res.Signals, cs)
+	}
+	for _, cs := range res.Signals {
+		if cs.Classified && cs.Impact == res.Floor {
+			res.Commits = append(res.Commits, CommitDriver{Commit: cs.Commit, Signal: cs.Signal})
 		}
 	}
-	for _, e := range in.Changelog {
-		raise(entryImpact(e))
-	}
-
-	for _, e := range in.Changelog {
-		if entryImpact(e) == res.Impact {
-			res.Entries = append(res.Entries, e)
-		}
-	}
-	for i, c := range in.Commits {
-		if s := perCommit[i]; s != nil && s.bump == res.Impact {
-			res.Commits = append(res.Commits, CommitDriver{Commit: c, Signal: s.signal})
-		}
+	res.Impact = res.Floor
+	if in.Named != nil {
+		res.Impact, res.Named = *in.Named, true
 	}
 	return res
-}
-
-// entryImpact maps an authored changelog entry: breaking is major, a
-// FEATURE is minor, anything else is patch.
-func entryImpact(e releasemodel.ChangelogEntry) releasemodel.Bump {
-	switch {
-	case e.Breaking:
-		return releasemodel.BumpMajor
-	case e.Kind == releasemodel.ChangeKindFeature:
-		return releasemodel.BumpMinor
-	}
-	return releasemodel.BumpPatch
 }
 
 // commitImpact returns the highest impact a commit indicates through any
@@ -170,7 +166,8 @@ func commitImpact(c releasemodel.CommitRecord, enabled Signals) (b releasemodel.
 var conventionalSubject = regexp.MustCompile(`^([A-Za-z]+)(?:\([^()]*\))?(!)?: `)
 
 // conventionalType maps a subject's conventional-commit type: feat is
-// minor; fix, perf and refactor are patch; any other type is no signal.
+// minor; fix, perf, refactor and revert are patch; any other type is no
+// signal.
 func conventionalType(subject string) (releasemodel.Bump, bool) {
 	m := conventionalSubject.FindStringSubmatch(subject)
 	if m == nil {
@@ -179,7 +176,7 @@ func conventionalType(subject string) (releasemodel.Bump, bool) {
 	switch strings.ToLower(m[1]) {
 	case "feat":
 		return releasemodel.BumpMinor, true
-	case "fix", "perf", "refactor":
+	case "fix", "perf", "refactor", "revert":
 		return releasemodel.BumpPatch, true
 	}
 	return "", false

@@ -61,7 +61,7 @@ least one entry or listed in `omitted` with a reason.
 
 The corpus amends `schemas/changelog.strata` as follows:
 
-- `Changelog.omitted: [OmittedCommit]` — the commits no entry cites, each
+- `Changelog.omitted: [OmittedCommit]?` — the commits no entry cites, each
   with why:
 
   ```
@@ -127,6 +127,7 @@ struct FileDiff {
 ```
 struct Evidence {
   schema_version: String
+  purpose: EvidencePurpose          # RELEASE
   range: Range
   base_version: String?             # absent for a line with no release
   commits: [CommitEvidence]         # oldest first
@@ -177,6 +178,9 @@ from the body. `PLATFORM` marks a title or description the optional pull
 request adapter fetched because the commit body lacked it.
 
 `Bump`, `ChangeKind` and `AdapterRun` are the corpus schema's.
+
+`EvidencePurpose` names what the bundle is evidence for. Its only variant is
+`RELEASE`.
 
 ## Rendering
 
@@ -393,7 +397,7 @@ release. An instance written before an amendment may not validate. The
 amendments are: `Changelog.sources` (with `AdapterRun` and `Adapter`) and
 `ChangelogEntry.derived` as required fields; `Changelog.proposed_bump` as
 optional; `Changelog.omitted`, `ChangelogEntry.kind` as optional, and
-`AdapterRun.budget`; and the semantics of [Corpus](#corpus). Every later
+`AdapterRun.budget`; `Evidence.purpose` as required; and the semantics of [Corpus](#corpus). Every later
 change follows the policy above.
 
 ## Key Decisions

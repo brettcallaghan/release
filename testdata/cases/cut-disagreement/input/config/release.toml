@@ -1,8 +1,0 @@
-release_paths = ["VERSION"]
-
-[commands]
-propagate = "true"
-
-[changelog]
-producer = "command"
-producer_command = "cat \"$(git rev-parse --path-format=absolute --git-common-dir)/../authored.json\""
