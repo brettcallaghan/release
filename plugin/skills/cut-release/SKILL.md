@@ -117,6 +117,8 @@ never suggested below it. A commit carrying no signal is reported as
 unclassified, and the authored changelog decides what it means. When
 reviewing a repository's commits, point out subjects that would mislead
 these readers — a breaking change written as `fix:`, a feature as `chore:`.
+The full rules for bumps, signals and changelogs are
+`references/release-tooling-standards.md`.
 
 ## Configuring a repository
 
@@ -136,3 +138,20 @@ To make the skills run the repository's own build of the CLI instead of the
 pinned release — when the repository *is* the CLI, say — set `RELEASE_CLI`
 in the `env` of its `.claude/settings.json` to the binary's path, relative
 to the repository root.
+
+## References
+
+Copies of the release standards, byte for byte. Read the one the task
+needs; each states its rules as numbered requirements.
+
+- `references/repository-release-policy.md` — when setting up or reviewing
+  a repository's release process: release lines, support window, change
+  propagation, release readiness, squash merges, correcting and verifying
+  a release. Its archetypes are a command-line tool or library and a
+  continuously deployed service.
+- `references/release-tooling-standards.md` — for the bump and changelog
+  rules: stage branches, version computation (commit signals, the
+  suggested bump, confirmation), prereleases and canaries, configuration.
+- `references/cli-distribution-policy.md` — for publishing a release's
+  artifacts: publication, version resolution by installers, integrity and
+  provenance, channels, withdrawal.

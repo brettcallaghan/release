@@ -97,6 +97,11 @@ flags, and carries sections on commit conventions and on configuring a
 repository. The plugin has no `hooks/` and no top-level `bin/`, so nothing
 is provisioned in a session that runs no skill.
 
+Its references are byte-identical copies of [[repository-release-policy]],
+[[release-tooling-standards]] and [[cli-distribution-policy]], under the
+same file names, checked by `scripts/check-skills.sh`; `SKILL.md` says when
+to read each.
+
 ### Install CLI Script
 
 ```component
