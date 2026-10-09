@@ -160,6 +160,8 @@ for p in ('plugin/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json'
 # ---- 4. vendored copies match their sources byte for byte ------------------
 VENDORED = (
     ('plugin/skills/changelog/references/changelog.strata', 'schemas/changelog.strata'),
+    ('plugin/skills/changelog/references/evidence.strata', 'schemas/evidence.strata'),
+    ('plugin/skills/changelog/references/collection.strata', 'schemas/collection.strata'),
     ('plugin/skills/changelog/references/changelog-contract.md', 'specs/contracts/changelog-contract.md'),
 )
 for copy, source in VENDORED:

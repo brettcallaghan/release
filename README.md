@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-94.4%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-93.9%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,16 +48,17 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,936 / 2,201 | 88.0% |
-| Snapshot cases | 1,252 / 2,201 | 56.9% |
-| End-to-end (built binary) | 1,103 / 2,201 | 50.1% |
-| **All layers combined** | **2,078 / 2,201** | **94.4%** |
+| Unit tests | 2,135 / 2,423 | 88.1% |
+| Snapshot cases | 1,252 / 2,423 | 51.7% |
+| End-to-end (built binary) | 1,103 / 2,423 | 45.5% |
+| **All layers combined** | **2,276 / 2,423** | **93.9%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
 | `release/cmd/release` | 1 | 1 | 100.0% |
-| `release/internal/authoring` | 97 | 83 | 85.6% |
-| `release/internal/authoring/producers` | 58 | 56 | 96.6% |
+| `release/internal/authoring` | 227 | 202 | 89.0% |
+| `release/internal/authoring/producers` | 97 | 94 | 96.9% |
+| `release/internal/authoring/producers/producertest` | 53 | 41 | 77.4% |
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
 | `release/internal/bump` | 85 | 85 | 100.0% |
 | `release/internal/changelog` | 51 | 44 | 86.3% |
@@ -75,7 +76,7 @@ A statement is covered if any layer reaches it.
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/suggest` | 61 | 61 | 100.0% |
 | `release/internal/version` | 75 | 75 | 100.0% |
-| **Total** | **2,201** | **2,078** | **94.4%** |
+| **Total** | **2,423** | **2,276** | **93.9%** |
 
 Generated code is excluded from these figures: 513 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
