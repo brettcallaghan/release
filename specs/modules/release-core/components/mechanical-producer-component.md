@@ -94,7 +94,8 @@ a range whose floor is none still halts for a person.
 
 ---
 
-- **Verification gates:** the conformance suite every producer runs, plus
+- **Verification gates:** the conformance suite every producer runs
+  (`producertest.Run`), plus
   the component's unit suite over bundles with conventional and
   non-conventional subjects, squash subjects carrying ` (#<n>)`, and
   breaking markers with and without a footer.
