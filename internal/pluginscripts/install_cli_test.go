@@ -819,6 +819,52 @@ func TestPinnedVersionIsThePluginManifestVersion(t *testing.T) {
 	}
 }
 
+// writeManifest replaces the plugin manifest the script reads.
+func (h *harness) writeManifest(body string) {
+	h.t.Helper()
+	mustWrite(h.t, filepath.Join(h.root, "plugin", ".claude-plugin", "plugin.json"), []byte(body), 0o644)
+}
+
+// Only the top-level version pins the CLI, wherever a nested one sits and
+// however the file is laid out.
+func TestOnlyTheTopLevelManifestVersionPins(t *testing.T) {
+	cases := map[string]string{
+		"nested before and after": `{
+  "name": "release",
+  "meta": {"version": "9.9.9"},
+  "version": "0.3.1",
+  "dependencies": [{"name": "specs", "version": "1.4.0"}],
+  "tail": {"x": {"version": "8.8.8"}}
+}
+`,
+		"minified, nested after":  `{"name":"release","version":"0.3.1","dependencies":[{"name":"specs","version":"1.4.0"}]}`,
+		"minified, nested before": `{"meta":{"version":"9.9.9"},"version":"0.3.1"}`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			h.writeManifest(body)
+			onPath := h.tool("release", string(fakeRelease("0.3.1")))
+			if path := h.succeed(); path != onPath {
+				t.Errorf("path = %s, want the release at the top-level 0.3.1", path)
+			}
+		})
+	}
+}
+
+// A manifest with no top-level version, or two, is the one-line failure.
+func TestManifestWithoutExactlyOneTopLevelVersionFails(t *testing.T) {
+	h := newHarness(t)
+	h.writeManifest(`{"name":"release","meta":{"version":"9.9.9"}}`)
+	if got := h.fail(); !strings.Contains(got, "no version in ") {
+		t.Errorf("stderr = %q, want %q", got, "no version in ")
+	}
+	h.writeManifest(`{"version":"0.3.1","name":"release","version":"0.3.2"}`)
+	if got := h.fail(); !strings.Contains(got, "more than one top-level version") {
+		t.Errorf("stderr = %q, want the duplicate-version failure", got)
+	}
+}
+
 // snapshot records every path under root except skip, with what would show
 // a change to it: a created or removed entry, or a changed file.
 func snapshot(t *testing.T, root, skip string) map[string]string {

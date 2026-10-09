@@ -52,8 +52,39 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 manifest="$script_dir/../../../.claude-plugin/plugin.json"
 version=""
 if [ -r "$manifest" ]; then
-  version="$(sed -n 's/^.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*$/\1/p' "$manifest")"
-  version="${version%%[[:space:]]*}"
+  # Only a "version" key at the top level of the document counts; a nested one
+  # (an object-form dependency) and the layout of the file are ignored.
+  candidates="$(awk '
+    { text = text $0 "\n" }
+    END {
+      n = length(text); depth = 0; instr = 0; esc = 0
+      last = ""; want = 0
+      for (i = 1; i <= n; i++) {
+        c = substr(text, i, 1)
+        if (instr) {
+          if (esc) { esc = 0; buf = buf c }
+          else if (c == "\\") { esc = 1; buf = buf c }
+          else if (c == "\"") {
+            instr = 0
+            if (want) { print buf; want = 0 }
+            else last = buf
+          } else buf = buf c
+          continue
+        }
+        if (c == "\"") { instr = 1; buf = ""; if (depth != 1) want = 0; continue }
+        if (c ~ /[ \t\r\n]/) continue
+        if (c == "{" || c == "[") { depth++; want = 0; last = "" }
+        else if (c == "}" || c == "]") { depth--; want = 0; last = "" }
+        else if (c == ":") { want = (depth == 1 && last == "version"); last = "" }
+        else { want = 0; last = "" }
+      }
+    }' "$manifest")"
+  nl=$'\n'
+  case "$candidates" in
+    *"$nl"*)
+      fail "more than one top-level version in $manifest" "keep a single version key in the plugin manifest" ;;
+  esac
+  version="${candidates%%[[:space:]]*}"
 fi
 [ -n "$version" ] ||
   fail "no version in $manifest" "reinstall the release plugin"
