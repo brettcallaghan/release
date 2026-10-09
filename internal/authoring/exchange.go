@@ -89,7 +89,7 @@ func ExchangeEvidence(ctx context.Context, req EvidenceRequest) (EvidenceResult,
 		data, err := os.ReadFile(req.CachePath)
 		switch {
 		case err == nil:
-			c, err := AcceptChangelog(data, req.CachePath, req.Evidence)
+			c, err := acceptChangelog(data, req.CachePath, req.Evidence, true)
 			if err != nil {
 				return EvidenceResult{}, err
 			}
@@ -168,7 +168,18 @@ func EvidencePath(cachePath string) string {
 // bundle it was authored from, and decodes it. A shape failure is returned
 // at once, as a *Rejection; otherwise the *Rejection names every rule the
 // changelog breaks. source names where the document came from.
+//
+// The corpus-level sources must equal the bundle's byte for byte, which
+// enforces a producer's copy-through. See acceptChangelog for the file-read
+// case.
 func AcceptChangelog(data []byte, source string, ev releasemodel.Evidence) (releasemodel.Changelog, error) {
+	return acceptChangelog(data, source, ev, false)
+}
+
+// acceptChangelog is AcceptChangelog. rangeOnly is set for a changelog read
+// from a file (the cache, or a named corpus): its sources record the evidence
+// it was authored from, so only the commit range is compared with the bundle's.
+func acceptChangelog(data []byte, source string, ev releasemodel.Evidence, rangeOnly bool) (releasemodel.Changelog, error) {
 	reject := func(format string, args ...any) (releasemodel.Changelog, error) {
 		return releasemodel.Changelog{}, &Rejection{Source: source, Reason: fmt.Sprintf(format, args...)}
 	}
@@ -194,7 +205,7 @@ func AcceptChangelog(data []byte, source string, ev releasemodel.Evidence) (rele
 	if err := json.Unmarshal(data, &c); err != nil {
 		return reject("%v", err)
 	}
-	if problems := check(c, ev); len(problems) > 0 {
+	if problems := check(c, ev, rangeOnly); len(problems) > 0 {
 		return reject("%s", strings.Join(problems, "; "))
 	}
 	return c, nil
@@ -202,11 +213,17 @@ func AcceptChangelog(data []byte, source string, ev releasemodel.Evidence) (rele
 
 // check applies the validation rules that need the bundle and returns every
 // rule the changelog breaks.
-func check(c releasemodel.Changelog, ev releasemodel.Evidence) []string {
+func check(c releasemodel.Changelog, ev releasemodel.Evidence, rangeOnly bool) []string {
 	var problems []string
 	got, _ := json.Marshal(c.Sources)
 	want, _ := json.Marshal(ev.Sources)
-	if !bytes.Equal(got, want) {
+	switch {
+	case rangeOnly:
+		if !sameRange(c.Sources, ev.Sources) {
+			problems = append(problems, fmt.Sprintf("its sources %s record a range other than the bundle's %s; "+
+				"a changelog for another range does not apply", got, want))
+		}
+	case !bytes.Equal(got, want):
 		problems = append(problems, fmt.Sprintf("its sources %s are not the bundle's %s; "+
 			"a producer carries them through unchanged, and a changelog for another range does not apply", got, want))
 	}
@@ -278,6 +295,26 @@ func check(c releasemodel.Changelog, ev releasemodel.Evidence) []string {
 		}
 	}
 	return problems
+}
+
+// sameRange reports whether every run in a and b records one from and one to.
+func sameRange(a, b []releasemodel.AdapterRun) bool {
+	type span struct {
+		from string
+		set  bool
+		to   string
+	}
+	seen := map[span]bool{}
+	for _, runs := range [][]releasemodel.AdapterRun{a, b} {
+		for _, r := range runs {
+			sp := span{to: r.To}
+			if r.From != nil {
+				sp.from, sp.set = *r.From, true
+			}
+			seen[sp] = true
+		}
+	}
+	return len(seen) <= 1
 }
 
 var blankLine = regexp.MustCompile(`\n[ \t\r]*\n`)

@@ -114,9 +114,13 @@ saw.
     version or has a major other than the one implemented, and one that
     does not validate against the generated JSON Schema. A cached or named
     changelog is accepted the same way as a returned one.
-  - **Range.** A changelog whose corpus-level `sources` differ from the
-    bundle's `sources` is rejected: a producer copies them unchanged, and a
-    changelog for another range does not apply.
+  - **Range.** A changelog returned by a producer whose corpus-level
+    `sources` differ from the bundle's `sources` is rejected: a producer
+    copies them unchanged. A changelog read from a file (the cache, or a
+    named corpus) is compared on the range only: every adapter run in its
+    `sources` and in the bundle's records the same `from` and `to`, and a
+    differing adapter set or diff budget does not matter. One for another
+    range is rejected as such.
   - **Entries are changes.** Entries are not matched to commits one for
     one. An entry may cite several commits, and one commit may be cited by
     several entries. Every entry cites at least one source, and an entry

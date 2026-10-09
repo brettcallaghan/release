@@ -167,6 +167,57 @@ func TestAnEntryWithNoSourceIsRejected(t *testing.T) {
 	reject(t, ev, c, "entry 2", "cites no source")
 }
 
+// AC: AC-CLOG-003.9
+func TestACachedChangelogSurvivesAChangedDiffBudgetOrAdapterSet(t *testing.T) {
+	from := "0000000000000000000000000000000000000000"
+	diffs := func(limit int64) releasemodel.AdapterRun {
+		return releasemodel.AdapterRun{Adapter: releasemodel.AdapterDiffs, From: &from, To: head, Budget: &releasemodel.BudgetReport{Limit: limit, Omitted: []releasemodel.OmittedDiff{}}}
+	}
+	authored := threeCommits()
+	authored.Sources = append(authored.Sources, diffs(1000))
+	p := &stub{out: encode(t, changelogFor(authored))}
+	req := evRequest(t, p)
+	req.Evidence = authored
+	if _, err := ExchangeEvidence(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	variants := map[string][]releasemodel.AdapterRun{
+		"budget":     {authored.Sources[0], diffs(2000)},
+		"no diffs":   {authored.Sources[0]},
+		"diffs only": {diffs(1000)},
+	}
+	for name, sources := range variants {
+		req.Evidence.Sources = sources
+		res, err := ExchangeEvidence(context.Background(), req)
+		if err != nil || res.Obtained != FromCache || len(p.received) != 1 {
+			t.Errorf("%s: res = %+v, err = %v, invocations = %d; want a cache hit", name, res, err, len(p.received))
+		}
+	}
+	other := "9999999999999999999999999999999999999999"
+	req.Evidence.Sources = []releasemodel.AdapterRun{{Adapter: releasemodel.AdapterCommits, From: &from, To: other}}
+	if _, err := ExchangeEvidence(context.Background(), req); err == nil || !strings.Contains(err.Error(), "another range") {
+		t.Errorf("err = %v, want a rejection naming another range", err)
+	}
+	req.Evidence.Sources = []releasemodel.AdapterRun{{Adapter: releasemodel.AdapterCommits, To: head}}
+	if _, err := ExchangeEvidence(context.Background(), req); err == nil || !strings.Contains(err.Error(), "another range") {
+		t.Errorf("a different from: err = %v, want a rejection naming another range", err)
+	}
+}
+
+// AC: AC-CLOG-003.1
+func TestAProducerAlteringTheBundlesSourcesIsRejected(t *testing.T) {
+	ev := threeCommits()
+	c := changelogFor(ev)
+	from := "0000000000000000000000000000000000000000"
+	c.Sources = []releasemodel.AdapterRun{{Adapter: releasemodel.AdapterCommits, From: &from, To: head, Budget: &releasemodel.BudgetReport{Limit: 5, Omitted: []releasemodel.OmittedDiff{}}}}
+	p := &stub{out: encode(t, c)}
+	_, err := ExchangeEvidence(context.Background(), evRequest(t, p))
+	var r *Rejection
+	if !errors.As(err, &r) {
+		t.Fatalf("err = %v, want a *Rejection", err)
+	}
+}
+
 // AC: AC-CLOG-003.16
 func TestACommitNeitherCitedNorOmittedIsRejectedAndNamed(t *testing.T) {
 	ev := threeCommits()
