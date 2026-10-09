@@ -172,12 +172,18 @@ func (r Repo) commitPatches(ctx context.Context, hash string, exclude []string) 
 	if err != nil {
 		return d, err
 	}
-	common := []string{"diff", "--no-color", "--no-ext-diff", "-M"}
-	names, err := r.run(ctx, append(append(common[:4:4], "--raw", "-z"), base, hash, "--")...)
+	// The format is pinned on the command line, which outranks the user's
+	// diff.* configuration.
+	common := []string{
+		"diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-relative",
+		"--submodule=short", "--src-prefix=a/", "--dst-prefix=b/", "-M",
+	}
+	n := len(common)
+	names, err := r.run(ctx, append(append(common[:n:n], "--raw", "-z"), base, hash, "--")...)
 	if err != nil {
 		return d, err
 	}
-	text, err := r.run(ctx, append(common[:4:4], base, hash, "--")...)
+	text, err := r.run(ctx, append(common[:n:n], base, hash, "--")...)
 	if err != nil {
 		return d, err
 	}

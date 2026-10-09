@@ -407,3 +407,46 @@ func TestDiffsDefaultExcludeSkipsGoldenSnapshots(t *testing.T) {
 		t.Errorf("omitted = %+v, want [%+v]", rep.Omitted, want)
 	}
 }
+
+// submoduleFixture returns a repository holding a submodule bump and an edit
+// to a regular file in one commit.
+func submoduleFixture(t *testing.T) (*fixture, string) {
+	t.Helper()
+	sub := newFixture(t)
+	sub.write("a.txt", "a\n")
+	sub.commitAll("sub one")
+	f := newFixture(t)
+	f.write("f", "one\n")
+	f.commitAll("base")
+	f.git("-c", "protocol.file.allow=always", "submodule", "add", "-q", sub.dir, "sub")
+	f.commitAll("add submodule")
+	sub.write("a.txt", "a\nb\n")
+	sub.commitAll("sub two")
+	f.git("-C", "sub", "pull", "-q", "origin", "HEAD")
+	f.write("f", "one\ntwo\n")
+	f.commitAll("bump")
+	return f, f.head()
+}
+
+func TestDiffsIgnoreUserDiffConfig(t *testing.T) {
+	plain, pc := submoduleFixture(t)
+	want, _ := plain.diffs([]string{pc}, nil, 1<<20)
+
+	f, c := submoduleFixture(t)
+	f.git("config", "diff.submodule", "log")
+	f.git("config", "diff.noprefix", "true")
+	got, _ := f.diffs([]string{c}, nil, 1<<20)
+
+	file, ok := fileNamed(got[0], "f")
+	if !ok || !strings.Contains(file.Patch, "+two") {
+		t.Fatalf("regular file diff = %+v, ok = %v", file, ok)
+	}
+	if len(got[0].Files) != len(want[0].Files) {
+		t.Fatalf("files = %+v, want %+v", got[0].Files, want[0].Files)
+	}
+	for i := range got[0].Files {
+		if got[0].Files[i].Path != want[0].Files[i].Path || got[0].Files[i].Patch != want[0].Files[i].Patch {
+			t.Errorf("file %d = %+v, want %+v", i, got[0].Files[i], want[0].Files[i])
+		}
+	}
+}

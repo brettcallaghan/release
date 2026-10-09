@@ -81,6 +81,10 @@ knows what it was not shown and the changelog can say so.
     excluded nor binary, before the budget; its used counts the patch text
     carried. A file's report entries follow commit order, then path order.
   - A merge commit's diff is against its first parent, as every commit's is.
+  - The component SHALL read each diff independent of the user's git diff
+    configuration (submodule format, path prefixes, textconv, relative
+    paths), so the same repository yields the same `DiffRecord` under any
+    such setting.
   - Exclusion entries match as `release_paths` entries do (equal to the
     entry, under an entry ending in `/`, or matched as a glob), with `**`
     matching any number of path segments.
