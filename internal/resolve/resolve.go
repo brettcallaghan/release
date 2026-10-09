@@ -148,17 +148,25 @@ func Resolve(ctx context.Context, req Request) (Resolution, error) {
 		res.DeterminedBy = append(res.DeterminedBy, Driver{Hash: d.Commit.Hash, Subject: d.Commit.Subject, Signal: d.Signal})
 	}
 
-	impact, err := toImpact(res.Impact)
-	if err != nil {
+	if res.Next, err = Next(res.Base, res.Impact, req.Graduate, req.Policy); err != nil {
 		return Resolution{}, err
 	}
-	res.Next = version.Next(version.Request{
-		Base:     res.Base,
-		Impact:   impact,
-		Graduate: req.Graduate,
-		Policy:   req.Policy.Version,
-	})
 	return res, nil
+}
+
+// Next is the version calculator's answer for a bump from base, nil for a
+// line with no release, under policy.
+func Next(base *semver.Version, b releasemodel.Bump, graduate bool, policy Policy) (version.Result, error) {
+	impact, err := toImpact(b)
+	if err != nil {
+		return version.Result{}, err
+	}
+	return version.Next(version.Request{
+		Base:     base,
+		Impact:   impact,
+		Graduate: graduate,
+		Policy:   policy.Version,
+	}), nil
 }
 
 // toImpact maps the classifier's bump onto the calculator's own impact

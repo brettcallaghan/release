@@ -225,7 +225,7 @@ func TestTheReleaseCommitTouchesOnlyDeclaredReleasePaths(t *testing.T) {
 	// A propagation that strays outside the declared paths is refused.
 	writeFile(t, f.work, "release.toml", "release_paths = [\"VERSION\"]\n[commands]\npropagate = \"echo 2 > VERSION; echo x > main.go\"\n")
 	before := refs(t, f.bare)
-	_, stderr, code = f.cut("patch", "--skip-notes", "--target", "main")
+	_, stderr, code = f.cut("major", "--skip-notes", "--target", "main")
 	if code != 1 || !strings.Contains(stderr, "main.go") {
 		t.Errorf("exit = %d, stderr:\n%s\nwant a refusal naming main.go", code, stderr)
 	}
@@ -252,7 +252,7 @@ func TestThePullRequestIsTitledForTheVersion(t *testing.T) {
 func TestThePullRequestBodyCarriesTheReleaseNotes(t *testing.T) {
 	f := newCutFixture(t, "feat: add a --target flag (#12)")
 	f.writeAuthored()
-	if _, stderr, code := f.cut(); code != 0 {
+	if _, stderr, code := f.cut("minor"); code != 0 {
 		t.Fatalf("exit = %d\n%s", code, stderr)
 	}
 	args := f.ghArgs()

@@ -36,6 +36,7 @@ import (
 	"github.com/brettcallaghan/release/internal/releasemodel"
 	"github.com/brettcallaghan/release/internal/resolve"
 	"github.com/brettcallaghan/release/internal/semver"
+	"github.com/brettcallaghan/release/internal/suggest"
 	"github.com/brettcallaghan/release/internal/version"
 )
 
@@ -130,6 +131,33 @@ func (r *NoRelease) Error() string {
 		return fmt.Sprintf("the version policy refuses this release (%s): %s", r.Next.Rule, r.Next.Reason)
 	}
 	return "the version policy refuses this release: " + r.Next.Reason
+}
+
+// belowFloor says that a named bump is below the signal floor, how to force
+// it, and the commits that set the floor.
+func belowFloor(r *suggest.Refusal) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "the named bump %s is below the signal floor %s; pass --force to cut it anyway. These commits set the floor:",
+		strings.ToLower(string(r.Named)), strings.ToLower(string(r.Floor)))
+	for _, d := range r.FloorDrivers {
+		fmt.Fprintf(&b, "\n  %s %s (%s)", d.Commit.Hash, d.Commit.Subject, d.Signal)
+	}
+	return b.String()
+}
+
+// unconfirmed is the refusal for a bump no person confirmed: the suggestion
+// and how to confirm it by naming it.
+func unconfirmed(s suggest.Result) string {
+	if s.Halt != nil && s.Halt.OnlyNamed {
+		var b strings.Builder
+		b.WriteString("the authored changelog suggests no bump, but these entries carry no kind, so only a named bump can release them: name it (release cut <major|minor|patch>):")
+		for _, d := range s.Halt.Unkinded {
+			fmt.Fprintf(&b, "\n  - %s", d.Summary)
+		}
+		return b.String()
+	}
+	suggestion := strings.ToLower(string(s.Suggestion))
+	return fmt.Sprintf("the suggested bump is %s and no person has confirmed it: confirm it by naming it (release cut %s)", suggestion, suggestion)
 }
 
 // WriteFailure is a write that failed after Writes were made. Remedy lists
@@ -252,13 +280,18 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		producers = req.Producers(wt, env)
 	}
 	if res.Changelog, err = changelog.Prepare(ctx, changelog.Request{
-		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Config: req.Config,
+		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Forced: req.Force, Config: req.Config,
 		Producers: producers, Redo: req.Redo, Skip: req.Skip,
 	}); err != nil {
 		return res, err
 	}
-	if res.Changelog.Outcome == changelog.NoRelease {
-		return res, &NoRelease{Next: res.Changelog.Resolution.Next}
+	switch res.Changelog.Outcome {
+	case changelog.NoRelease:
+		return res, &NoRelease{Next: res.Changelog.Next}
+	case changelog.Refused:
+		return res, &Refusal{Reason: belowFloor(res.Changelog.Refusal)}
+	case changelog.Halted:
+		return res, &Refusal{Reason: unconfirmed(res.Changelog.Suggestion)}
 	}
 
 	// 6. Write the changelog section, then propagate the version. A

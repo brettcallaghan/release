@@ -1,0 +1,11 @@
+description = "the suggestion is none and an entry carries no kind: a preview cannot accept that, so changelog exits 1 with no answer, naming the unkinded entry and release changelog <bump>"
+cites = ["contract-release-cli#release-changelog-bump"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "Tidy the help text"],
+]
+args = ["changelog", "--skip-notes", "--target", "main"]
+exit_code = 1
+artifacts = ["stdout.txt", "stderr.txt"]

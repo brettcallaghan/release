@@ -1,0 +1,12 @@
+description = "the signal floor is patch and the authored changelog suggests minor; naming patch proceeds under patch, warning that it is below the suggestion and naming the entry that drove it"
+cites = ["AC-VER-005.16", "contract-release-cli#release-changelog-bump"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "fix(cli): handle empty input (#11)"],
+  ["commit", "-q", "--allow-empty", "-m", "Add a --verbose flag"],
+]
+args = ["changelog", "patch", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

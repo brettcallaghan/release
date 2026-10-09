@@ -1,11 +1,11 @@
-version: 1.8.1
-branch: cut/1.8.1
+version: 1.9.0
+branch: cut/1.9.0
 writes:
-  - create branch cut/1.8.1 at 53b6ea9
-  - commit "Release 1.8.1" on cut/1.8.1
-  - push cut/1.8.1 to origin
+  - create branch cut/1.9.0 at 53b6ea9
+  - commit "Release 1.9.0" on cut/1.9.0
+  - push cut/1.9.0 to origin
 section: |-
-  ## 1.8.1
+  ## 1.9.0
 
   ### Features
 

@@ -62,6 +62,7 @@ const (
 type Driver struct {
 	Kind     *releasemodel.ChangeKind
 	Breaking bool
+	Scope    *string
 	Summary  string
 	Sources  []releasemodel.ChangeSource
 }
@@ -249,5 +250,5 @@ func unkindedEntries(entries []releasemodel.ChangelogEntry) []Driver {
 }
 
 func driver(e releasemodel.ChangelogEntry) Driver {
-	return Driver{Kind: e.Kind, Breaking: e.Breaking, Summary: e.Summary, Sources: e.Sources}
+	return Driver{Kind: e.Kind, Breaking: e.Breaking, Scope: e.Scope, Summary: e.Summary, Sources: e.Sources}
 }

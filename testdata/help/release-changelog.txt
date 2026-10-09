@@ -1,24 +1,31 @@
-changelog resolves the next version, collects the evidence of the commits
-since the base version (each commit's record and, by default, its diff),
-has the configured producer author a structured changelog from it, and
-answers with the version, where the authored changelog is kept, and the
-rendered changelog section. It writes CHANGELOG.md only with --write.
+changelog resolves the base version and the signal floor, collects the
+evidence of the commits since the base version (each commit's record and,
+by default, its diff), has the configured producer author a structured
+changelog from it, suggests the bump from the entries' kinds raised to the
+signal floor, and answers with the version, the bump and the suggestion
+with its reasons, where the authored changelog is kept, and the rendered
+changelog section. It never prompts and confirms nothing: without a named
+bump the section is a preview under the suggested bump. It writes
+CHANGELOG.md only with --write, which requires a bump.
 
-bump is major, minor or patch, and names the impact instead of inferring
-it. The authored changelog is cached for the commit range, and reused
-until --redo-notes. Exits 1 when no release is warranted.
+bump is major, minor or patch. A named bump below the suggestion proceeds
+with a warning naming the entries that drove the suggestion; one below
+the signal floor is refused unless --force is given. The authored
+changelog is cached for the commit range, and reused until --redo-notes.
+Exits 1 when no release is warranted.
 
 Usage:
   release changelog [bump] [flags]
 
 Flags:
       --corpus path     Read the corpus at this path instead of the cache when it exists, and write it there otherwise
+      --force           Accept a named bump below the signal floor. Requires bump
   -h, --help            help for changelog
       --json            Render the answer as JSON instead of YAML
       --redo-notes      Discard any cached corpus and author again
       --skip-notes      Author with the mechanical producer instead of the configured one, and read no cache
       --target branch   The release line to collect from: a branch (default: the configured target, else the branch origin/HEAD points to)
-      --write           Write the rendered section into CHANGELOG.md
+      --write           Write the rendered section into CHANGELOG.md. Requires bump
 
 Global Flags:
       --config file   Use this configuration file instead of discovering one

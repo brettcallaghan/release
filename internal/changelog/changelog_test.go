@@ -81,7 +81,7 @@ func repo(t *testing.T) (string, config.Config, *recorder) {
 func prepare(t *testing.T, dir string, cfg config.Config, p authoring.Producer) Result {
 	t.Helper()
 	res, err := Prepare(context.Background(), Request{
-		Dir: dir, Target: "main", Config: cfg, Producers: map[string]authoring.Producer{"recorder": p},
+		Dir: dir, Target: "main", Config: cfg, Producers: map[string]authoring.Producer{"recorder": p}, Accepted: true,
 	})
 	if err != nil {
 		t.Fatalf("Prepare: %v", err)
@@ -158,5 +158,62 @@ func TestTheHostingPlatformIsNotConsultedByDefault(t *testing.T) {
 	prepare(t, dir, cfg, p)
 	if ev := p.bundle(t); ev.Commits[0].PullRequest != nil {
 		t.Errorf("pull request = %+v, want none: the commit carries none and nothing else was asked", ev.Commits[0].PullRequest)
+	}
+}
+
+// breaking answers with the recorder's changelog, its one entry made
+// breaking.
+type breaking struct{ recorder }
+
+func (b *breaking) Produce(ctx context.Context, evidence []byte) ([]byte, error) {
+	out, err := b.recorder.Produce(ctx, evidence)
+	if err != nil {
+		return nil, err
+	}
+	var c releasemodel.Changelog
+	if err := json.Unmarshal(out, &c); err != nil {
+		return nil, err
+	}
+	migration := "Greet explicitly."
+	c.Entries[0].Breaking, c.Entries[0].Migration = true, &migration
+	return json.Marshal(c)
+}
+
+// AC: AC-CLOG-003.5
+func TestABreakingEntryNeverSetsTheVersionUnconfirmed(t *testing.T) {
+	dir, cfg, _ := repo(t)
+	p := &breaking{}
+	res, err := Prepare(context.Background(), Request{
+		Dir: dir, Target: "main", Config: cfg, Producers: map[string]authoring.Producer{"recorder": p},
+	})
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if res.Outcome != Halted || res.Version != "" || res.Rendering.Section != "" {
+		t.Fatalf("outcome %v, version %q; want a halt with no version", res.Outcome, res.Version)
+	}
+	if res.Suggestion.Suggestion != releasemodel.BumpMajor || res.Suggestion.Halt == nil || res.Suggestion.Halt.OnlyNamed {
+		t.Errorf("suggestion = %+v, want major awaiting acceptance", res.Suggestion)
+	}
+
+	accepted, err := Prepare(context.Background(), Request{
+		Dir: dir, Target: "main", Config: cfg, Producers: map[string]authoring.Producer{"recorder": p}, Accepted: true,
+	})
+	if err != nil || accepted.Outcome != Prepared || accepted.Version != "2.0.0" {
+		t.Errorf("accepted: outcome %v, version %q, err %v; want 2.0.0", accepted.Outcome, accepted.Version, err)
+	}
+}
+
+func TestANamedBumpBelowTheFloorIsRefusedBeforeAnyProducerRuns(t *testing.T) {
+	dir, cfg, p := repo(t)
+	patch := releasemodel.BumpPatch
+	res, err := Prepare(context.Background(), Request{
+		Dir: dir, Target: "main", Config: cfg, Named: &patch, Producers: map[string]authoring.Producer{"recorder": p},
+	})
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if res.Outcome != Refused || res.Refusal == nil || res.Refusal.Floor != releasemodel.BumpMinor || len(res.Refusal.FloorDrivers) != 1 || p.received != nil {
+		t.Errorf("res = %+v after the producer received %d bytes; want a refusal naming the floor and its commit, and no producer run", res, len(p.received))
 	}
 }

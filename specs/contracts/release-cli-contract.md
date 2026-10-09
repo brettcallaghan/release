@@ -123,7 +123,7 @@ keys, in this order:
 | `named` | Whether a bump was named |
 | `suggested` | The suggested bump |
 | `floor` | The signal floor |
-| `reasons` | The entries that drove the suggestion, each `kind`, `breaking`, `scope`, `summary` and `sources` |
+| `reasons` | The entries that drove the suggestion, each `kind` (lower-case, or null), `breaking`, `scope` (or null), `summary` and `sources` (`#<n>` for a pull request, the full hash for a commit, the id for an issue) |
 | `raised_by_floor` | Whether the signal floor raised the suggestion above the entries' kinds |
 | `unclassified` | The commits that carry no enabled signal, each `hash` and `subject` |
 | `corpus_path` | Where the authored corpus is kept, relative to the repository root when inside it; null under `--skip-notes` |
@@ -140,6 +140,11 @@ WHERE `--skip-notes` is given, the entries' kinds come from conventional
 subjects only, so the suggestion is the signal floor, and standard error
 says that no producer read the diffs.
 
+WHEN the suggestion is none and an entry has no kind, a preview cannot
+stand in for the named bump only a person can give: it refuses with no
+answer, and standard error names the entries without a kind and
+`release changelog <bump>`.
+
 WHEN the configured producer is unavailable or fails, the provider SHALL
 report the failure on standard error and stop, naming `--skip-notes` as the
 way to author with the mechanical producer. It SHALL NOT fall back to
@@ -148,7 +153,7 @@ another producer on its own. The same holds for `release cut`.
 | Exit | When |
 |---|---|
 | 0 | The section was rendered, and written under `--write` |
-| 1 | No release is warranted; the policy refuses the version; a named bump below the signal floor without `--force`; `--force` without a bump; the producer fails or its corpus is rejected |
+| 1 | No release is warranted; the policy refuses the version; a named bump below the signal floor without `--force`; `--force` without a bump; no bump named while the suggestion is none and an entry has no kind; the producer fails or its corpus is rejected |
 | 2 | `--skip-notes` with `--redo-notes` or `--corpus`; `--write` without a bump; an invalid bump; a missing producer prerequisite |
 
 ### `release cut [bump]`

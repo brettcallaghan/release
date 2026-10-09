@@ -404,7 +404,41 @@ func (f *fixture) writeAuthored(req *Request, summary string) {
 	req.Producers = func(dir string, env []string) map[string]authoring.Producer {
 		return producers.Registry(changelog, dir, env...)
 	}
-	req.Named, req.Skip = nil, false
+	req.Named, req.Skip = minor(), false
+}
+
+// AC: AC-STG-001.5
+func TestAnUnconfirmedSuggestionHaltsBeforeAnyWrite(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	res, err := Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, "release cut minor") {
+		t.Fatalf("err = %v, want a refusal naming the confirming command", err)
+	}
+	if len(res.Writes) != 0 || f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") {
+		t.Errorf("a halted cut wrote: %v", res.Writes)
+	}
+}
+
+// AC: AC-VER-005.14
+func TestANamedBumpBelowTheFloorIsRefusedUnlessForced(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	patch := releasemodel.BumpPatch
+	req.Named = &patch
+	_, err := Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, "below the signal floor minor") || !strings.Contains(r.Reason, "--force") {
+		t.Fatalf("err = %v, want a refusal naming the floor and --force", err)
+	}
+	req.Force = true
+	res, err := Cut(context.Background(), req)
+	if err != nil || res.Version != "1.8.1" {
+		t.Fatalf("forced: version %q, err %v; want 1.8.1", res.Version, err)
+	}
 }
 
 func TestTheAuthoredChangelogIsWrittenIntoTheRelease(t *testing.T) {

@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "entries": [
+    {
+      "kind": "FEATURE",
+      "summary": "The --verbose flag prints each step as it runs.",
+      "breaking": false,
+      "derived": false,
+      "sources": [
+        {
+          "__type": "Commit",
+          "hash": "d13e824555691d715373260fbb6d5ce99b43ed66"
+        }
+      ]
+    },
+    {
+      "kind": "FIX",
+      "scope": "cli",
+      "summary": "Handle empty input.",
+      "breaking": false,
+      "derived": false,
+      "sources": [
+        {
+          "__type": "PullRequest",
+          "number": 11
+        },
+        {
+          "__type": "Commit",
+          "hash": "e48de63b3644bbba5759d2038c1e7ea8a15c3add"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "adapter": "COMMITS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "d13e824555691d715373260fbb6d5ce99b43ed66"
+    },
+    {
+      "adapter": "DIFFS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "d13e824555691d715373260fbb6d5ce99b43ed66",
+      "budget": {
+        "limit": 204800,
+        "total": 0,
+        "used": 0,
+        "omitted": []
+      }
+    }
+  ]
+}

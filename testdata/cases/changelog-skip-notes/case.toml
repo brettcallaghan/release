@@ -1,5 +1,5 @@
-description = "with --skip-notes and a named bump, the configured producer never runs: the mechanical producer derives one entry from each commit's subject, and a commit with no conventional type renders under the other heading"
-cites = ["AC-CLOG-003.11", "AC-CLOG-004.10", "AC-CLOG-004.14"]
+description = "with --skip-notes and a named bump, the configured producer never runs: the mechanical producer derives one entry from each commit's subject, and a commit with no conventional type renders under the other heading; the suggestion is the signal floor, and standard error says no producer read the diffs"
+cites = ["AC-CLOG-003.11", "AC-CLOG-004.10", "AC-CLOG-004.14", "contract-release-cli#release-changelog-bump"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
