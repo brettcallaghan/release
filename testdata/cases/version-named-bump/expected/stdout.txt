@@ -1,5 +1,11 @@
 base: 1.8.0
 impact: major
 named: true
-determined_by: []
+determined_by:
+  - hash: 27dad0f2b4fb5a79714b3599d309fbccef8a9420
+    subject: "feat: add a --target flag (#12)"
+    signal: conventional-type
+unclassified:
+  - hash: 5dacea6a39f9a4e64d7607aee0c2a32265a18944
+    subject: "docs: describe the flag"
 next: 2.0.0

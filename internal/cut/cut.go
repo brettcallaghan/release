@@ -213,7 +213,7 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	}
 	v := res.Resolution.Next.Version
 	res.Version = v.String()
-	if res.Resolution.Named && res.Resolution.Inferred == releasemodel.BumpNone && !req.Force {
+	if res.Resolution.Named && res.Resolution.Floor == releasemodel.BumpNone && !req.Force {
 		return res, &Refusal{Reason: fmt.Sprintf("nothing releasable %s; pass --force to cut %s anyway",
 			res.Resolution.NothingReleasable(), res.Version)}
 	}

@@ -33,11 +33,15 @@ func newVersionCmd(s *streams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version [bump]",
 		Short: "Resolve the version a release would carry, without writing anything",
-		Long: "version answers with the base version, the resolved impact, what determined\n" +
-			"that impact, and the next version. It is read-only.\n\n" +
-			"bump is major, minor or patch, and names the impact instead of inferring\n" +
-			"it. Without a bump, the impact is inferred from the commits since the base\n" +
-			"version; a named bump over commits that indicate none prints a warning.\n" +
+		Long: "version answers with the base version, the resolved impact, the commits that\n" +
+			"set the signal floor, the commits that carry no signal, and the next\n" +
+			"version. It is read-only and invokes no producer.\n\n" +
+			"bump is major, minor or patch, and names the impact instead of using the\n" +
+			"signal floor: the highest impact the commits' Release-Type trailers,\n" +
+			"conventional types and breaking markers indicate. A named bump over commits\n" +
+			"that indicate none prints a warning. A named bump below the signal floor is\n" +
+			"refused: exit 1, no answer, and standard error names the floor and the\n" +
+			"commits that set it.\n" +
 			"Without --target, the release line is the configured target, or else the\n" +
 			"branch origin/HEAD points to. Exits 1, after printing the answer, when no\n" +
 			"release is warranted or the version policy refuses the version.",
@@ -71,6 +75,11 @@ func newVersionCmd(s *streams) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if res.BelowFloor {
+				s.exitCode = StatusRefused
+				fmt.Fprintf(s.err, "release version: %s\n", belowFloor(res))
+				return nil
+			}
 			answer := versionAnswer(res)
 			if asJSON {
 				err = writeJSON(s.out, answer)
@@ -80,7 +89,7 @@ func newVersionCmd(s *streams) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if res.Named && res.Inferred == releasemodel.BumpNone {
+			if res.Named && res.Floor == releasemodel.BumpNone {
 				fmt.Fprintf(s.err, "release version: warning: nothing releasable %s; release cut stages the named bump only with --force\n", res.NothingReleasable())
 			}
 			if res.Next.Kind != version.Release {
@@ -113,11 +122,19 @@ func versionAnswer(res resolve.Resolution) yMap {
 			{"signal", yStr(string(d.Signal))},
 		})
 	}
+	unclassified := ySeq{}
+	for _, c := range res.Unclassified {
+		unclassified = append(unclassified, yMap{
+			{"hash", yStr(c.Hash)},
+			{"subject", yStr(c.Subject)},
+		})
+	}
 	return yMap{
 		{"base", base},
 		{"impact", yStr(strings.ToLower(string(res.Impact)))},
 		{"named", yBool(res.Named)},
 		{"determined_by", drivers},
+		{"unclassified", unclassified},
 		{"next", next},
 	}
 }
@@ -131,4 +148,16 @@ func refusal(r version.Result) string {
 		return fmt.Sprintf("the version policy refuses this release (%s): %s", r.Rule, r.Reason)
 	}
 	return "the version policy refuses this release: " + r.Reason
+}
+
+// belowFloor explains, on standard error, a named bump below the signal
+// floor: the floor and the commits that set it.
+func belowFloor(res resolve.Resolution) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "the named bump %s is below the signal floor %s, which these commits set:",
+		strings.ToLower(string(res.Impact)), strings.ToLower(string(res.Floor)))
+	for _, d := range res.DeterminedBy {
+		fmt.Fprintf(&b, "\n  %s %s (%s)", d.Hash, d.Subject, d.Signal)
+	}
+	return b.String()
 }

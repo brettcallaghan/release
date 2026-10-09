@@ -1,0 +1,12 @@
+description = "a named bump below the signal floor is refused with exit 1, no answer, and standard error naming the floor and the commits that set it"
+cites = ["contract-release-cli#release-version-bump"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "fix: handle empty input (#11)"],
+  ["commit", "-q", "--allow-empty", "-m", "feat: add a --target flag (#12)"],
+]
+args = ["version", "patch", "--target", "main"]
+exit_code = 1
+artifacts = ["stdout.txt", "stderr.txt"]

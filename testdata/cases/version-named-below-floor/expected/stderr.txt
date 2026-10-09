@@ -1,0 +1,2 @@
+release version: the named bump patch is below the signal floor minor, which these commits set:
+  b0af1cd43afc6d4695873a08959659086e2f13dc feat: add a --target flag (#12) (conventional-type)

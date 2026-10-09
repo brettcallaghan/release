@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,551 / 1,786 | 86.8% |
-| Snapshot cases | 1,175 / 1,786 | 65.8% |
-| End-to-end (built binary) | 1,048 / 1,786 | 58.7% |
-| **All layers combined** | **1,681 / 1,786** | **94.1%** |
+| Unit tests | 1,541 / 1,788 | 86.2% |
+| Snapshot cases | 1,193 / 1,788 | 66.7% |
+| End-to-end (built binary) | 1,050 / 1,788 | 58.7% |
+| **All layers combined** | **1,683 / 1,788** | **94.1%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -59,21 +59,21 @@ A statement is covered if any layer reaches it.
 | `release/internal/authoring` | 97 | 83 | 85.6% |
 | `release/internal/authoring/producers` | 58 | 56 | 96.6% |
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
-| `release/internal/bump` | 94 | 94 | 100.0% |
+| `release/internal/bump` | 85 | 85 | 100.0% |
 | `release/internal/changelog` | 51 | 44 | 86.3% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
-| `release/internal/cli` | 445 | 409 | 91.9% |
+| `release/internal/cli` | 457 | 421 | 92.1% |
 | `release/internal/config` | 149 | 148 | 99.3% |
 | `release/internal/corpus` | 84 | 83 | 98.8% |
 | `release/internal/cut` | 235 | 204 | 86.8% |
 | `release/internal/delegate` | 32 | 32 | 100.0% |
 | `release/internal/gitread` | 127 | 123 | 96.9% |
 | `release/internal/render` | 95 | 94 | 98.9% |
-| `release/internal/resolve` | 38 | 37 | 97.4% |
+| `release/internal/resolve` | 37 | 36 | 97.3% |
 | `release/internal/schemacheck` | 25 | 19 | 76.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/version` | 75 | 75 | 100.0% |
-| **Total** | **1,786** | **1,681** | **94.1%** |
+| **Total** | **1,788** | **1,683** | **94.1%** |
 
 Generated code is excluded from these figures: 513 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
