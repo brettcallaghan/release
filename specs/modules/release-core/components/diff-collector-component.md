@@ -83,7 +83,8 @@ knows what it was not shown and the changelog can say so.
   - A merge commit's diff is against its first parent, as every commit's is.
   - The component SHALL read each diff independent of the user's git diff
     configuration (submodule format, path prefixes, textconv, relative
-    paths), so the same repository yields the same `DiffRecord` under any
+    paths, hunk context, inter-hunk context, diff algorithm, indent
+    heuristic), so the same repository yields the same `DiffRecord` under any
     such setting.
   - Exclusion entries match as `release_paths` entries do (equal to the
     entry, under an entry ending in `/`, or matched as a glob), with `**`

@@ -450,3 +450,38 @@ func TestDiffsIgnoreUserDiffConfig(t *testing.T) {
 		}
 	}
 }
+
+// A mid-file edit to a 30-line file, with a second edit nine lines below the
+// first: two hunks under the default three lines of context, one under a
+// larger inter-hunk context.
+func TestDiffsIgnoreHunkShapeConfig(t *testing.T) {
+	shaped := func(f *fixture) string {
+		f.write("f", lines("x", 30))
+		f.commitAll("base")
+		edit := strings.Split(lines("x", 30), "\n")
+		edit[9] = "ten"
+		edit[19] = "twenty"
+		f.write("f", strings.Join(edit, "\n"))
+		f.commitAll("edit")
+		return f.head()
+	}
+
+	plain := newFixture(t)
+	pc := shaped(plain)
+	want, _ := plain.diffs([]string{pc}, nil, 1<<20)
+
+	f := newFixture(t)
+	c := shaped(f)
+	f.git("config", "diff.context", "1")
+	f.git("config", "diff.interHunkContext", "10")
+	f.git("config", "diff.algorithm", "patience")
+	f.git("config", "diff.indentHeuristic", "false")
+	got, _ := f.diffs([]string{c}, nil, 1<<20)
+
+	if len(got[0].Files) != 1 || len(want[0].Files) != 1 {
+		t.Fatalf("files = %+v, want %+v", got[0].Files, want[0].Files)
+	}
+	if got[0].Files[0].Path != want[0].Files[0].Path || got[0].Files[0].Patch != want[0].Files[0].Patch {
+		t.Errorf("patch under hunk-shape config = %q, want %q", got[0].Files[0].Patch, want[0].Files[0].Patch)
+	}
+}

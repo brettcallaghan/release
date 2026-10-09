@@ -172,11 +172,13 @@ func (r Repo) commitPatches(ctx context.Context, hash string, exclude []string) 
 	if err != nil {
 		return d, err
 	}
-	// The format is pinned on the command line, which outranks the user's
-	// diff.* configuration.
+	// The format and hunk shape are pinned on the command line, which outranks
+	// the user's diff.* configuration. The hunk-shape values are git's
+	// defaults, so an unconfigured machine's output does not change.
 	common := []string{
 		"diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-relative",
 		"--submodule=short", "--src-prefix=a/", "--dst-prefix=b/", "-M",
+		"-U3", "--inter-hunk-context=0", "--diff-algorithm=myers", "--indent-heuristic",
 	}
 	n := len(common)
 	names, err := r.run(ctx, append(append(common[:n:n], "--raw", "-z"), base, hash, "--")...)
