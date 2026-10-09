@@ -70,6 +70,8 @@ rather than the tooling learning any manifest format.
     corpus.
   - IF staging without notes is requested and no bump is named, THEN the
     component SHALL refuse, because neither source of impact is available.
+  - IF a forced release is requested and no bump is named, THEN the
+    component SHALL refuse, because there is no named bump to force.
   - The component SHALL create a stage branch whose first commit is the
     release commit.
   - The component SHALL run the repository's configured version-propagation
@@ -80,7 +82,10 @@ rather than the tooling learning any manifest format.
   - The component SHALL include the rendered release notes in the pull request
     body under a "Release Notes" heading.
   - WHEN no releasable change exists since the latest reachable tag, the
-    component SHALL refuse without writing.
+    component SHALL refuse without writing, unless a bump is named and the
+    release is forced. The refusal SHALL say whether the range holds no
+    commits or how many commits it holds, and WHEN a bump was named SHALL
+    name how to force the release.
   - WHEN the authored proposal disagrees with the resolved impact, the
     component SHALL halt without writing.
   - IF a write fails part-way, THEN the component SHALL report every change it
@@ -101,13 +106,14 @@ rather than the tooling learning any manifest format.
   commit, removed on every exit) all use it, and the maintainer's working
   tree, index and current branch are never read for the release or changed.
   Refusals that need no repository come first: staging without notes and
-  without a bump, an unconfigured `commands.propagate`, and, unless the run
-  is a dry run or opens no pull request, a missing `gh` or one that
-  `gh auth status`, scoped to `origin`'s host, reports unauthenticated. Then,
-  stopping at the
+  without a bump, forcing without a bump, an unconfigured `commands.propagate`,
+  and, unless the run is a dry run or opens no pull request, a missing `gh` or
+  one that `gh auth status`, scoped to `origin`'s host, reports
+  unauthenticated. Then, stopping at the
   first refusal or failure:
   1. resolve the version, with the named bump WHEN given; refuse WHEN no
-     release is warranted;
+     release is warranted, or WHEN a bump is named, the commits indicate no
+     impact, and the release is not forced;
   2. refuse WHEN the stage branch exists locally or on `origin`;
   3. run `commands.preflight` WHEN configured;
   4. assemble the corpus and, unless notes are skipped, author it; halt WHEN

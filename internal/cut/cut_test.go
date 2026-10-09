@@ -284,8 +284,13 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 		"stage branch exists on origin": {func(f *fixture, _ *Request) {
 			f.git(f.work, "push", "-q", "origin", "main:refs/heads/cut/1.9.0")
 		}, "already exists on origin"},
-		"gh unavailable":     {func(f *fixture, r *Request) { r.Gh = filepath.Join(f.root, "no-gh") }, "gh is not available"},
-		"gh unauthenticated": {func(f *fixture, r *Request) { f.t.Setenv("GHSTUB_AUTH_FAIL", "The token in GH_TOKEN is invalid.") }, "gh is not authenticated"},
+		"named bump over nothing releasable": {func(f *fixture, _ *Request) {
+			f.git(f.work, "tag", "-a", "-m", "v1.9.0", "v1.9.0")
+			f.git(f.work, "push", "-q", "origin", "--tags")
+		}, "nothing releasable since v1.9.0: no commits; pass --force"},
+		"force without a bump": {func(_ *fixture, r *Request) { r.Named, r.Skip, r.Force = nil, false, true }, "--force needs a named bump"},
+		"gh unavailable":       {func(f *fixture, r *Request) { r.Gh = filepath.Join(f.root, "no-gh") }, "gh is not available"},
+		"gh unauthenticated":   {func(f *fixture, r *Request) { f.t.Setenv("GHSTUB_AUTH_FAIL", "The token in GH_TOKEN is invalid.") }, "gh is not authenticated"},
 		"declined": {func(_ *fixture, r *Request) {
 			r.Confirm = func(Result) (bool, error) { return false, nil }
 		}, "declined"},
@@ -341,6 +346,21 @@ func TestNoReleaseRefusesWithoutABranch(t *testing.T) {
 	}
 	if f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") {
 		t.Error("a stage branch was created")
+	}
+}
+
+func TestForceStagesANamedBumpOverNothingReleasable(t *testing.T) {
+	f := newFixture(t)
+	f.git(f.work, "tag", "-a", "-m", "v1.9.0", "v1.9.0")
+	f.git(f.work, "push", "-q", "origin", "--tags")
+	req := f.request()
+	req.Force, req.DryRun = true, true
+	res, err := Cut(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Cut: %v", err)
+	}
+	if res.Version != "1.10.0" || res.Branch != "cut/1.10.0" {
+		t.Errorf("staged %s on %s, want 1.10.0 on cut/1.10.0", res.Version, res.Branch)
 	}
 }
 

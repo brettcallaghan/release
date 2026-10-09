@@ -74,6 +74,9 @@ type Resolution struct {
 	Impact  releasemodel.Bump
 	// Named is true WHEN Impact is the maintainer's named bump.
 	Named bool
+	// Inferred is the impact the commits indicate, whether or not a bump was
+	// named. none means nothing releasable exists since the base version.
+	Inferred releasemodel.Bump
 	// DeterminedBy lists the commits that indicated Impact, newest first.
 	DeterminedBy []Driver
 	// Commits are every commit record in the range, newest first.
@@ -81,6 +84,23 @@ type Resolution struct {
 	// Next is the calculator's answer: a version, no release, or a policy
 	// violation.
 	Next version.Result
+}
+
+// NothingReleasable describes a range whose commits indicate no impact:
+// "since <tag>: no commits", or how many commits it holds that indicate none.
+func (r Resolution) NothingReleasable() string {
+	since := "since " + r.BaseTag
+	if r.BaseTag == "" {
+		since = "with no release tag reachable"
+	}
+	switch n := len(r.Commits); n {
+	case 0:
+		return since + ": no commits"
+	case 1:
+		return since + ": 1 commit, which indicates no bump"
+	default:
+		return fmt.Sprintf("%s: %d commits, none of which indicates a bump", since, n)
+	}
 }
 
 // Resolve computes the next version for the target ref. An error means the
@@ -111,6 +131,10 @@ func Resolve(ctx context.Context, req Request) (Resolution, error) {
 	})
 	res.Commits = commits
 	res.Impact, res.Named = classified.Impact, classified.Named
+	res.Inferred = classified.Impact
+	if classified.Named {
+		res.Inferred = bump.Classify(bump.Input{Commits: commits, Enabled: req.Policy.Signals}).Impact
+	}
 	for _, d := range classified.Commits {
 		res.DeterminedBy = append(res.DeterminedBy, Driver{Hash: d.Commit.Hash, Subject: d.Commit.Subject, Signal: d.Signal})
 	}

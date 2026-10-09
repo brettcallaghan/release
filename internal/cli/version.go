@@ -37,9 +37,10 @@ func newVersionCmd(s *streams) *cobra.Command {
 			"that impact, and the next version. It is read-only.\n\n" +
 			"bump is major, minor or patch, and names the impact instead of inferring\n" +
 			"it. Without a bump, the impact is inferred from the commits since the base\n" +
-			"version. Without --target, the release line is the configured target, or\n" +
-			"else the branch origin/HEAD points to. Exits 1, after printing the answer,\n" +
-			"when no release is warranted or the version policy refuses the version.",
+			"version; a named bump over commits that indicate none prints a warning.\n" +
+			"Without --target, the release line is the configured target, or else the\n" +
+			"branch origin/HEAD points to. Exits 1, after printing the answer, when no\n" +
+			"release is warranted or the version policy refuses the version.",
 		Args:      cobra.MaximumNArgs(1),
 		ValidArgs: []string{"major", "minor", "patch"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -78,6 +79,9 @@ func newVersionCmd(s *streams) *cobra.Command {
 			}
 			if err != nil {
 				return err
+			}
+			if res.Named && res.Inferred == releasemodel.BumpNone {
+				fmt.Fprintf(s.err, "release version: warning: nothing releasable %s; release cut stages the named bump only with --force\n", res.NothingReleasable())
 			}
 			if res.Next.Kind != version.Release {
 				s.exitCode = StatusRefused

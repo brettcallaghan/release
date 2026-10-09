@@ -7,7 +7,7 @@ description: The library that computes versions, assembles and renders
 slug: module-release-core
 type: module-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-08T00:00:00Z
 kind: standard
 visibility: internal
 contracts_consumed: []
@@ -66,8 +66,9 @@ the first time something outside this repository depends on it.
 - **Version resolution:** `internal/resolve`. `Resolve` takes a repository
   path, a target ref, an optional named bump, an optional graduation flag
   and a policy, and returns the base version (or its absence) with its tag,
-  the impact, whether it was named, the commits that determined it with the
-  signal each indicated, and the next version, a no-release result or a
+  the impact, whether it was named, the impact the commits indicate whatever
+  was named (none meaning nothing releasable), the commits that determined
+  the impact with the signal each indicated, and the next version, a no-release result or a
   policy violation. It composes [[component-tag-reader]],
   [[component-commit-collector]], [[component-bump-classifier]] and
   [[component-version-calculator]], maps the classifier's bump onto the

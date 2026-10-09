@@ -37,7 +37,10 @@ func (r Repo) ReleaseTags(ctx context.Context, ref, tagPrefix string) ([]Release
 	if err != nil {
 		return nil, err
 	}
-	byVersion := map[string]ReleaseTag{}
+	// tags keeps git's order, so the sort below sees the same input on every
+	// run; byVersion indexes it.
+	var tags []ReleaseTag
+	byVersion := map[string]int{}
 	for _, line := range strings.Split(string(out), "\n") {
 		name, ok := strings.CutPrefix(line, "refs/tags/")
 		if !ok {
@@ -48,13 +51,14 @@ func (r Repo) ReleaseTags(ctx context.Context, ref, tagPrefix string) ([]Release
 			continue
 		}
 		key := tag.Version.String()
-		if prev, seen := byVersion[key]; !seen || preferred(tagPrefix, tag, prev.Name) {
-			byVersion[key] = tag
+		i, seen := byVersion[key]
+		switch {
+		case !seen:
+			byVersion[key] = len(tags)
+			tags = append(tags, tag)
+		case preferred(tagPrefix, tag, tags[i].Name):
+			tags[i] = tag
 		}
-	}
-	tags := make([]ReleaseTag, 0, len(byVersion))
-	for _, t := range byVersion {
-		tags = append(tags, t)
 	}
 	sort.Slice(tags, func(i, j int) bool { return tags[i].Version.Less(tags[j].Version) })
 	return tags, nil

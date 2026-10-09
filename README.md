@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-94.0%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-94.1%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 1,510 / 1,739 | 86.8% |
-| Snapshot cases | 1,133 / 1,739 | 65.2% |
-| End-to-end (built binary) | 1,021 / 1,739 | 58.7% |
-| **All layers combined** | **1,635 / 1,739** | **94.0%** |
+| Unit tests | 1,526 / 1,757 | 86.9% |
+| Snapshot cases | 1,151 / 1,757 | 65.5% |
+| End-to-end (built binary) | 1,028 / 1,757 | 58.5% |
+| **All layers combined** | **1,653 / 1,757** | **94.1%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -62,18 +62,18 @@ A statement is covered if any layer reaches it.
 | `release/internal/bump` | 94 | 94 | 100.0% |
 | `release/internal/changelog` | 49 | 42 | 85.7% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
-| `release/internal/cli` | 439 | 403 | 91.8% |
+| `release/internal/cli` | 442 | 406 | 91.9% |
 | `release/internal/config` | 139 | 138 | 99.3% |
 | `release/internal/corpus` | 83 | 82 | 98.8% |
-| `release/internal/cut` | 231 | 200 | 86.6% |
+| `release/internal/cut` | 235 | 204 | 86.8% |
 | `release/internal/delegate` | 32 | 32 | 100.0% |
-| `release/internal/gitread` | 122 | 118 | 96.7% |
+| `release/internal/gitread` | 123 | 119 | 96.7% |
 | `release/internal/render` | 91 | 90 | 98.9% |
-| `release/internal/resolve` | 28 | 27 | 96.4% |
+| `release/internal/resolve` | 38 | 37 | 97.4% |
 | `release/internal/schemacheck` | 20 | 15 | 75.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/version` | 75 | 75 | 100.0% |
-| **Total** | **1,739** | **1,635** | **94.0%** |
+| **Total** | **1,757** | **1,653** | **94.1%** |
 
 Generated code is excluded from these figures: 251 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
