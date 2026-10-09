@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0
+
+**Safer cuts and a 0.0.0 first release**
+
+This release tightens `release cut` after the first dogfood release, 0.1.0. A named bump over a range with nothing releasable is now refused unless `--force` is given. The cut also checks GitHub authentication up front, shows the rendered section in `--dry-run`, and releases `0.0.0` first in a repository with no tags.
+
+### 🪲 Bugs
+
+- **cut:** A named bump over a range with nothing releasable is refused unless you pass --force ([#16](https://github.com/brettcallaghan/release/pull/16))
+
+  Previously a named bump could cut a release from commits that carry no releasable change. The cut now stops, and `--force` overrides the refusal.
+
+- **cut:** Cut checks GitHub authentication first, --dry-run shows the changelog section, and a repository with no tags releases 0.0.0 first ([#14](https://github.com/brettcallaghan/release/pull/14))
+
+  The release target defaults to the main branch, and the generated release notes are trimmed.
+
 ## 0.1.0
 
 **Release staging and publishing arrive in the release CLI**
