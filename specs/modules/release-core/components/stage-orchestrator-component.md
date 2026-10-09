@@ -157,9 +157,12 @@ rather than the tooling learning any manifest format.
       `Release-Type: <confirmed bump>`, push the branch to `origin`, and
       open the pull request into the target through `gh`, titled
       `Release <version>`, with the rendered changelog under
-      `## Release Notes` followed by the confirmed bump, the suggestion and
-      its reasons under `## Bump`, and each omitted commit with its reason
-      under `## Omitted commits`, unless told not to.
+      `## Release Notes`, followed under `## Bump` by the confirmed bump and
+      whether it was named or confirmed, the suggestion and its reasons, the
+      signal floor with the commits that set it, and the unclassified
+      commits, and, WHEN the changelog omits any commit, each omitted commit
+      with its subject and reason under `## Omitted commits`, unless told not
+      to.
 - **Configured commands and the changelog producer** run in the scratch
   checkout with `RELEASE_VERSION` set to the version being released WHEN a
   bump is named, and unset otherwise, since the version is not known until

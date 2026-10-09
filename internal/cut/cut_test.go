@@ -371,6 +371,13 @@ func TestForceStagesANamedBumpOverNothingReleasable(t *testing.T) {
 // answer carries them through as a conforming producer does.
 func (f *fixture) writeAuthored(req *Request, summary string) {
 	f.t.Helper()
+	f.writeAuthoredOmitting(req, summary, nil)
+}
+
+// writeAuthoredOmitting is writeAuthored, with the commits whose subjects
+// omit names omitted for the reasons it gives instead of cited.
+func (f *fixture) writeAuthoredOmitting(req *Request, summary string, omit map[string]string) {
+	f.t.Helper()
 	prepared, err := changelog.Prepare(context.Background(), changelog.Request{
 		Dir: f.work, Target: "main", Config: req.Config, Named: minor(), Skip: true,
 		Producers: producers.Registry(req.Config.Changelog, f.work),
@@ -378,8 +385,12 @@ func (f *fixture) writeAuthored(req *Request, summary string) {
 	if err != nil {
 		f.t.Fatalf("reading the evidence: %v", err)
 	}
-	sources := []any{}
+	sources, omitted := []any{}, []any{}
 	for _, ce := range prepared.Evidence.Commits {
+		if reason, ok := omit[ce.Record.Subject]; ok {
+			omitted = append(omitted, map[string]any{"hash": ce.Record.Hash, "reason": reason})
+			continue
+		}
 		if pr := ce.Record.PullRequest; pr != nil {
 			sources = append(sources, map[string]any{"__type": "PullRequest", "number": pr.Number})
 		}
@@ -389,6 +400,7 @@ func (f *fixture) writeAuthored(req *Request, summary string) {
 		"schema_version": "1.0.0",
 		"entries": []any{map[string]any{"kind": "FEATURE", "summary": summary, "breaking": false, "derived": false,
 			"sources": sources}},
+		"omitted": omitted,
 		"sources": prepared.Evidence.Sources,
 	}
 	data, err := json.Marshal(c)
@@ -405,6 +417,66 @@ func (f *fixture) writeAuthored(req *Request, summary string) {
 		return producers.Registry(changelog, dir, env...)
 	}
 	req.Named, req.Skip = minor(), false
+}
+
+// AC: AC-STG-001.15
+func TestTheReleaseCommitCarriesTheConfirmedBumpAsATrailer(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	res, err := Cut(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Cut: %v", err)
+	}
+	message := f.git(f.bare, "log", "-1", "--format=%B", res.Commit)
+	cmd := exec.Command("git", "interpret-trailers", "--parse")
+	cmd.Stdin = strings.NewReader(message)
+	trailers, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(trailers) != "Release-Type: minor\n" {
+		t.Errorf("trailers = %q, want Release-Type: minor\nmessage:\n%s", trailers, message)
+	}
+	if subject := f.git(f.bare, "log", "-1", "--format=%s", res.Commit); subject != "Release 1.9.0\n" {
+		t.Errorf("subject = %q", subject)
+	}
+}
+
+// AC: AC-STG-001.9
+// AC: AC-STG-001.16
+// AC: AC-STG-001.17
+// AC: AC-CLOG-004.4
+func TestThePullRequestBodyShowsTheNotesTheBumpAndTheOmittedCommits(t *testing.T) {
+	f := newFixture(t)
+	f.git(f.work, "commit", "-q", "--allow-empty", "-m", "Tidy the help text")
+	f.git(f.work, "commit", "-q", "--allow-empty", "-m", "docs: describe the flag")
+	f.git(f.work, "push", "-q", "origin", "main")
+	req := f.request()
+	f.writeAuthoredOmitting(&req, "Compute for any release line.", map[string]string{
+		"docs: describe the flag": "Documents the flag the feature entry already covers.",
+	})
+	if _, err := Cut(context.Background(), req); err != nil {
+		t.Fatalf("Cut: %v", err)
+	}
+	// --body is the last argument, and the stub writes one per line, so the
+	// body is everything after it.
+	_, body, _ := strings.Cut(strings.Join(f.ghArgs(), "\n")+"\n", "--body\n")
+	feat := strings.TrimSpace(f.git(f.work, "rev-parse", "--short=7", "HEAD~2"))
+	tidy := strings.TrimSpace(f.git(f.work, "rev-parse", "--short=7", "HEAD~1"))
+	docs := strings.TrimSpace(f.git(f.work, "rev-parse", "--short=7", "HEAD"))
+	for _, want := range []string{
+		"## Release Notes\n\n### Features\n\n- Compute for any release line. (#12, " + feat,
+		"\n\n## Bump\n\nConfirmed bump: **minor**, named by the maintainer.\n",
+		"Suggested bump: **minor**, from these entries:\n\n- Compute for any release line. (#12, " + feat + ", " + tidy + ")\n",
+		"Signal floor: **minor**, set by:\n\n- " + feat + " feat: add a --target flag (#12) (conventional-type)\n",
+		"Unclassified commits, carrying no signal:\n\n- " + docs + " docs: describe the flag\n- " + tidy + " Tidy the help text\n",
+		"\n## Omitted commits\n\n- " + docs + " docs: describe the flag: Documents the flag the feature entry already covers.\n",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the pull request body lacks %q:\n%s", want, body)
+		}
+	}
 }
 
 // AC: AC-STG-001.5

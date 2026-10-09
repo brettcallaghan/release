@@ -345,6 +345,98 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	return res, write(ctx, req, g, wt, &res)
 }
 
+// commitMessage is the release commit's message: Release <version>, then
+// the confirmed bump as a Release-Type trailer, lower case as the Bump
+// Classifier reads it.
+func commitMessage(res Result) string {
+	return "Release " + res.Version + "\n\nRelease-Type: " + strings.ToLower(string(res.Changelog.Bump)) + "\n"
+}
+
+// pullRequestBody is the stage pull request's body: the rendered notes under
+// "## Release Notes"; the confirmed bump, the suggestion with its reasons,
+// the signal floor with the commits that set it, and the unclassified
+// commits under "## Bump"; and, WHEN the changelog omits any, the omitted
+// commits with their reasons under "## Omitted commits".
+func pullRequestBody(c changelog.Result) string {
+	var b strings.Builder
+	b.WriteString("## Release Notes\n\n")
+	b.WriteString(strings.TrimRight(c.Rendering.Body, "\n"))
+	b.WriteString("\n\n## Bump\n\n")
+
+	s := c.Suggestion
+	by := "confirmed from the suggestion"
+	if s.Decision != nil && s.Decision.DecidedBy == suggest.ByNamed {
+		by = "named by the maintainer"
+	}
+	fmt.Fprintf(&b, "Confirmed bump: **%s**, %s.\n\n", lower(c.Bump), by)
+	fmt.Fprintf(&b, "Suggested bump: **%s**", lower(s.Suggestion))
+	if len(s.Reasons.Entries) > 0 {
+		b.WriteString(", from these entries:\n\n")
+		for _, d := range s.Reasons.Entries {
+			fmt.Fprintf(&b, "- %s", d.Summary)
+			if refs := sourceRefs(d.Sources); refs != "" {
+				fmt.Fprintf(&b, " (%s)", refs)
+			}
+			b.WriteString("\n")
+		}
+	} else {
+		b.WriteString(", from no entry's kind.\n")
+	}
+	if s.Reasons.FloorRaised {
+		fmt.Fprintf(&b, "\nThe signal floor raised the suggestion from %s.\n", lower(s.Reasons.FromKinds))
+	}
+
+	fmt.Fprintf(&b, "\nSignal floor: **%s**", lower(s.Floor))
+	if len(s.FloorDrivers) > 0 {
+		b.WriteString(", set by:\n\n")
+		for _, d := range s.FloorDrivers {
+			fmt.Fprintf(&b, "- %s %s (%s)\n", short(d.Commit.Hash), d.Commit.Subject, d.Signal)
+		}
+	} else {
+		b.WriteString(".\n")
+	}
+
+	if len(s.Unclassified) > 0 {
+		b.WriteString("\nUnclassified commits, carrying no signal:\n\n")
+		for _, u := range s.Unclassified {
+			fmt.Fprintf(&b, "- %s %s\n", short(u.Hash), u.Subject)
+		}
+	} else {
+		b.WriteString("\nUnclassified commits: none.\n")
+	}
+
+	if c.Changelog.Omitted != nil && len(*c.Changelog.Omitted) > 0 {
+		subjects := map[string]string{}
+		for _, ce := range c.Evidence.Commits {
+			subjects[ce.Record.Hash] = ce.Record.Subject
+		}
+		b.WriteString("\n## Omitted commits\n\n")
+		for _, o := range *c.Changelog.Omitted {
+			fmt.Fprintf(&b, "- %s %s: %s\n", short(o.Hash), subjects[o.Hash], strings.TrimSpace(o.Reason))
+		}
+	}
+	return b.String()
+}
+
+// sourceRefs is an entry's sources as references: #<n> for a pull request,
+// the short hash for a commit, the id for an issue.
+func sourceRefs(sources []releasemodel.ChangeSource) string {
+	refs := make([]string, 0, len(sources))
+	for _, src := range sources {
+		switch v := src.Value.(type) {
+		case releasemodel.PullRequestSource:
+			refs = append(refs, fmt.Sprintf("#%d", v.Number))
+		case releasemodel.CommitSource:
+			refs = append(refs, short(v.Hash))
+		case releasemodel.IssueSource:
+			refs = append(refs, v.Id)
+		}
+	}
+	return strings.Join(refs, ", ")
+}
+
+func lower(b releasemodel.Bump) string { return strings.ToLower(string(b)) }
+
 // planned is the writes step 9 makes.
 func planned(res Result, req Request) []Write {
 	w := []Write{
@@ -374,7 +466,7 @@ func write(ctx context.Context, req Request, g git, wt string, res *Result) erro
 	if _, err := wg.run(ctx, "add", "--all"); err != nil {
 		return &WriteFailure{Err: fmt.Errorf("staging the release: %w", err), Writes: res.Writes, Remedy: discard}
 	}
-	if _, err := wg.run(ctx, "-c", noHooks, "commit", "--quiet", "--no-verify", "-m", "Release "+res.Version); err != nil {
+	if _, err := wg.run(ctx, "-c", noHooks, "commit", "--quiet", "--no-verify", "-m", commitMessage(*res)); err != nil {
 		return &WriteFailure{Err: fmt.Errorf("committing the release: %w", err), Writes: res.Writes, Remedy: discard}
 	}
 	commit, err := wg.out(ctx, "rev-parse", "HEAD")
@@ -412,7 +504,7 @@ func write(ctx context.Context, req Request, g git, wt string, res *Result) erro
 	}
 
 	title := "Release " + res.Version
-	body := "## Release Notes\n\n" + res.Changelog.Rendering.Body
+	body := pullRequestBody(res.Changelog)
 	out, err := ghRun(ctx, req, "pr", "create", "--base", res.Target, "--head", res.Branch, "--title", title, "--body", body)
 	if err != nil {
 		return &WriteFailure{
