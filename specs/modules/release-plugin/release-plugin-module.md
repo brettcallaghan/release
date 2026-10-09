@@ -146,7 +146,10 @@ against an `httptest` server.
 
 The plugin's version is the CLI's version: `release cut` writes it into
 `plugin/.claude-plugin/plugin.json` through `scripts/propagate-version.sh`
-([[adr-008]]). A skill change ships in the next CLI release.
+([[adr-008]]), which also pins the `release` entry of
+`.claude-plugin/marketplace.json` to the release's `v<version>` tag, so the
+marketplace serves the plugin as released. A skill change ships in the next
+CLI release.
 
 ## Cross-Cutting Standards
 
