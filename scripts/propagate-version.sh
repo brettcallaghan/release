@@ -15,11 +15,13 @@ manifest="plugin/.claude-plugin/plugin.json"
 marketplace=".claude-plugin/marketplace.json"
 
 python3 -I - "$manifest" "$marketplace" "$RELEASE_VERSION" <<'PY'
-import json, re, sys
+import json, os, re, shutil, sys, tempfile
 manifest, marketplace, version = sys.argv[1], sys.argv[2], sys.argv[3]
 
-# Both files are checked before either is written, so a failure leaves
-# neither changed.
+# Both files are validated, and both new contents written to temp files beside
+# their targets, before either target is replaced. A failure up to that point
+# leaves both unchanged; the only window left is between the two os.replace
+# calls.
 text = open(manifest, encoding="utf-8").read()
 new_manifest, n = re.subn(r'("version"\s*:\s*")[^"]*(")', r"\g<1>" + version + r"\g<2>", text, count=1)
 if n != 1:
@@ -38,6 +40,24 @@ entries[0]["source"] = {
     "ref": "v" + version,
 }
 
-open(manifest, "w", encoding="utf-8").write(new_manifest)
-open(marketplace, "w", encoding="utf-8").write(json.dumps(market, indent=2, ensure_ascii=False) + "\n")
+staged = []
+try:
+    for target, content in (
+        (manifest, new_manifest),
+        (marketplace, json.dumps(market, indent=2, ensure_ascii=False) + "\n"),
+    ):
+        fd, tmp = tempfile.mkstemp(prefix=".propagate-", dir=os.path.dirname(target) or ".")
+        staged.append((tmp, target))
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        shutil.copymode(target, tmp)
+    for tmp, target in staged:
+        os.replace(tmp, target)
+        staged = [(t, g) for t, g in staged if t != tmp]
+finally:
+    for tmp, _ in staged:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
 PY

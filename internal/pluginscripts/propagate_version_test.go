@@ -99,6 +99,7 @@ func TestCutWritesThePluginVersion(t *testing.T) {
 	if got := readJSON(t, filepath.Join(root, manifestPath))["version"]; got != "0.2.0" {
 		t.Errorf("plugin.json version = %v, want 0.2.0", got)
 	}
+	requireNoPropagateTemps(t, root)
 }
 
 // AC: AC-PLG-004.3
@@ -158,5 +159,42 @@ func TestPropagateFailsWithoutAReleaseEntryAndWritesNothing(t *testing.T) {
 	}
 	if after, _ := os.ReadFile(mp); !bytes.Equal(after, data) {
 		t.Error("marketplace.json was written although the script failed")
+	}
+}
+
+// A marketplace.json that cannot be prepared leaves plugin.json untouched,
+// and no temp file is left behind either way.
+func TestPropagateFailureToPrepareMarketplaceLeavesPluginManifestUnchanged(t *testing.T) {
+	root := propagateTree(t)
+	dir := filepath.Dir(filepath.Join(root, marketplacePath))
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	if f, err := os.CreateTemp(dir, "probe-"); err == nil {
+		f.Close()
+		os.Remove(f.Name())
+		t.Skip("directory permissions are not enforced for this user (running as root?)")
+	}
+	manifestBefore, _ := os.ReadFile(filepath.Join(root, manifestPath))
+
+	out, err := runPropagate(t, root, "0.2.0")
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("err = %v, want a non-zero exit\n%s", err, out)
+	}
+	if after, _ := os.ReadFile(filepath.Join(root, manifestPath)); !bytes.Equal(after, manifestBefore) {
+		t.Error("plugin.json was written although marketplace.json could not be prepared")
+	}
+	requireNoPropagateTemps(t, root)
+}
+
+func requireNoPropagateTemps(t *testing.T, root string) {
+	t.Helper()
+	for _, p := range []string{manifestPath, marketplacePath} {
+		left, _ := filepath.Glob(filepath.Join(filepath.Dir(filepath.Join(root, p)), ".propagate-*"))
+		if len(left) != 0 {
+			t.Errorf("temp files left beside %s: %v", p, left)
+		}
 	}
 }
