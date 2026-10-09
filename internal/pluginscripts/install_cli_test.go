@@ -705,11 +705,15 @@ func TestReleaseOnPathIsUsedWhenTmpdirIsUnwritable(t *testing.T) {
 	h.requireNoRequests()
 }
 
-func TestReleaseOnPathProbeReadsEndOfFileOnStdin(t *testing.T) {
+// The probe does not block on the script's own stdin. It does not pin the
+// probe's `</dev/null`: bash gives a background job inside a command
+// substitution /dev/null on stdin even under `set -m`, so removing the
+// redirection leaves this test green.
+func TestReleaseOnPathProbeDoesNotBlockOnInheritedStdin(t *testing.T) {
 	h := newHarness(t)
-	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "30"
-	// Script stdin is a pipe nobody writes to or closes: without /dev/null on
-	// the probe, `read` blocks on it.
+	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "5"
+	// Script stdin is a pipe nobody writes to or closes: a probe that
+	// inherited it would block in `read` until the timeout.
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
