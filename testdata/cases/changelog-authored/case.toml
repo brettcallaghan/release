@@ -1,5 +1,5 @@
-description = "the configured command producer authors the corpus; its proposal agrees with the computed impact, so the section renders from its prose"
-cites = ["AC-CLOG-003.3", "AC-CLOG-003.8", "contract-release-cli#guarantees"]
+description = "the configured command producer receives the evidence bundle and authors the changelog; the section renders from its prose, citing each commit and its pull request"
+cites = ["AC-CLOG-003.12", "AC-CLOG-003.8", "contract-release-cli#guarantees"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],

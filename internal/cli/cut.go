@@ -155,7 +155,6 @@ func (s *streams) cutFailed(asJSON bool, res cut.Result, err error) error {
 	var (
 		refused  *cut.Refusal
 		none     *cut.NoRelease
-		disagree *cut.Disagreement
 		rejected *authoring.Rejection
 		failed   *producers.Failure
 		partial  *cut.WriteFailure
@@ -189,7 +188,7 @@ func (s *streams) cutFailed(asJSON bool, res cut.Result, err error) error {
 			fmt.Fprint(s.err, out)
 		}
 		return nil
-	case errors.As(err, &none), errors.As(err, &disagree), errors.As(err, &rejected), errors.As(err, &failed):
+	case errors.As(err, &none), errors.As(err, &rejected), errors.As(err, &failed):
 		s.exitCode = StatusRefused
 		fmt.Fprintf(s.err, "release cut: %v\n", err)
 		return nil

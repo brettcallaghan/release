@@ -1,0 +1,167 @@
+release changelog: the command producer failed: exit status 3: {
+  "schema_version": "1.0.0",
+  "purpose": "RELEASE",
+  "range": {
+    "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+    "to": "392e539c7d761530b38364455101566c6f21d6f6"
+  },
+  "base_version": "1.8.0",
+  "commits": [
+    {
+      "record": {
+        "hash": "40e190911203d5e3ee5e2eafe0d6d166a3cbbc25",
+        "subject": "feat(cli): greet the user (#21)",
+        "body": "Greets the user by name on start.\nAdds a greeting template.\nReads the name from the environment.\nFalls back to \"friend\".\n",
+        "pull_request": {
+          "number": 21,
+          "title": "feat(cli): greet the user",
+          "description": "Greets the user by name on start.\nAdds a greeting template.\nReads the name from the environment.\nFalls back to \"friend\".",
+          "origin": "SQUASH"
+        },
+        "author_date": "2026-01-01T00:00:00+00:00",
+        "files": [
+          {
+            "path": "src/greet.txt",
+            "status": "ADDED",
+            "additions": 1,
+            "deletions": 0
+          }
+        ],
+        "conventional": {
+          "type": "feat",
+          "scope": "cli",
+          "breaking": false
+        },
+        "trailers": {},
+        "author_name": "Fixture",
+        "author_email": "fixture@example.com"
+      },
+      "conventional": {
+        "type": "feat",
+        "scope": "cli",
+        "breaking": false
+      },
+      "pull_request": {
+        "number": 21,
+        "title": "feat(cli): greet the user",
+        "description": "Greets the user by name on start.\nAdds a greeting template.\nReads the name from the environment.\nFalls back to \"friend\".",
+        "origin": "SQUASH"
+      },
+      "diff": {
+        "commit": "40e190911203d5e3ee5e2eafe0d6d166a3cbbc25",
+        "files": [
+          {
+            "path": "src/greet.txt",
+            "patch": "diff --git a/src/greet.txt b/src/greet.txt\nnew file mode 100644\nindex 0000000..aec928f\n--- /dev/null\n+++ b/src/greet.txt\n@@ -0,0 +1 @@\n+Hello, %s.\n",
+            "truncated": false
+          }
+        ],
+        "truncated": false
+      },
+      "signal": "MINOR"
+    },
+    {
+      "record": {
+        "hash": "5d05a801b07bfd87330f4e949e51559336ed138c",
+        "subject": "fix: say goodbye on exit",
+        "body": "The farewell was never printed.\n\nRefs: #4\n",
+        "author_date": "2026-01-01T00:00:00+00:00",
+        "files": [
+          {
+            "path": "src/farewell.txt",
+            "status": "ADDED",
+            "additions": 1,
+            "deletions": 0
+          }
+        ],
+        "conventional": {
+          "type": "fix",
+          "breaking": false
+        },
+        "trailers": {
+          "Refs": "#4"
+        },
+        "author_name": "Fixture",
+        "author_email": "fixture@example.com"
+      },
+      "conventional": {
+        "type": "fix",
+        "breaking": false
+      },
+      "diff": {
+        "commit": "5d05a801b07bfd87330f4e949e51559336ed138c",
+        "files": [
+          {
+            "path": "src/farewell.txt",
+            "patch": "diff --git a/src/farewell.txt b/src/farewell.txt\nnew file mode 100644\nindex 0000000..68c9767\n--- /dev/null\n+++ b/src/farewell.txt\n@@ -0,0 +1 @@\n+Goodbye, %s.\n",
+            "truncated": false
+          }
+        ],
+        "truncated": false
+      },
+      "signal": "PATCH"
+    },
+    {
+      "record": {
+        "hash": "392e539c7d761530b38364455101566c6f21d6f6",
+        "subject": "docs: describe the greeter",
+        "body": "",
+        "author_date": "2026-01-01T00:00:00+00:00",
+        "files": [
+          {
+            "path": "README.md",
+            "status": "ADDED",
+            "additions": 3,
+            "deletions": 0
+          }
+        ],
+        "conventional": {
+          "type": "docs",
+          "breaking": false
+        },
+        "trailers": {},
+        "author_name": "Fixture",
+        "author_email": "fixture@example.com"
+      },
+      "conventional": {
+        "type": "docs",
+        "breaking": false
+      },
+      "diff": {
+        "commit": "392e539c7d761530b38364455101566c6f21d6f6",
+        "files": [
+          {
+            "path": "README.md",
+            "patch": "diff --git a/README.md b/README.md\nnew file mode 100644\nindex 0000000..66557b0\n--- /dev/null\n+++ b/README.md\n@@ -0,0 +1,3 @@\n+# Greeter\n+\n+Greets the user on start and says goodbye on exit.\n",
+            "truncated": false
+          }
+        ],
+        "truncated": false
+      }
+    }
+  ],
+  "sources": [
+    {
+      "adapter": "COMMITS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "392e539c7d761530b38364455101566c6f21d6f6"
+    },
+    {
+      "adapter": "DIFFS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "392e539c7d761530b38364455101566c6f21d6f6",
+      "budget": {
+        "limit": 204800,
+        "total": 495,
+        "used": 495,
+        "omitted": []
+      }
+    }
+  ],
+  "budget": {
+    "limit": 204800,
+    "total": 495,
+    "used": 495,
+    "omitted": []
+  }
+}; pass --skip-notes to author the changelog with the mechanical producer

@@ -1,13 +1,11 @@
-changelog resolves the next version, assembles a changelog corpus from the
-commits since the base version, has the configured producer author it, and
-answers with the version, where the authored corpus is kept, and the
+changelog resolves the next version, collects the evidence of the commits
+since the base version (each commit's record and, by default, its diff),
+has the configured producer author a structured changelog from it, and
+answers with the version, where the authored changelog is kept, and the
 rendered changelog section. It writes CHANGELOG.md only with --write.
 
 bump is major, minor or patch, and names the impact instead of inferring
-it. An authored corpus proposes an impact; when the proposal disagrees with
-the computed impact and no bump is named, changelog prints both and exits 1
-without rendering. Naming the bump confirms it, and the proposal is then
-advisory. The authored corpus is cached for the commit range, and reused
+it. The authored changelog is cached for the commit range, and reused
 until --redo-notes. Exits 1 when no release is warranted.
 
 Usage:
@@ -18,7 +16,7 @@ Flags:
   -h, --help            help for changelog
       --json            Render the answer as JSON instead of YAML
       --redo-notes      Discard any cached corpus and author again
-      --skip-notes      Assemble mechanically and invoke no producer
+      --skip-notes      Author with the mechanical producer instead of the configured one, and read no cache
       --target branch   The release line to collect from: a branch (default: the configured target, else the branch origin/HEAD points to)
       --write           Write the rendered section into CHANGELOG.md
 

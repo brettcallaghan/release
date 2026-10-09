@@ -106,11 +106,10 @@ saw.
   cache, or authored by the configured producer. A producer that fails or
   is unavailable is returned as `*ProducerFailure`, which names
   `--skip-notes`. `authoring.AcceptChangelog` is the validation alone.
-  `proposed_bump` is ignored: neither compared nor rejected. The corpus
-  exchange (`ExchangeCorpus`, `CorpusCachePath`) remains until the
-  changelog operation is moved to this one.
+  `proposed_bump` is ignored: neither compared nor rejected.
+  `authoring.ChangelogCachePath` names a range's cache file.
 - **Validation rules:**
-  - **Shape.** `Accept` rejects, before anything decodes the document for
+  - **Shape.** `AcceptChangelog` rejects, before anything decodes the document for
     use, one that is not a JSON object, one whose `schema_version` is not a
     version or has a major other than the one implemented, and one that
     does not validate against the generated JSON Schema. A cached or named

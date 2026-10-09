@@ -15,6 +15,7 @@ import (
 
 	"github.com/brettcallaghan/release/internal/authoring"
 	"github.com/brettcallaghan/release/internal/authoring/producers"
+	"github.com/brettcallaghan/release/internal/changelog"
 	"github.com/brettcallaghan/release/internal/config"
 	"github.com/brettcallaghan/release/internal/releasemodel"
 )
@@ -364,18 +365,31 @@ func TestForceStagesANamedBumpOverNothingReleasable(t *testing.T) {
 	}
 }
 
-// writeAuthored makes the command producer answer with a corpus proposing
-// proposed.
-func (f *fixture) writeAuthored(req *Request, proposed string) {
+// writeAuthored makes the command producer answer with a changelog of one
+// feature citing every commit in the range, with summary as its prose. The
+// bundle's sources are read from the changelog operation itself, so the
+// answer carries them through as a conforming producer does.
+func (f *fixture) writeAuthored(req *Request, summary string) {
 	f.t.Helper()
+	prepared, err := changelog.Prepare(context.Background(), changelog.Request{
+		Dir: f.work, Target: "main", Config: req.Config, Named: minor(), Skip: true,
+		Producers: producers.Registry(req.Config.Changelog, f.work),
+	})
+	if err != nil {
+		f.t.Fatalf("reading the evidence: %v", err)
+	}
+	sources := []any{}
+	for _, ce := range prepared.Evidence.Commits {
+		if pr := ce.Record.PullRequest; pr != nil {
+			sources = append(sources, map[string]any{"__type": "PullRequest", "number": pr.Number})
+		}
+		sources = append(sources, map[string]any{"__type": "Commit", "hash": ce.Record.Hash})
+	}
 	c := map[string]any{
 		"schema_version": "1.0.0",
-		"proposed_bump":  proposed,
-		"entries": []any{map[string]any{"kind": "FEATURE", "summary": "Compute for any release line.", "breaking": false, "derived": false,
-			"sources": []any{map[string]any{"__type": "PullRequest", "number": 12}}}},
-		"sources": []any{map[string]any{"adapter": "COMMITS",
-			"from": strings.TrimSpace(f.git(f.work, "rev-parse", "v1.8.0^{commit}")),
-			"to":   strings.TrimSpace(f.git(f.work, "rev-parse", "HEAD"))}},
+		"entries": []any{map[string]any{"kind": "FEATURE", "summary": summary, "breaking": false, "derived": false,
+			"sources": sources}},
+		"sources": prepared.Evidence.Sources,
 	}
 	data, err := json.Marshal(c)
 	if err != nil {
@@ -393,24 +407,10 @@ func (f *fixture) writeAuthored(req *Request, proposed string) {
 	req.Named, req.Skip = nil, false
 }
 
-func TestADisagreementHaltsBeforeAnyWrite(t *testing.T) {
+func TestTheAuthoredChangelogIsWrittenIntoTheRelease(t *testing.T) {
 	f := newFixture(t)
 	req := f.request()
-	f.writeAuthored(&req, "MAJOR")
-	res, err := Cut(context.Background(), req)
-	var d *Disagreement
-	if !errors.As(err, &d) || !strings.Contains(d.Error(), "release cut minor") {
-		t.Fatalf("err = %v, want a disagreement naming the confirming command", err)
-	}
-	if len(res.Writes) != 0 || f.hasRef(f.work, "refs/heads/cut/1.9.0") {
-		t.Errorf("a halted cut wrote: %v", res.Writes)
-	}
-}
-
-func TestAnAgreeingProposalIsAuthoredIntoTheRelease(t *testing.T) {
-	f := newFixture(t)
-	req := f.request()
-	f.writeAuthored(&req, "MINOR")
+	f.writeAuthored(&req, "Compute for any release line.")
 	res, err := Cut(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Cut: %v", err)
@@ -567,7 +567,7 @@ func TestReleasePathsMatchExactlyByDirectoryOrByGlob(t *testing.T) {
 func TestTheProducerSeesTheReleaseVersion(t *testing.T) {
 	f := newFixture(t)
 	req := f.request()
-	f.writeAuthored(&req, "MINOR")
+	f.writeAuthored(&req, "Compute for any release line.")
 	command := `test "$RELEASE_VERSION" = 1.9.0 && ` + *req.Config.Changelog.ProducerCommand
 	req.Config.Changelog.ProducerCommand = &command
 	changelog := req.Config.Changelog

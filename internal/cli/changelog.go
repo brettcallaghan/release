@@ -18,7 +18,8 @@ import (
 )
 
 // newChangelogCmd is `release changelog [bump]`: the changelog section a
-// release would carry, assembled, authored and rendered by the release core.
+// release would carry, authored from the range's evidence and rendered by the
+// release core.
 // It writes the changelog file only under --write.
 func newChangelogCmd(s *streams) *cobra.Command {
 	var (
@@ -31,16 +32,14 @@ func newChangelogCmd(s *streams) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "changelog [bump]",
-		Short: "Assemble, author and render the changelog section a release would carry",
-		Long: "changelog resolves the next version, assembles a changelog corpus from the\n" +
-			"commits since the base version, has the configured producer author it, and\n" +
-			"answers with the version, where the authored corpus is kept, and the\n" +
+		Short: "Author and render the changelog section a release would carry",
+		Long: "changelog resolves the next version, collects the evidence of the commits\n" +
+			"since the base version (each commit's record and, by default, its diff),\n" +
+			"has the configured producer author a structured changelog from it, and\n" +
+			"answers with the version, where the authored changelog is kept, and the\n" +
 			"rendered changelog section. It writes CHANGELOG.md only with --write.\n\n" +
 			"bump is major, minor or patch, and names the impact instead of inferring\n" +
-			"it. An authored corpus proposes an impact; when the proposal disagrees with\n" +
-			"the computed impact and no bump is named, changelog prints both and exits 1\n" +
-			"without rendering. Naming the bump confirms it, and the proposal is then\n" +
-			"advisory. The authored corpus is cached for the commit range, and reused\n" +
+			"it. The authored changelog is cached for the commit range, and reused\n" +
 			"until --redo-notes. Exits 1 when no release is warranted.",
 		Args:      cobra.MaximumNArgs(1),
 		ValidArgs: []string{"major", "minor", "patch"},
@@ -49,7 +48,7 @@ func newChangelogCmd(s *streams) *cobra.Command {
 				return errors.New("--skip-notes and --redo-notes cannot be combined: one skips authoring, the other repeats it")
 			}
 			if skipNotes && corpusPath != "" {
-				return errors.New("--skip-notes and --corpus cannot be combined: no corpus is authored to read or write")
+				return errors.New("--skip-notes and --corpus cannot be combined: no changelog is cached to read or write")
 			}
 			req := changelog.Request{
 				Dir:        s.root,
@@ -101,22 +100,10 @@ func newChangelogCmd(s *streams) *cobra.Command {
 				return err
 			}
 
-			switch res.Outcome {
-			case changelog.NoRelease:
+			if res.Outcome == changelog.NoRelease {
 				s.exitCode = StatusRefused
 				fmt.Fprintf(s.err, "release changelog: %s\n", refusal(res.Resolution.Next))
 				return nil
-			case changelog.Disagreement:
-				s.exitCode = StatusRefused
-				computed := strings.ToLower(string(res.Authoring.Computed))
-				proposed := strings.ToLower(string(*res.Authoring.Proposed))
-				fmt.Fprintf(s.err, "release changelog: the authored corpus proposes %s, but the commits indicate %s; "+
-					"confirm the impact by naming it (release changelog %s), or correct the commits\n", proposed, computed, computed)
-				return s.answer(asJSON, yMap{
-					{"computed", yStr(computed)},
-					{"proposed", yStr(proposed)},
-					{"corpus_path", yStr(s.display(res.CorpusPath))},
-				})
 			}
 
 			if write {
@@ -138,7 +125,7 @@ func newChangelogCmd(s *streams) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&target, "target", "", "The release line to collect from: a `branch` (default: the configured target, else the branch origin/HEAD points to)")
-	cmd.Flags().BoolVar(&skipNotes, "skip-notes", false, "Assemble mechanically and invoke no producer")
+	cmd.Flags().BoolVar(&skipNotes, "skip-notes", false, "Author with the mechanical producer instead of the configured one, and read no cache")
 	cmd.Flags().BoolVar(&redoNotes, "redo-notes", false, "Discard any cached corpus and author again")
 	cmd.Flags().StringVar(&corpusPath, "corpus", "", "Read the corpus at this `path` instead of the cache when it exists, and write it there otherwise")
 	cmd.Flags().BoolVar(&write, "write", false, "Write the rendered section into CHANGELOG.md")

@@ -1,0 +1,12 @@
+version: 1.9.0
+corpus_path: .git/release/changelog/c2aea8f44df5afe616009556bcfc6b1f729a44cb..53b6ea9aa35aa95ab7d00846da292db29f5ac460.json
+section: |-
+  ## 1.9.0
+
+  ### Features
+
+  - add a --target flag (238393d, #12)
+
+  ### Fixes
+
+  - **cli:** handle empty input (e48de63, #11)

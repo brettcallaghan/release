@@ -1,1 +1,0 @@
-release changelog: the authored corpus proposes major, but the commits indicate minor; confirm the impact by naming it (release changelog minor), or correct the commits

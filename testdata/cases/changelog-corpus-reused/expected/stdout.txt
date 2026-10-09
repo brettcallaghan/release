@@ -11,10 +11,10 @@ section: |-
 
   ### Features
 
-  - Prose from the saved corpus. (#12)
+  - Prose from the saved corpus. (#12, 238393d)
 
     Pass `--target <branch>`.
 
   ### Fixes
 
-  - **cli:** handle empty input (#11)
+  - **cli:** Handle empty input. (#11, e48de63)

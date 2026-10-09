@@ -1,10 +1,10 @@
 // Package changelog is the release core's changelog operation: resolve the
-// version, assemble the corpus from the range's commits, exchange it with
-// the configured producer, and render it. It composes version resolution,
-// the Changelog Corpus Builder, the Changelog Authoring Bridge and the
-// Changelog Renderer so that a front end holds no release logic. It writes
-// only the authoring cache; placing the section in CHANGELOG.md is the
-// Changelog Writer's, at the caller's request.
+// version, collect the range's evidence, exchange it with the configured
+// producer for a structured changelog, and render it. It composes version
+// resolution, the Diff Collector, the Evidence Builder, the Changelog
+// Authoring Bridge and the Changelog Renderer so that a front end holds no
+// release logic. It writes only the authoring cache; placing the section in
+// CHANGELOG.md is the Changelog Writer's, at the caller's request.
 package changelog
 
 import (
@@ -14,7 +14,7 @@ import (
 
 	"github.com/brettcallaghan/release/internal/authoring"
 	"github.com/brettcallaghan/release/internal/config"
-	"github.com/brettcallaghan/release/internal/corpus"
+	"github.com/brettcallaghan/release/internal/evidence"
 	"github.com/brettcallaghan/release/internal/gitread"
 	"github.com/brettcallaghan/release/internal/releasemodel"
 	"github.com/brettcallaghan/release/internal/render"
@@ -30,20 +30,20 @@ type Request struct {
 	Git string
 	// Target is the release line's ref.
 	Target string
-	// Named is the bump the maintainer named, or nil to classify one. A
-	// named bump governs, and a disagreeing proposal is advisory.
+	// Named is the bump the maintainer named, or nil to classify one.
 	Named *releasemodel.Bump
 	// Config is the loaded configuration: its policy, changelog settings and
 	// adapters.
 	Config config.Config
 	// Producers maps every producer name to its producer.
 	Producers map[string]authoring.Producer
-	// CorpusPath, WHEN set, replaces the cache path: the corpus is read from
-	// it WHEN it exists and written to it otherwise.
+	// CorpusPath, WHEN set, replaces the cache path: the changelog is read
+	// from it WHEN it exists and written to it otherwise.
 	CorpusPath string
-	// Redo discards a cached corpus and authors again.
+	// Redo discards a cached changelog and authors again.
 	Redo bool
-	// Skip invokes no producer: the assembled corpus is rendered.
+	// Skip invokes no configured producer: the mechanical producer composes
+	// the changelog, and no cache is read or written.
 	Skip bool
 }
 
@@ -51,37 +51,37 @@ type Request struct {
 type Outcome int
 
 const (
-	// Prepared: Version, Corpus and Section are set.
+	// Prepared: Version, Changelog and Rendering are set.
 	Prepared Outcome = iota
 	// NoRelease: the version calculation answered no release, or a policy
 	// violation; Resolution.Next says which.
 	NoRelease
-	// Disagreement: the proposal differs from the computed impact and no
-	// bump was named. Nothing is rendered.
-	Disagreement
 )
 
 // Result is what Prepare concluded.
 type Result struct {
 	Outcome    Outcome
 	Resolution resolve.Resolution
-	// Authoring is the exchange's result: how it concluded, the proposal and
-	// the computed impact. Unset for NoRelease.
-	Authoring authoring.Result
-	// CorpusPath is where the authored corpus is cached, or the path the
+	// Evidence is the bundle the producer was given. Unset for NoRelease.
+	Evidence releasemodel.Evidence
+	// Authoring is the exchange's result: the accepted changelog, the
+	// producer that authored it and how it was obtained. Unset for
+	// NoRelease.
+	Authoring authoring.EvidenceResult
+	// CorpusPath is where the authored changelog is cached, or the path the
 	// request named. Empty WHEN Skip.
 	CorpusPath string
 	// Version is the resolved version, without a tag prefix.
 	Version string
-	// Corpus is the accepted corpus with its version set.
-	Corpus releasemodel.Changelog
+	// Changelog is the accepted changelog with its version set.
+	Changelog releasemodel.Changelog
 	// Rendering is the rendered changelog section and release body.
 	Rendering render.Rendering
 }
 
-// Prepare resolves, assembles, authors and renders. An error means the
-// repository, the producer or the returned corpus failed; an unwarranted
-// release or a disagreement is a Result.
+// Prepare resolves, collects evidence, authors and renders. An error means
+// the repository, the producer or the returned changelog failed; an
+// unwarranted release is a Result.
 func Prepare(ctx context.Context, req Request) (Result, error) {
 	repo := gitread.Repo{Dir: req.Dir, Git: req.Git}
 	// Pin the target first: the commits read, the range recorded and the
@@ -102,28 +102,49 @@ func Prepare(ctx context.Context, req Request) (Result, error) {
 		return out, nil
 	}
 
-	rng := corpus.Range{To: head}
+	in := evidence.Input{
+		Range:   evidence.Range{To: head},
+		Commits: res.Commits,
+		Budget:  releasemodel.BudgetReport{Limit: req.Config.Changelog.DiffBudget.Release},
+		Signals: map[string]releasemodel.Bump{},
+	}
 	if res.BaseTag != "" {
-		if rng.From, err = repo.CommitHash(ctx, res.BaseTag); err != nil {
+		if in.Range.From, err = repo.CommitHash(ctx, res.BaseTag); err != nil {
+			return Result{}, err
+		}
+		in.BaseVersion = res.Base.String()
+	}
+	for _, s := range res.Signals {
+		if s.Classified {
+			in.Signals[s.Commit.Hash] = s.Impact
+		}
+	}
+	if req.Config.Adapters.Diffs {
+		// Oldest first, the order the bundle lists them in, so the budget
+		// is shared out in the order a reader meets the commits.
+		hashes := make([]string, len(res.Commits))
+		for i, c := range res.Commits {
+			hashes[len(hashes)-1-i] = c.Hash
+		}
+		in.DiffsCollected = true
+		if in.Diffs, in.Budget, err = repo.Diffs(ctx, hashes, req.Config.Changelog.DiffExclude, req.Config.Changelog.DiffBudget.Release); err != nil {
 			return Result{}, err
 		}
 	}
-	assembled, err := corpus.Build(corpus.Input{Records: res.Commits, Range: rng, Adapters: assemblyAdapters(req.Config.Adapters)})
-	if err != nil {
+	if out.Evidence, err = evidence.Build(in); err != nil {
 		return Result{}, err
 	}
 
 	if !req.Skip {
 		out.CorpusPath = req.CorpusPath
 		if out.CorpusPath == "" {
-			if out.CorpusPath, err = authoring.CorpusCachePath(ctx, repo, rng.From, rng.To); err != nil {
+			if out.CorpusPath, err = authoring.ChangelogCachePath(ctx, repo, in.Range.From, in.Range.To); err != nil {
 				return Result{}, err
 			}
 		}
 	}
-	out.Authoring, err = authoring.ExchangeCorpus(ctx, authoring.Request{
-		Assembled: assembled,
-		Computed:  res.Impact,
+	out.Authoring, err = authoring.ExchangeEvidence(ctx, authoring.EvidenceRequest{
+		Evidence:  out.Evidence,
 		Producer:  req.Config.Changelog.Producer,
 		Producers: req.Producers,
 		CachePath: out.CorpusPath,
@@ -133,20 +154,16 @@ func Prepare(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if out.Authoring.Disagrees && !res.Named {
-		out.Outcome = Disagreement
-		return out, nil
-	}
 
 	out.Version = res.Next.Version.String()
-	out.Corpus = out.Authoring.Corpus
+	out.Changelog = out.Authoring.Changelog
 	v := out.Version
-	out.Corpus.Version = &v
+	out.Changelog.Version = &v
 	repoURL, err := webURL(ctx, repo)
 	if err != nil {
 		return Result{}, err
 	}
-	if out.Rendering, err = render.Render(out.Corpus, req.Config.Changelog, repoURL); err != nil {
+	if out.Rendering, err = render.Render(out.Changelog, req.Config.Changelog, repoURL); err != nil {
 		return Result{}, err
 	}
 	out.Outcome = Prepared
@@ -180,12 +197,4 @@ func WebURL(remote string) string {
 		}
 	}
 	return ""
-}
-
-// assemblyAdapters is the adapters the corpus assembler is asked for. It
-// reads commits only; diffs default on in configuration, and assembly takes
-// no diff adapter until the operation authors from evidence.
-func assemblyAdapters(a config.Adapters) config.Adapters {
-	a.Diffs = false
-	return a
 }

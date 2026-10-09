@@ -1,3 +1,0 @@
-[changelog]
-producer = "command"
-producer_command = "cat authored.json"

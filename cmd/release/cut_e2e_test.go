@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -124,20 +125,21 @@ func (f *cutFixture) producerRuns() int {
 	return strings.Count(string(data), "run\n")
 }
 
-// writeAuthored makes the producer answer with one feature, proposing
-// proposed.
-func (f *cutFixture) writeAuthored(proposed string) {
+// writeAuthored makes the producer answer with one feature citing every
+// commit in the range, carrying the bundle's sources through.
+func (f *cutFixture) writeAuthored() {
 	f.t.Helper()
-	c := map[string]any{
-		"schema_version": "1.0.0",
-		"proposed_bump":  proposed,
-		"entries": []any{map[string]any{"kind": "FEATURE", "summary": "Compute for any release line.", "breaking": false, "derived": false,
-			"sources": []any{map[string]any{"__type": "PullRequest", "number": 12}}}},
-		"sources": []any{map[string]any{"adapter": "COMMITS",
-			"from": strings.TrimSpace(gitOut(f.t, f.work, "rev-parse", "v1.8.0^{commit}")),
-			"to":   strings.TrimSpace(gitOut(f.t, f.work, "rev-parse", "HEAD"))}},
+	ev := evidenceAt(f.t, f.work)
+	sources := []any{}
+	for _, ce := range ev.Commits {
+		sources = append(sources, citing(ce)...)
 	}
-	data, err := json.Marshal(c)
+	data, err := json.Marshal(map[string]any{
+		"schema_version": "1.0.0",
+		"entries": []any{map[string]any{"kind": "FEATURE", "summary": "Compute for any release line.", "breaking": false, "derived": false,
+			"sources": sources}},
+		"sources": ev.Sources,
+	})
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -249,13 +251,13 @@ func TestThePullRequestIsTitledForTheVersion(t *testing.T) {
 // AC: AC-STG-001.9
 func TestThePullRequestBodyCarriesTheReleaseNotes(t *testing.T) {
 	f := newCutFixture(t, "feat: add a --target flag (#12)")
-	f.writeAuthored("MINOR")
+	f.writeAuthored()
 	if _, stderr, code := f.cut(); code != 0 {
 		t.Fatalf("exit = %d\n%s", code, stderr)
 	}
 	args := f.ghArgs()
 	_, body, ok := strings.Cut(args, "--body\n")
-	if !ok || !strings.HasPrefix(body, "## Release Notes\n\n### Features\n\n- Compute for any release line. (#12)") {
+	if !ok || !strings.HasPrefix(body, "## Release Notes\n\n### Features\n\n- Compute for any release line. (#12, ") {
 		t.Errorf("gh --body =\n%s\nwant the rendered notes under ## Release Notes", body)
 	}
 }
@@ -270,20 +272,6 @@ func TestNothingReleasableMeansNoBranch(t *testing.T) {
 	}
 	if a.Branch != "" || f.hasBranch(f.work, "cut/1.8.1") || refs(t, f.bare) != before {
 		t.Error("a branch was created with nothing to release")
-	}
-}
-
-// AC: AC-STG-001.5
-func TestADisagreementHaltsBeforeAnyWrite(t *testing.T) {
-	f := newCutFixture(t, "feat: add a --target flag (#12)")
-	f.writeAuthored("MAJOR")
-	local, remote := refs(t, f.work), refs(t, f.bare)
-	_, stderr, code := f.cut()
-	if code != 1 || !strings.Contains(stderr, "release cut minor") {
-		t.Errorf("exit = %d, stderr:\n%s\nwant a halt naming the confirming command", code, stderr)
-	}
-	if refs(t, f.work) != local || refs(t, f.bare) != remote || f.ghArgs() != "" {
-		t.Error("a halted cut wrote")
 	}
 }
 
@@ -397,8 +385,9 @@ func TestCuttingWithoutNotesInvokesNoProducer(t *testing.T) {
 	if f.producerRuns() != 0 {
 		t.Error("--skip-notes invoked the producer")
 	}
-	if log := gitOut(t, f.bare, "show", *a.Commit+":CHANGELOG.md"); !strings.Contains(log, "- add a --target flag (#12)") {
-		t.Errorf("CHANGELOG.md =\n%s\nwant the mechanically assembled entry", log)
+	entry := regexp.MustCompile(`(?m)^- add a --target flag \([0-9a-f]{7}, #12\)$`)
+	if log := gitOut(t, f.bare, "show", *a.Commit+":CHANGELOG.md"); !entry.MatchString(log) {
+		t.Errorf("CHANGELOG.md =\n%s\nwant the mechanical producer's entry", log)
 	}
 }
 

@@ -57,7 +57,7 @@ type Request struct {
 	// at dir, adding env to each producer process's environment. It is
 	// called with the scratch checkout and RELEASE_VERSION.
 	Producers func(dir string, env []string) map[string]authoring.Producer
-	// Redo discards a cached corpus and authors again.
+	// Redo discards a cached changelog and authors again.
 	Redo bool
 	// Skip stages without an authoring exchange. It requires Named.
 	Skip bool
@@ -132,19 +132,6 @@ func (r *NoRelease) Error() string {
 	return "the version policy refuses this release: " + r.Next.Reason
 }
 
-// Disagreement is the refusal WHEN the authored proposal differs from the
-// computed impact and no bump was named.
-type Disagreement struct {
-	Computed, Proposed releasemodel.Bump
-}
-
-func (d *Disagreement) Error() string {
-	computed := strings.ToLower(string(d.Computed))
-	return fmt.Sprintf("the authored corpus proposes %s, but the commits indicate %s; "+
-		"confirm the impact by naming it (release cut %s), or correct the commits",
-		strings.ToLower(string(d.Proposed)), computed, computed)
-}
-
 // WriteFailure is a write that failed after Writes were made. Remedy lists
 // the commands that finish or discard the release.
 type WriteFailure struct {
@@ -156,8 +143,8 @@ type WriteFailure struct {
 func (f *WriteFailure) Error() string { return f.Err.Error() }
 func (f *WriteFailure) Unwrap() error { return f.Err }
 
-// Cut runs the cut sequence. A refusal is a *Refusal, *NoRelease or
-// *Disagreement, and nothing was written; a failed write after another
+// Cut runs the cut sequence. A refusal is a *Refusal or *NoRelease, and
+// nothing was written; a failed write after another
 // succeeded is a *WriteFailure; any other error means the repository, a
 // producer or a tool failed before any write. The Result describes what was
 // reached, including on a refusal or failure.
@@ -258,7 +245,8 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		}
 	}
 
-	// 4, 5. Assemble, author unless skipped, set the version and render.
+	// 4, 5. Collect the evidence, author it (mechanically WHEN skipped), set
+	// the version and render.
 	var producers map[string]authoring.Producer
 	if req.Producers != nil {
 		producers = req.Producers(wt, env)
@@ -269,11 +257,8 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	}); err != nil {
 		return res, err
 	}
-	switch res.Changelog.Outcome {
-	case changelog.NoRelease:
+	if res.Changelog.Outcome == changelog.NoRelease {
 		return res, &NoRelease{Next: res.Changelog.Resolution.Next}
-	case changelog.Disagreement:
-		return res, &Disagreement{Computed: res.Changelog.Authoring.Computed, Proposed: *res.Changelog.Authoring.Proposed}
 	}
 
 	// 6. Write the changelog section, then propagate the version. A

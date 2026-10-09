@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-93.9%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-94.0%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,35 +48,34 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 2,135 / 2,423 | 88.1% |
-| Snapshot cases | 1,252 / 2,423 | 51.7% |
-| End-to-end (built binary) | 1,103 / 2,423 | 45.5% |
-| **All layers combined** | **2,276 / 2,423** | **93.9%** |
+| Unit tests | 1,992 / 2,264 | 88.0% |
+| Snapshot cases | 1,464 / 2,264 | 64.7% |
+| End-to-end (built binary) | 1,243 / 2,264 | 54.9% |
+| **All layers combined** | **2,129 / 2,264** | **94.0%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
 | `release/cmd/release` | 1 | 1 | 100.0% |
-| `release/internal/authoring` | 227 | 202 | 89.0% |
+| `release/internal/authoring` | 155 | 140 | 90.3% |
 | `release/internal/authoring/producers` | 97 | 94 | 96.9% |
 | `release/internal/authoring/producers/producertest` | 53 | 41 | 77.4% |
 | `release/internal/buildinfo` | 8 | 7 | 87.5% |
 | `release/internal/bump` | 85 | 85 | 100.0% |
-| `release/internal/changelog` | 51 | 44 | 86.3% |
+| `release/internal/changelog` | 56 | 48 | 85.7% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
-| `release/internal/cli` | 457 | 421 | 92.1% |
+| `release/internal/cli` | 452 | 416 | 92.0% |
 | `release/internal/config` | 149 | 148 | 99.3% |
-| `release/internal/corpus` | 84 | 83 | 98.8% |
-| `release/internal/cut` | 235 | 204 | 86.8% |
+| `release/internal/cut` | 232 | 201 | 86.6% |
 | `release/internal/delegate` | 32 | 32 | 100.0% |
 | `release/internal/evidence` | 49 | 47 | 95.9% |
-| `release/internal/gitread` | 430 | 410 | 95.3% |
+| `release/internal/gitread` | 430 | 412 | 95.8% |
 | `release/internal/render` | 95 | 94 | 98.9% |
 | `release/internal/resolve` | 37 | 36 | 97.3% |
 | `release/internal/schemacheck` | 25 | 19 | 76.0% |
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/suggest` | 61 | 61 | 100.0% |
 | `release/internal/version` | 75 | 75 | 100.0% |
-| **Total** | **2,423** | **2,276** | **93.9%** |
+| **Total** | **2,264** | **2,129** | **94.0%** |
 
 Generated code is excluded from these figures: 513 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->
