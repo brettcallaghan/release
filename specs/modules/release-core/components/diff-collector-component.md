@@ -72,6 +72,15 @@ knows what it was not shown and the changelog can say so.
     file of which no hunk fits is kept with an empty patch and listed with
     reason `OVER_BUDGET` and `truncated` false.
   - A binary file has an empty patch and is listed with reason `BINARY`.
+  - A path the exclusion list matches has no `FileDiff` in its commit's
+    `DiffRecord`. A binary file and a file of which no hunk fits do, with
+    empty patches.
+  - A `DiffRecord` is `truncated` WHEN the budget cut any of its files,
+    including one kept with an empty patch.
+  - The report's total counts the patch text of every file that is neither
+    excluded nor binary, before the budget; its used counts the patch text
+    carried. A file's report entries follow commit order, then path order.
+  - A merge commit's diff is against its first parent, as every commit's is.
   - Exclusion entries match as `release_paths` entries do (equal to the
     entry, under an entry ending in `/`, or matched as a glob), with `**`
     matching any number of path segments.
