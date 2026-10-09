@@ -116,12 +116,12 @@ func Prepare(ctx context.Context, req Request) (Result, error) {
 	if !req.Skip {
 		out.CorpusPath = req.CorpusPath
 		if out.CorpusPath == "" {
-			if out.CorpusPath, err = authoring.CachePath(ctx, repo, rng.From, rng.To); err != nil {
+			if out.CorpusPath, err = authoring.CorpusCachePath(ctx, repo, rng.From, rng.To); err != nil {
 				return Result{}, err
 			}
 		}
 	}
-	out.Authoring, err = authoring.Exchange(ctx, authoring.Request{
+	out.Authoring, err = authoring.ExchangeCorpus(ctx, authoring.Request{
 		Assembled: assembled,
 		Computed:  res.Impact,
 		Producer:  req.Config.Changelog.Producer,

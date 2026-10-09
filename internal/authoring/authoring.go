@@ -94,8 +94,8 @@ func (r *Rejection) Error() string {
 // ErrUnknownProducer is the refusal for a producer name nothing registers.
 var ErrUnknownProducer = errors.New("no changelog producer has that name")
 
-// Exchange performs one authoring exchange.
-func Exchange(ctx context.Context, req Request) (Result, error) {
+// ExchangeCorpus performs one authoring exchange over an assembled corpus.
+func ExchangeCorpus(ctx context.Context, req Request) (Result, error) {
 	if req.Skip {
 		return Result{Outcome: Skipped, Corpus: req.Assembled, Computed: req.Computed}, nil
 	}
@@ -247,11 +247,11 @@ func Marshal(c releasemodel.Changelog) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// CachePath is the cache file for a commit range in the repository at repo:
+// CorpusCachePath is the cache file for a commit range in the repository at repo:
 // <git common dir>/release/corpus/<from>..<to>.json, where from is "root"
 // for a line with no release. The common directory is shared by every
 // worktree, so a corpus authored in one is found from another.
-func CachePath(ctx context.Context, repo gitread.Repo, from, to string) (string, error) {
+func CorpusCachePath(ctx context.Context, repo gitread.Repo, from, to string) (string, error) {
 	dir, err := repo.CommonDir(ctx)
 	if err != nil {
 		return "", err

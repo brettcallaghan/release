@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/brettcallaghan/release/internal/authoring"
+	"github.com/brettcallaghan/release/internal/authoring/producers/producertest"
 	"github.com/brettcallaghan/release/internal/config"
 	"github.com/brettcallaghan/release/internal/releasemodel"
 )
@@ -48,6 +49,15 @@ func stub(mode string) int {
 		return 3
 	}
 	if mode == "silent" {
+		return 0
+	}
+	if mode == "evidence" {
+		out, err := Mechanical{}.Produce(context.Background(), in)
+		if err != nil {
+			os.Stderr.WriteString(err.Error())
+			return 5
+		}
+		os.Stdout.Write(out)
 		return 0
 	}
 	var c map[string]any
@@ -274,15 +284,16 @@ func TestRegistrySelectsByConfiguredName(t *testing.T) {
 	if got, ok := reg["claude"].(Claude); !ok || got.Dir != "/repo" {
 		t.Errorf("claude producer = %+v", reg["claude"])
 	}
-	// The mechanical producer is named by configuration but not registered
-	// until the authoring bridge gains it.
 	for _, name := range config.Producers {
-		if _, ok := reg[name]; !ok && name != config.ProducerMechanicalName {
+		if _, ok := reg[name]; !ok {
 			t.Errorf("config.Producers names %q, which the registry lacks", name)
 		}
 	}
-	if len(reg) != len(config.Producers)-1 {
-		t.Errorf("registry has %d producers, config.Producers names %d besides mechanical", len(reg), len(config.Producers)-1)
+	if len(reg) != len(config.Producers) {
+		t.Errorf("registry has %d producers, config.Producers names %d", len(reg), len(config.Producers))
+	}
+	if _, ok := reg[config.ProducerMechanicalName].(Mechanical); !ok {
+		t.Errorf("mechanical producer = %+v", reg[config.ProducerMechanicalName])
 	}
 }
 
@@ -302,3 +313,45 @@ func TestProducersExchangeThroughAProcessOnly(t *testing.T) {
 
 // kp returns a pointer to an entry kind.
 func kp(k releasemodel.ChangeKind) *releasemodel.ChangeKind { return &k }
+
+func TestCommandProducerPassesTheConformanceSuite(t *testing.T) {
+	producertest.Run(t, stubCommand(t, "evidence"))
+}
+
+func TestHintsNameSkipNotes(t *testing.T) {
+	_, err := (Command{}).Produce(context.Background(), producertest.Bundle())
+	if err == nil || !strings.Contains(err.Error(), "--skip-notes to author the changelog with the mechanical producer") {
+		t.Errorf("err = %v, want the hint naming --skip-notes", err)
+	}
+	if strings.Contains(alternatives, "name the bump") {
+		t.Error("the hint still tells the maintainer to name the bump")
+	}
+}
+
+// AC: AC-CFG-004.3
+func TestMechanicalComposesThroughTheBridgeStartingNoProcess(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	reg := Registry(config.Changelog{Producer: config.ProducerMechanicalName}, t.TempDir())
+	ev := producertestEvidence(t)
+	res, err := authoring.ExchangeEvidence(context.Background(), authoring.EvidenceRequest{
+		Evidence:  ev,
+		Producer:  config.ProducerMechanicalName,
+		Producers: reg,
+		CachePath: filepath.Join(t.TempDir(), "c.json"),
+	})
+	if err != nil {
+		t.Fatalf("ExchangeEvidence: %v", err)
+	}
+	if len(res.Changelog.Entries) != len(ev.Commits) || res.Producer != "mechanical" {
+		t.Errorf("res = %+v", res)
+	}
+}
+
+func producertestEvidence(t *testing.T) releasemodel.Evidence {
+	t.Helper()
+	var ev releasemodel.Evidence
+	if err := json.Unmarshal(producertest.Bundle(producertest.Commit("a1", "feat: x", "", 0), producertest.Commit("b2", "y", "", 3)), &ev); err != nil {
+		t.Fatal(err)
+	}
+	return ev
+}

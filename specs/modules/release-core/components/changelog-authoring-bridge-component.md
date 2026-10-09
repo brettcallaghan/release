@@ -98,12 +98,17 @@ saw.
   - The component SHALL NOT suggest or decide a bump.
   - The component SHALL NOT call a language model itself.
   - The component SHALL NOT require network access of its own.
-- **Operation:** `authoring.Exchange` takes the evidence bundle, the
-  configured producer name with the producers a configuration may select,
-  the cache path, and the redo and skip requests. It answers with the
-  accepted changelog, which producer authored it, and whether it was
-  authored mechanically, read from the cache, or authored by the configured
-  producer.
+- **Operation:** `authoring.ExchangeEvidence` takes the evidence bundle, the
+  configured producer name with the producers a configuration may select
+  (the registry includes `mechanical`), the cache path, and the redo and
+  skip requests. It answers with the accepted changelog, which producer
+  authored it, and whether it was authored mechanically, read from the
+  cache, or authored by the configured producer. A producer that fails or
+  is unavailable is returned as `*ProducerFailure`, which names
+  `--skip-notes`. `authoring.AcceptChangelog` is the validation alone.
+  `proposed_bump` is ignored: neither compared nor rejected. The corpus
+  exchange (`ExchangeCorpus`, `CorpusCachePath`) remains until the
+  changelog operation is moved to this one.
 - **Validation rules:**
   - **Shape.** `Accept` rejects, before anything decodes the document for
     use, one that is not a JSON object, one whose `schema_version` is not a
@@ -120,7 +125,9 @@ saw.
     the bundle carries, is rejected.
   - **Entry fields.** Each entry has a `kind` from `ChangeKind`, or none
     for the other heading; an optional `scope`; a non-empty `summary`
-    holding no blank line; an optional `detail`; and `migration` WHEN it
+    holding no blank line and no more than two sentences (a sentence end
+    is `.`, `!` or `?` followed by whitespace and an uppercase letter, or
+    by the end of the summary); an optional `detail`; and `migration` WHEN it
     is `breaking`.
   - **Every commit accounted for.** Every commit in the bundle is cited by
     at least one entry or listed in `omitted`, each `omitted` item naming a
@@ -136,6 +143,10 @@ saw.
     producer's output byte for byte, and is replaced by an atomic rename
     of a fully written temporary file, so a failed write keeps the
     changelog already there.
+  - The evidence bundle the producer was given is kept beside it, written
+    whenever a producer authors, as the cache file's name with
+    `.evidence.json` in place of `.json`; for a maintainer-named changelog
+    `x.json` it is `x.evidence.json`.
   - WHEN the cache file exists and redo was not requested, the bridge reads
     it and invokes no producer. WHEN redo is requested, it invokes the
     producer and replaces the file only after accepting the result, so a

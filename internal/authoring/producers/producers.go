@@ -36,7 +36,7 @@ func (u *Unavailable) Error() string {
 }
 
 // alternatives is the hint a refusal gives.
-const alternatives = `select another producer with changelog.producer, or name the bump and pass --skip-notes`
+const alternatives = `select another producer with changelog.producer, or pass --skip-notes to author the changelog with the mechanical producer`
 
 // Registry is every producer a configuration can select, by name, for the
 // repository at dir. env, as KEY=value entries, is added to each producer
@@ -47,8 +47,9 @@ func Registry(c config.Changelog, dir string, env ...string) map[string]authorin
 		command.Command = *c.ProducerCommand
 	}
 	return map[string]authoring.Producer{
-		config.ProducerClaudeName:  Claude{Dir: dir, Env: env},
-		config.ProducerCommandName: command,
+		config.ProducerClaudeName:     Claude{Dir: dir, Env: env},
+		config.ProducerCommandName:    command,
+		config.ProducerMechanicalName: Mechanical{},
 	}
 }
 
@@ -84,8 +85,8 @@ func (c Command) Produce(ctx context.Context, assembled []byte) ([]byte, error) 
 
 // ClaudePrompt is what the `claude` producer asks of `claude -p`: run the
 // release plugin's changelog skill over the corpus on standard input.
-const ClaudePrompt = "Use the release:changelog skill to author the changelog corpus on standard input. " +
-	"Write only the authored corpus, as JSON, to standard output."
+const ClaudePrompt = "Use the release:changelog skill to author the structured changelog from the evidence bundle on standard input. " +
+	"Write only the changelog, as JSON, to standard output."
 
 // Claude is the `claude` producer, the default: it runs `claude -p` with a
 // prompt invoking the release:changelog skill, the assembled corpus on

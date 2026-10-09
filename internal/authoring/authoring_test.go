@@ -82,7 +82,7 @@ func TestAnInvalidReturnedCorpusIsRejectedBeforeAnyConsumer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			p := &stub{out: []byte(doc)}
 			req := request(t, p)
-			res, err := Exchange(context.Background(), req)
+			res, err := ExchangeCorpus(context.Background(), req)
 			var rej *Rejection
 			if !errors.As(err, &rej) {
 				t.Fatalf("err = %v, want a *Rejection", err)
@@ -101,7 +101,7 @@ func TestAnInvalidReturnedCorpusIsRejectedBeforeAnyConsumer(t *testing.T) {
 func TestAnUnimplementedSchemaVersionIsRejected(t *testing.T) {
 	for _, v := range []string{"2.0.0", "0.9.0", "one"} {
 		doc := strings.Replace(string(authored("MINOR")), `"schema_version":"1.0.0"`, `"schema_version":"`+v+`"`, 1)
-		_, err := Exchange(context.Background(), request(t, &stub{out: []byte(doc)}))
+		_, err := ExchangeCorpus(context.Background(), request(t, &stub{out: []byte(doc)}))
 		var rej *Rejection
 		if !errors.As(err, &rej) || !strings.Contains(rej.Reason, "schema_version") {
 			t.Errorf("schema_version %s: err = %v, want a rejection naming schema_version", v, err)
@@ -109,14 +109,14 @@ func TestAnUnimplementedSchemaVersionIsRejected(t *testing.T) {
 	}
 	// A minor or patch revision of the implemented major is compatible.
 	doc := strings.Replace(string(authored("MINOR")), `"schema_version":"1.0.0"`, `"schema_version":"1.3.1"`, 1)
-	if _, err := Exchange(context.Background(), request(t, &stub{out: []byte(doc)})); err != nil {
+	if _, err := ExchangeCorpus(context.Background(), request(t, &stub{out: []byte(doc)})); err != nil {
 		t.Errorf("schema_version 1.3.1 refused: %v", err)
 	}
 }
 
 // AC: AC-CLOG-003.3
 func TestAgreementProceeds(t *testing.T) {
-	res, err := Exchange(context.Background(), request(t, &stub{out: authored("MINOR")}))
+	res, err := ExchangeCorpus(context.Background(), request(t, &stub{out: authored("MINOR")}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestAgreementProceeds(t *testing.T) {
 }
 
 func TestDisagreementIsReportedNotResolved(t *testing.T) {
-	res, err := Exchange(context.Background(), request(t, &stub{out: authored("MAJOR")}))
+	res, err := ExchangeCorpus(context.Background(), request(t, &stub{out: authored("MAJOR")}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestDisagreementIsReportedNotResolved(t *testing.T) {
 func TestReturnedProseIsCarriedByteForByte(t *testing.T) {
 	out := authored("MINOR")
 	req := request(t, &stub{out: out})
-	res, err := Exchange(context.Background(), req)
+	res, err := ExchangeCorpus(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestReturnedProseIsCarriedByteForByte(t *testing.T) {
 	}
 
 	// Read back from the cache: the same prose again.
-	again, err := Exchange(context.Background(), req)
+	again, err := ExchangeCorpus(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestReturnedProseIsCarriedByteForByte(t *testing.T) {
 
 func TestAssembledCorpusReachesTheProducerAsJSON(t *testing.T) {
 	p := &stub{out: authored("MINOR")}
-	if _, err := Exchange(context.Background(), request(t, p)); err != nil {
+	if _, err := ExchangeCorpus(context.Background(), request(t, p)); err != nil {
 		t.Fatal(err)
 	}
 	want, err := Marshal(assembled())
@@ -209,7 +209,7 @@ func TestTheBridgeHasNoNetworkPath(t *testing.T) {
 	// The exchange is the producer's: a stub producer is the only thing the
 	// bridge calls, and it is called with the corpus alone.
 	p := &stub{out: authored("MINOR")}
-	if _, err := Exchange(context.Background(), request(t, p)); err != nil {
+	if _, err := ExchangeCorpus(context.Background(), request(t, p)); err != nil {
 		t.Fatal(err)
 	}
 	if len(p.received) != 1 {
@@ -223,7 +223,7 @@ func TestTheConfiguredProducerIsTheOneInvoked(t *testing.T) {
 	req := request(t, chosen)
 	req.Producers = map[string]Producer{"command": chosen, "claude": other}
 	req.Producer = "command"
-	if _, err := Exchange(context.Background(), req); err != nil {
+	if _, err := ExchangeCorpus(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
 	if len(chosen.received) != 1 || len(other.received) != 0 {
@@ -232,7 +232,7 @@ func TestTheConfiguredProducerIsTheOneInvoked(t *testing.T) {
 
 	req = request(t, chosen)
 	req.Producer = "manual"
-	if _, err := Exchange(context.Background(), req); !errors.Is(err, ErrUnknownProducer) {
+	if _, err := ExchangeCorpus(context.Background(), req); !errors.Is(err, ErrUnknownProducer) {
 		t.Errorf("unknown producer: err = %v, want ErrUnknownProducer", err)
 	}
 }
@@ -241,7 +241,7 @@ func TestTheConfiguredProducerIsTheOneInvoked(t *testing.T) {
 func TestACachedCorpusIsReusedWithoutInvokingAProducer(t *testing.T) {
 	p := &stub{out: authored("MINOR")}
 	req := request(t, p)
-	first, err := Exchange(context.Background(), req)
+	first, err := ExchangeCorpus(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestACachedCorpusIsReusedWithoutInvokingAProducer(t *testing.T) {
 		t.Fatalf("first outcome = %v, want Authored", first.Outcome)
 	}
 	p.out, p.err = nil, errors.New("must not be called")
-	second, err := Exchange(context.Background(), req)
+	second, err := ExchangeCorpus(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,12 +261,12 @@ func TestACachedCorpusIsReusedWithoutInvokingAProducer(t *testing.T) {
 func TestRedoReplacesTheCache(t *testing.T) {
 	p := &stub{out: authored("MINOR")}
 	req := request(t, p)
-	if _, err := Exchange(context.Background(), req); err != nil {
+	if _, err := ExchangeCorpus(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
 	p.out = authored("PATCH")
 	req.Redo = true
-	res, err := Exchange(context.Background(), req)
+	res, err := ExchangeCorpus(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,12 +282,12 @@ func TestRedoReplacesTheCache(t *testing.T) {
 func TestRedoKeepsTheCacheWhenTheProducerFails(t *testing.T) {
 	p := &stub{out: authored("MINOR")}
 	req := request(t, p)
-	if _, err := Exchange(context.Background(), req); err != nil {
+	if _, err := ExchangeCorpus(context.Background(), req); err != nil {
 		t.Fatal(err)
 	}
 	p.out, p.err = nil, errors.New("producer exploded")
 	req.Redo = true
-	if _, err := Exchange(context.Background(), req); err == nil || !strings.Contains(err.Error(), "producer exploded") {
+	if _, err := ExchangeCorpus(context.Background(), req); err == nil || !strings.Contains(err.Error(), "producer exploded") {
 		t.Errorf("err = %v, want the producer's failure", err)
 	}
 	cached, _ := os.ReadFile(req.CachePath)
@@ -306,7 +306,7 @@ func TestSkipInvokesNothingAndPassesTheAssembledCorpus(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Skip = true
-	res, err := Exchange(context.Background(), req)
+	res, err := ExchangeCorpus(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestAnInvalidCachedCorpusIsRejected(t *testing.T) {
 	if err := os.WriteFile(req.CachePath, []byte(`{"schema_version":"1.0.0"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Exchange(context.Background(), req)
+	_, err := ExchangeCorpus(context.Background(), req)
 	var rej *Rejection
 	if !errors.As(err, &rej) || rej.Source != req.CachePath {
 		t.Errorf("err = %v, want a rejection naming the cache file", err)
@@ -347,14 +347,14 @@ func TestCachePathKeysOnTheRangeInTheCommonDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := CachePath(context.Background(), repo, "", head)
+	got, err := CorpusCachePath(context.Background(), repo, "", head)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if want := filepath.Join(common, "release", "corpus", "root.."+head+".json"); got != want {
 		t.Errorf("CachePath = %q, want %q", got, want)
 	}
-	got, _ = CachePath(context.Background(), repo, "abc", head)
+	got, _ = CorpusCachePath(context.Background(), repo, "abc", head)
 	if filepath.Base(got) != "abc.."+head+".json" {
 		t.Errorf("CachePath with a base = %q", got)
 	}
@@ -369,7 +369,7 @@ func TestAlteredProvenanceIsRejected(t *testing.T) {
 				t.Fatal("the replacement did not apply")
 			}
 			req := request(t, &stub{out: []byte(doc)})
-			_, err := Exchange(context.Background(), req)
+			_, err := ExchangeCorpus(context.Background(), req)
 			var rej *Rejection
 			if !errors.As(err, &rej) || !strings.Contains(rej.Reason, "sources") {
 				t.Fatalf("producer: err = %v, want a rejection naming sources", err)
@@ -386,7 +386,7 @@ func TestAlteredProvenanceIsRejected(t *testing.T) {
 				t.Fatal(err)
 			}
 			req.Producers = map[string]Producer{"stub": &stub{err: errors.New("must not be called")}}
-			if _, err := Exchange(context.Background(), req); !errors.As(err, &rej) {
+			if _, err := ExchangeCorpus(context.Background(), req); !errors.As(err, &rej) {
 				t.Errorf("cache: err = %v, want a rejection", err)
 			}
 		})
@@ -397,7 +397,7 @@ func TestCacheWriteLeavesNoTemporaryFiles(t *testing.T) {
 	req := request(t, &stub{out: authored("MINOR")})
 	for i := 0; i < 2; i++ {
 		req.Redo = i == 1
-		if _, err := Exchange(context.Background(), req); err != nil {
+		if _, err := ExchangeCorpus(context.Background(), req); err != nil {
 			t.Fatal(err)
 		}
 	}
