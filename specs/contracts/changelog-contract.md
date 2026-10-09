@@ -1,11 +1,12 @@
 ---
 title: "Contract: Changelog Corpus"
-description: The structured representation of a release's changelog, written
-  by an authoring producer and consumed by deterministic renderers.
+description: The evidence a producer reads, the structured changelog it
+  writes, and the pull request notes block, exchanged between producers that
+  may vary and the deterministic tooling that validates and renders them.
 slug: contract-changelog
 type: contract
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-09T00:00:00Z
 provider: module-release-core
 visibility: public
 specs:
@@ -15,29 +16,259 @@ version: "1.0"
 
 # Changelog Corpus
 
-The structured form of a release's changelog: its proposed impact, its
-narrative, its itemized entries, its breaking changes, and the inputs it
-was authored from. It is the seam between a producer that may vary between
-runs — a person, or a language model reading commits, pull requests and
-diffs — and consumers that may not. Provided by [[container-release-cli]].
-Visibility: public.
+The seam between a producer that may vary between runs — a person, or a
+language model reading commits and diffs — and the tooling that may not. It
+has three parts:
 
-Public rather than internal because any producer may write an instance:
-the authoring skill vended to adopting repositories, a hand-edited file
-when a release needs correcting, or third-party tooling. The schema is the
-only thing those producers share.
+- **The evidence bundle** — what a producer reads: the commits in a range,
+  what git says about each, its reviewed notes block where it has one, and
+  its diff where one was collected.
+- **The corpus** — what a producer writes for a release: its proposed impact
+  and the reasons for it, its narrative, and its itemized changes.
+- **The `## Release notes` block** — what a producer writes for a pull
+  request, as markdown a reviewer edits like prose, with a grammar the
+  tooling parses when the squash merge has carried it into a commit body.
+
+Provided by [[container-release-cli]]. Visibility: public.
+
+Public rather than internal because any producer may read and write these:
+the authoring skills vended to adopting repositories, a hand-edited file
+when a release needs correcting, a person writing a notes block in a pull
+request, or third-party tooling. The schemas and the block grammar are the
+only things those producers share.
 
 ## Specification
 
 | Artifact | Location | Normative for |
 |----------|----------|---------------|
-| Strata schema | `schemas/changelog.strata` | Shape |
-| Collector records | `schemas/collection.strata` | Shape of the inputs a corpus is built from |
-| JSON Schema | generated: `strata build schemas/changelog.strata --target json-schema` | Shape, for validators |
-| This document | — | Semantics, operations, change policy |
+| Strata schema | `schemas/changelog.strata` | Shape of the corpus |
+| Evidence schema | `schemas/evidence.strata` (new; lands with the implementation) | Shape of the evidence bundle and of pull request notes, as [Evidence Bundle](#evidence-bundle) states them |
+| Collector records | `schemas/collection.strata` | Shape of the records the evidence carries |
+| JSON Schema | generated: `strata build schemas/<name>.strata --target json-schema` | Shape, for validators |
+| This document | — | Semantics, the notes block grammar, operations, change policy |
 
-The Strata schema is the single source; the JSON Schema and every
-language binding are generated from it and are never hand-edited.
+The Strata schemas are the single source for shape; the JSON Schema and
+every language binding are generated from them and are never hand-edited.
+Where this document states a shape the schemas do not yet carry, this
+document is normative until they do.
+
+## Corpus
+
+An entry is a **change**, not a commit. Its `sources` cite the commits,
+pull requests and issues that account for it, and the relation is
+many-to-many: one commit may account for several entries, one entry may cite
+several commits, and a commit that changed nothing a reader can observe may
+be cited by no entry at all.
+
+The corpus amends `schemas/changelog.strata` as follows:
+
+- `Changelog.proposal_rationale: String?` — why the producer proposes
+  `proposed_bump`, in a sentence or two a maintainer can confirm or reject.
+- `Changelog.proposal_drivers: [ChangeSource]` — the sources of the changes
+  that drove `proposed_bump`.
+- `AdapterRun.budget: BudgetReport?` — on the run of the `DIFFS` adapter, the
+  diff budget report of the evidence the corpus was authored from.
+- `ChangelogEntry.summary` is one sentence stating the change from the
+  reader's point of view. `ChangelogEntry.detail` is the expected home of a
+  sentence or two explaining it, rendered beneath the summary.
+- `ChangelogEntry.derived` is set only by the mechanical producer, for a
+  summary it derived from a commit subject: nobody wrote the sentence.
+
+## Evidence Bundle
+
+The producer reads an `Evidence` instance. It is built by the tooling, never
+by a producer, and states what git said without interpreting it.
+
+`schemas/collection.strata` gains the records it carries:
+
+```
+struct CommitRecord {
+  # ...existing fields...
+  files: [FileChange]               # every file the commit changed
+}
+struct FileChange {
+  path: String
+  previous_path: String?            # set for a rename or copy
+  status: FileStatus                # ADDED | MODIFIED | DELETED | RENAMED | COPIED
+  additions: Int                    # lines added
+  deletions: Int                    # lines deleted
+}
+struct DiffRecord {
+  commit: String?                   # the commit, for a per-commit diff
+  from: String?                     # the base, for a range diff
+  to: String                        # the head
+  files: [FileDiff]
+  truncated: Bool                   # some patch text was cut by the budget
+}
+struct FileDiff {
+  path: String
+  patch: String                     # unified diff text for this file
+  truncated: Bool
+}
+```
+
+`schemas/evidence.strata` defines the bundle and pull request notes:
+
+```
+struct Evidence {
+  schema_version: String
+  purpose: EvidencePurpose          # PULL_REQUEST | RELEASE
+  range: Range
+  base_version: String?             # RELEASE only
+  commits: [CommitEvidence]         # oldest first
+  sources: [AdapterRun]             # the adapters that contributed
+  budget: BudgetReport
+}
+struct Range {
+  from: String?                     # full hash; absent for a line with no release
+  to: String                        # full hash of the head
+}
+struct CommitEvidence {
+  record: CommitRecord
+  notes: PullRequestNotes?          # the parsed notes block, where present
+  diff: DiffRecord?                 # every commit at PULL_REQUEST; at RELEASE,
+                                    # a commit with no notes block
+  signal: Bump?                     # the classifier's reading; absent when unclassified
+}
+struct BudgetReport {
+  limit: Int                        # bytes of patch text permitted
+  total: Int                        # bytes of patch text before the budget
+  used: Int                         # bytes of patch text carried
+  omitted: [OmittedDiff]
+}
+struct OmittedDiff {
+  commit: String?
+  path: String
+  reason: OmissionReason            # EXCLUDED | BINARY | OVER_BUDGET
+  truncated: Bool                   # part of the patch was carried
+}
+struct PullRequestNotes {           # also the pull request producer's output
+  impact: Bump
+  entries: [NoteEntry]
+}
+struct NoteEntry {
+  kind: ChangeKind
+  scope: String?
+  summary: String                   # one sentence, reader's point of view
+  detail: String?                   # a sentence or two
+  breaking: Bool
+  migration: String?
+}
+```
+
+`Bump`, `ChangeKind` and `AdapterRun` are the corpus schema's.
+
+## Release Notes Block
+
+A notes block is the markdown form of `PullRequestNotes`. It lives in a pull
+request description, and under squash merging that uses the description, in
+the commit body. Example:
+
+```markdown
+## Release notes
+
+<!-- release-notes: v1 head=3f2a9c1 -->
+Release-Type: major
+
+- feat(cut)!: `release cut` refuses a named bump over a range with nothing releasable unless `--force` is given.
+
+  A named bump used to stage an empty release. Pass `--force` to release anyway, for example for a rebuild.
+
+  Migration: scripts that cut with a named bump over an empty range must add `--force`.
+
+- fix(cut): `release cut` checks `gh` authentication before writing anything.
+```
+
+The grammar, in order:
+
+1. **Heading.** The block starts at a line reading exactly `## Release
+   notes`.
+2. **Marker.** The next non-blank line is
+   `<!-- release-notes: v1 head=<hash> -->`, where `v1` is the grammar
+   version and `<hash>` is the abbreviated or full hash of the pull request
+   head the block was written for.
+3. **Impact.** The next non-blank line is `Release-Type: <bump>`, where
+   `<bump>` is one of `major`, `minor`, `patch` or `none`. It is the block's
+   impact.
+4. **Entries.** Each entry starts at a line `- <type>(<scope>)[!]: <sentence>`
+   at column zero. `(<scope>)` is optional. `!` marks the entry breaking.
+   `<sentence>` is the entry's one-sentence summary and occupies the rest of
+   the line.
+5. **Detail.** An entry may be followed by paragraphs indented by two
+   spaces and separated from the entry and from each other by a blank line.
+   Together they are the entry's detail.
+6. **Migration.** An indented paragraph beginning `Migration: ` is the
+   entry's migration guidance. An entry has at most one, and it follows the
+   detail paragraphs.
+7. **End.** The block ends at the next line beginning `## `, or at the end
+   of the text. Lines after it, such as `Co-authored-by:` trailers, are not
+   part of it.
+
+`<type>` maps to `ChangeKind` as conventional commits do:
+
+| `<type>` | `ChangeKind` |
+|---|---|
+| `feat` | `FEATURE` |
+| `fix` | `FIX` |
+| `perf` | `PERFORMANCE` |
+| `revert` | `REVERT` |
+| `refactor` | `REFACTOR` |
+| `docs` | `DOCUMENTATION` |
+| `build` | `BUILD` |
+| `ci` | `CI` |
+| `test` | `TEST` |
+| `style` | `STYLE` |
+| `chore` | `CHORE` |
+
+### Block guarantees
+
+The provider SHALL accept a block whose lines end in LF or CRLF.
+
+**Rationale:** Hosting platforms store pull request descriptions with CRLF
+line endings, and the squash merge carries them into the commit body.
+
+---
+
+IF a text holds a `## Release notes` heading and the lines up to the block's
+end do not follow the grammar, THEN the provider SHALL report the block as
+malformed and name the first line that does not.
+
+---
+
+IF a text holds more than one `## Release notes` heading, THEN the provider
+SHALL report the block as malformed.
+
+---
+
+IF an entry is marked breaking and carries no `Migration:` paragraph, THEN
+the provider SHALL report the block as malformed.
+
+---
+
+IF an entry is marked breaking and the block's impact is below `major`, THEN
+the provider SHALL report the block as malformed.
+
+**Rationale:** The impact line is the block's only signal. A breaking entry
+under a lower impact would let a reviewed block understate its own content.
+
+---
+
+The provider SHALL render `PullRequestNotes` into a block that parses back to
+the same `PullRequestNotes`, and SHALL render identical notes identically on
+every run.
+
+---
+
+The provider SHALL read only the block's impact line as its impact signal.
+
+**Rationale:** One line a reviewer can see and change is the signal. The
+entries' types and breaking marks describe the changes, and the guarantee
+above keeps them consistent with it.
+
+---
+
+WHEN the provider replaces a block in a pull request description, it SHALL
+leave every line outside the block unchanged.
 
 ## Guarantees
 
@@ -50,7 +281,7 @@ that silently omit content, which is worse than failing to render.
 ---
 
 The provider SHALL render every published artifact describing one release
-from a single instance.
+from a single corpus instance.
 
 **Rationale:** Two artifacts rendered from one instance cannot
 contradict each other. Independently generated release notes and
@@ -58,34 +289,42 @@ changelog sections can, and have.
 
 ---
 
-An assembled corpus — one the provider built from collected records,
-before any producer has seen it — SHALL carry no `proposed_bump`.
+An evidence bundle SHALL carry no proposed impact, no changelog entry and no
+`ChangeKind` the tooling assigned.
 
-**Rationale:** A proposal derived mechanically from the same records the
-classifier reads would agree with it by construction, and the disagreement
-check below would never fire ([[adr-003]]).
-
----
-
-The provider SHALL reject an authored corpus — one a producer returned —
-that carries no `proposed_bump`.
+**Rationale:** The bundle is what git said. A kind or an impact guessed from
+a commit subject would reach the producer as a fact ([[adr-003]]).
 
 ---
 
-The provider SHALL treat `proposed_bump` as a proposal.
+The provider SHALL record in an evidence bundle's `budget` every diff or file
+it excluded, truncated or omitted, and why.
+
+**Rationale:** A producer that cannot see what it was not shown writes notes
+as though it saw everything.
 
 ---
 
-The provider SHALL NOT derive a published version from `proposed_bump`.
+The provider SHALL reject an authored corpus that carries no
+`proposed_bump`, or a `proposed_bump` with no `proposal_rationale`.
 
 ---
 
-IF `proposed_bump` disagrees with the bump computed from commit metadata,
-THEN the provider SHALL halt and require human confirmation.
+The provider SHALL reject an authored corpus in which an entry's `sources`
+or the `proposal_drivers` cite a pull request or commit absent from the
+evidence bundle it was authored from.
 
-**Rationale:** Disagreement usually means a change was mis-typed or
-mis-trailered, which is the failure the deterministic classifier cannot
-detect on its own ([[adr-003]]).
+**Rationale:** A source outside the evidence is one the producer invented,
+and a reviewer following it finds nothing.
+
+---
+
+The provider SHALL treat `proposed_bump` as a proposal and SHALL NOT derive a
+published version from it unless a person has confirmed it.
+
+**Rationale:** The proposal is a model's reading of the evidence. It reaches
+a version only through a confirmation recorded on the release commit
+([[adr-003]], [[frd-version-computation]]).
 
 ---
 
@@ -106,6 +345,10 @@ identical input.
 
 ---
 
+Producers SHALL write each entry's `summary` as one sentence.
+
+---
+
 Producers SHALL set `migration` on every entry whose `breaking` flag is set.
 
 **Rationale:** A breaking change without migration guidance is an incident
@@ -115,28 +358,38 @@ cannot be recorded apart from each other.
 
 ---
 
-The provider SHALL record in `sources` every adapter that contributed to
-an assembled corpus, with the range it read: `from` is the base commit's
+The provider SHALL record in an evidence bundle's `sources` every adapter
+that contributed to it, with the range it read: `from` is the base commit's
 full hash, absent WHEN the release line has no release yet, and `to` is the
 head commit's full hash.
 
 ---
 
-Producers SHALL carry `sources`, and every entry's `sources`, through
-authoring unchanged.
+Producers SHALL copy the evidence bundle's `sources` into the corpus's
+`sources` unchanged.
 
 **Rationale:** Provenance a producer can rewrite says what the producer
 claimed, not what the corpus was built from.
 
 ---
 
-The provider SHALL set an entry's `derived` flag WHEN it derived the
-entry's `summary` from a commit subject, and SHALL clear it WHEN the summary
-is author-written prose carried from a release-notes block. A producer that
-replaces a derived summary with prose of its own SHALL clear the flag.
+The mechanical producer SHALL set an entry's `derived` flag WHEN it derived
+the entry's `summary` from a commit subject, and SHALL clear it WHEN the
+summary is prose carried from a notes block. Every other producer SHALL
+clear it.
 
 **Rationale:** A reviewer of the release notes can then find every line
 nobody wrote.
+
+---
+
+The mechanical producer SHALL propose the impact computed from the reviewed
+signals in the range, with the commits that determined it as
+`proposal_drivers`.
+
+**Rationale:** It exercises no judgement, so it has nothing to propose beyond
+what the signals already say; where commits are unclassified, reconciliation
+still asks a person ([[frd-version-computation]]).
 
 ---
 
@@ -145,8 +398,8 @@ Consumers SHALL tolerate unknown fields within a compatible
 
 ## Operational Expectations
 
-- **Availability / SLO:** not applicable — the corpus is a file, not a
-  service.
+- **Availability / SLO:** not applicable — the corpus, the bundle and the
+  block are files and text, not services.
 - **Latency:** rendering SHALL complete without network access.
 - **AuthN/AuthZ:** not applicable.
 - **Consumer obligations:** consumers SHALL validate an instance against
@@ -158,11 +411,14 @@ Consumers SHALL tolerate unknown fields within a compatible
 ## Versioning and Change Policy
 
 - **Versioning scheme:** semver on `schema_version`, carried in every
-  instance.
+  instance, and the `v1` grammar version in every notes block marker.
 - **Compatible changes:** the provider MAY add optional fields and
   MAY add enum variants without a major version change.
 - **Breaking changes:** WHEN a required field is added, removed or
-  re-typed, the provider SHALL increment the major `schema_version`.
+  re-typed, the provider SHALL increment the major `schema_version`. WHEN a
+  block the current grammar accepts would no longer parse, the provider SHALL
+  increment the grammar version and SHALL continue to parse every earlier
+  version, because blocks in git history cannot be rewritten.
 - **Deprecation:** WHEN a major `schema_version` is superseded, consumers
   SHALL continue to accept the prior major for one release cycle of the
   tooling.
@@ -174,17 +430,19 @@ major version change.
 
 ### Amendments within 1.0
 
-Schema version 1.0 was amended in place before any release was made against
-it, by the changelog authoring feature: `Changelog.sources` (with
-`AdapterRun` and `Adapter`) and `ChangelogEntry.derived` were added as
-required fields, and `Changelog.proposed_bump` became optional so an
-assembled corpus can omit it. An instance written before the amendment does
-not validate. Every later change follows the policy above.
+Schema version 1.0 is amended in place until the tooling's first public
+release. An instance written before an amendment may not validate. The
+amendments are: `Changelog.sources` (with `AdapterRun` and `Adapter`) and
+`ChangelogEntry.derived` as required fields; `Changelog.proposed_bump` as
+optional; `Changelog.proposal_rationale`, `Changelog.proposal_drivers` and
+`AdapterRun.budget`; and the semantics of [Corpus](#corpus). Every later
+change follows the policy above.
 
 ## Key Decisions
 
-- [[adr-003]] — the bump is computed deterministically; authored prose
-  proposes but never decides.
+- [[adr-003]] — the producer authors notes and proposes impact from
+  evidence; reviewed records in git decide the version, and a person
+  confirms anything unreviewed.
 - [[adr-004]] — changelog authoring is a replaceable step, which is what
   requires a structured intermediate rather than a render template.
 
@@ -193,10 +451,17 @@ not validate. Every later change follows the policy above.
 - [ ] Whether `IssueSource` should carry a tracker discriminator rather than
   relying on the identifier's own form — decided when the first adopter wires
   a second tracker.
+- [ ] Whether a notes block written by hand, with no pull request head to
+  record, may omit `head=` — decided with the `release notes --check`
+  implementation.
 
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and contract visibility tiers
 - [[container-release-cli]] — provider's blueprint
-- [[frd-changelog-authoring]] — the feature that produces instances
-- [[frd-changelog-rendering]] — the feature that consumes them
+- [[frd-changelog-authoring]] — the feature that builds evidence and
+  exchanges it with producers
+- [[frd-version-computation]] — how the proposal and the block's impact are
+  reconciled
+- [[frd-changelog-rendering]] — the feature that consumes the corpus
+- [[repository-release-policy]] — how the notes block reaches git

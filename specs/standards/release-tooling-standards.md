@@ -2,12 +2,12 @@
 title: Release Tooling Standards
 description: What the release tooling guarantees and validates — stage
   branch and release commit shape, pre-publication verification, version
-  computation, and its configuration surface.
+  computation and impact confirmation, and its configuration surface.
 slug: release-tooling-standards
 type: standards
 status: approved
-updated_at: 2026-10-08T00:00:00Z
-version: "0.4"
+updated_at: 2026-10-09T00:00:00Z
+version: "0.5"
 ---
 
 # Release Tooling Standards
@@ -95,6 +95,15 @@ stage branches or fire a release from a protected-branch push.
 
 ---
 
+**RTS-034:** A release commit SHALL carry the confirmed impact of the release
+it records as a `Release-Type:` trailer.
+
+**Rationale:** An impact confirmed by a person, or named by a maintainer,
+exists nowhere else in git. Recording it on the release commit keeps the
+published version recomputable and checkable from a clone ([[adr-003]]).
+
+---
+
 ## Version Computation
 
 **RTS-010:** The release tooling SHALL compute the base version from the
@@ -106,30 +115,42 @@ and no per-major query is needed.
 
 ---
 
-**RTS-011:** The release tooling SHALL compute the version bump
-deterministically from commit metadata.
+**RTS-011:** The release tooling SHALL compute the impact of a range
+deterministically from the reviewed signals its commits carry: the impact of
+a `## Release notes` block, a `Release-Type:` trailer, a conventional-commit
+type, or a breaking-change marker.
+
+**Rationale:** Each of these is reviewed before it reaches git, so the
+computed impact needs no model and no network to reproduce. A commit may carry
+none of them; RTS-036 governs the impact of such a range.
 
 ---
 
-**RTS-012:** The release tooling SHALL NOT require a bump signal that lives
+**RTS-012:** The release tooling SHALL NOT read an impact signal that lives
 outside the repository's git history.
 
 **Rationale:** A version must be derivable from a clone, so that it is
-reproducible offline and checkable by a reviewer who has nothing else.
+reproducible offline and checkable by a reviewer who has nothing else. This
+rules out pull request labels and other hosting-platform state as signals.
 
 ---
 
 **RTS-013:** The release tooling SHALL NOT derive a version number from a
-language model's output.
+language model's output that no reviewed record in git confirms.
+
+**Rationale:** A model's output varies between runs. A proposal becomes a
+version only through a record a person reviewed: a notes block reviewed in
+its pull request, or the `Release-Type:` trailer of RTS-034 on the release
+commit ([[adr-003]]).
 
 ---
 
-**RTS-014:** WHEN an authored proposal disagrees with the computed bump,
-the release tooling SHALL halt and require human confirmation.
+**RTS-014:** The release tooling SHALL show an authored impact proposal and
+the reasons given for it to a person before it pushes a stage branch.
 
-**Rationale:** Disagreement usually means a change was mis-typed or
-mis-trailered, which is the failure the deterministic classifier cannot
-detect on its own ([[adr-003]]).
+**Rationale:** The proposal is the model's reading of the evidence. Seeing
+its reasons is what lets a person confirm it, or notice that it is wrong,
+before the version is fixed.
 
 ---
 
@@ -166,16 +187,48 @@ produce version 1.0.0.
 
 ---
 
-**RTS-020:** WHERE no releasable change exists since the latest reachable
-tag, the release tooling SHALL refuse to create a stage branch unless the
-maintainer names a bump and explicitly forces the release. A releasable
-change is a commit that indicates an impact of patch or above through an
-enabled signal; a range with no commits holds none.
+**RTS-020:** WHERE no releasable change (RTS-037) exists since the latest
+reachable tag, the release tooling SHALL refuse to create a stage branch
+unless the maintainer names a bump and explicitly forces the release.
 
 **Rationale:** A named bump states the impact but not that anything
-changed. Staging it over an empty range publishes a release with nothing in
-it, which is usually a mistake, and occasionally intended (a rebuild, or a
-release of changes that carry no signal).
+changed. Staging it over a range with nothing releasable publishes a release
+with nothing in it, which is usually a mistake, and occasionally intended (a
+rebuild).
+
+---
+
+**RTS-035:** The release tooling SHALL read a `## Release notes` block in a
+commit body as a reviewed impact signal for that commit and as changelog
+evidence for it.
+
+**Rationale:** Under squash merging the block reaches git in the commit body,
+after it was reviewed with the code in its pull request
+([[repository-release-policy]]). Its impact is a reviewed signal, and its
+entries are the reviewed account of what the commit changed.
+
+---
+
+**RTS-036:** WHEN the impact of a range rests on any commit that carries no
+reviewed signal, or an authored proposal is higher than the computed impact,
+the release tooling SHALL halt until a person confirms the impact, by naming
+a bump or by answering an interactive prompt.
+
+**Rationale:** Either case means the version would otherwise depend on a
+model's judgement that nobody reviewed. Non-interactively the tooling stops
+with the proposal, so an agent confirms by naming the bump after showing the
+proposal to the person it acts for.
+
+---
+
+**RTS-037:** The release tooling SHALL treat a range as holding a releasable
+change WHEN a reviewed signal in it indicates an impact of patch or above, or
+the authored corpus for it holds at least one user-visible change. A range
+with no commits holds none.
+
+**Rationale:** Many commits carry no signal at all, so the signals alone
+under-report what changed. The authored corpus is written from the commits'
+evidence and says whether a user would notice the release.
 
 ---
 
@@ -277,7 +330,7 @@ format.
   branching topology is policy rather than tooling
 - [[adr-002]] — stage branches as the release trigger, verified
   independently of the branch name
-- [[adr-003]] — deterministic bump computation with authored prose
+- [[adr-003]] — reviewed impact with evidence-authored notes
 - [[repository-release-policy]] — the branching, support and readiness
   policy a project chooses
 - [[cli-distribution-policy]] — artifact publication and distribution

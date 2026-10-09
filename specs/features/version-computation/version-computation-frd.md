@@ -1,15 +1,17 @@
 ---
 title: "FRD: Version Computation"
 description: Resolving a release line's base version, classifying release
-  impact from commit metadata, computing the next version under policy, and
-  deriving the names a release uses.
+  impact from reviewed signals in git, reconciling it with an authored
+  proposal and a person's confirmation, computing the next version under
+  policy, and deriving the names a release uses.
 slug: frd-version-computation
 type: frd
 status: approved
-updated_at: 2026-10-08T00:00:00Z
+updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001
   - adr-003
+  - frd-changelog-authoring
   - release-tooling-standards
 ---
 
@@ -26,7 +28,17 @@ function of its inputs wherever it can be.
 
 It answers three questions in sequence — what was last released on this
 line, what impact have the changes since had, and what version does that
-make next — and derives every name a release needs from the answer. It
+make next — and derives every name a release needs from the answer.
+
+The impact is computed deterministically from reviewed signals in git: a
+notes-block impact reviewed in a pull request, a `Release-Type:` trailer, a
+conventional-commit type, or a breaking-change marker. A producer that has
+read the evidence also proposes an impact, with its reasons. The two are
+reconciled: where every commit carries a reviewed signal and the proposal is
+no higher, the computed impact stands. Where a commit carries none, or the
+proposal is higher, a person confirms the impact before anything is written,
+and the confirmation is committed as a `Release-Type:` trailer on the release
+commit, so the version stays reproducible from a clone ([[adr-003]]). It
 answers them for whatever branch it is pointed at, without interpreting the
 branch's name ([[adr-001]]). A maintainer can run it without staging
 anything, which makes it both the first useful command and the safest way to
@@ -42,9 +54,21 @@ This feature SHALL comply with [[release-tooling-standards]].
   resolved from the tags reachable from its branch.
 - **Impact** — the release significance of a set of changes: major, minor,
   patch, or none.
-- **Signal** — a piece of commit metadata that indicates impact: a
+- **Signal** — a reviewed record in git that indicates a commit's impact:
+  the `Release-Type:` line of a notes block in the commit body, a
   release-type trailer, a conventional-commit type, or a breaking-change
   marker.
+- **Classified commit** — a commit carrying at least one enabled signal,
+  including one that indicates an impact of none. An **unclassified commit**
+  carries no signal.
+- **Computed impact** — the highest impact the signals in a range indicate.
+- **Proposal** — the impact an authored corpus proposes, with its rationale
+  and the sources that drove it ([[frd-changelog-authoring]]).
+- **Confirmed impact** — the impact the release uses, after reconciliation.
+- **Releasable** — a range is releasable WHEN its signals indicate an impact
+  of patch or above, or its authored corpus carries at least one
+  user-visible entry: one whose kind the project publishes, or one marked
+  breaking.
 - **Leap** — an increment of a version component by more than one.
 - **Graduation** — the deliberate move from a version below 1.0.0 to 1.0.0.
 - **Tag prefix** — the string a project prepends to a version when tagging,
@@ -134,13 +158,16 @@ Feature: Base Version Resolution
 Feature: Release Impact Classification
 
   As a maintainer
-  I want impact computed from metadata that lives in git
+  I want impact computed from reviewed records that live in git
   So that the version is reproducible from a clone and checkable by a reviewer
 
   Every enabled signal is read across every commit in the range and the
-  highest impact found wins. The commits that produced that answer are
-  reported with it, because a version a maintainer disagrees with is
-  otherwise undiagnosable and the usual cause is one mis-typed commit.
+  highest impact found wins. A notes block's impact was reviewed with the
+  pull request it describes, so it is a signal like a trailer. The commits
+  that produced the answer are reported with it, because a version a
+  maintainer disagrees with is otherwise undiagnosable and the usual cause is
+  one mis-typed commit. The commits that carry no signal are reported too,
+  because nothing reviewed vouches for their impact.
 
   @AC-VER-002.1
   Scenario Outline: An enabled signal maps to an impact
@@ -150,6 +177,7 @@ Feature: Release Impact Classification
 
     Examples:
       | signal                            | impact |
+      | a notes block reading Release-Type: minor | minor  |
       | a trailer reading Release-Type: minor | minor  |
       | a conventional-commit type of feat | minor  |
       | a conventional-commit type of fix  | patch  |
@@ -173,12 +201,125 @@ Feature: Release Impact Classification
     When the tooling classifies impact
     Then the computed impact is none
 
+  @AC-VER-002.6
+  Scenario: Commits without a signal are reported as unclassified
+    Given a range of three commits of which one carries no enabled signal
+    When the tooling classifies impact
+    Then the tooling reports that commit as unclassified
+
+  @AC-VER-002.7
+  Scenario: A signal of none classifies a commit
+    Given a commit whose notes block reads Release-Type: none
+    When the tooling classifies impact
+    Then the commit is classified with an impact of none and is not reported as unclassified
+
   @AC-VER-002.5 @negative
   Scenario: Classification ignores any authored proposal
     Given an authored changelog proposing an impact of major
     And no commit in the range carries a signal above patch
     When the tooling classifies impact
     Then the computed impact is patch
+```
+
+### FEAT-VER-005: Impact Reconciliation
+
+**Acceptance Criteria:**
+
+```gherkin
+@FEAT-VER-005
+Feature: Impact Reconciliation
+
+  As a maintainer
+  I want the computed impact, the authored proposal and my own judgement reconciled before anything is written
+  So that a model's reading of the evidence informs the version without ever deciding it unreviewed
+
+  Reconciliation takes the computed impact, the commits that carry no signal,
+  the proposal with its rationale and drivers, and any bump the maintainer
+  named. Where every commit is classified and the proposal is no higher than
+  the computed impact, the computed impact stands without a question: reviewed
+  records decide. Where any commit is unclassified, or the proposal is higher,
+  a person confirms the impact. Interactively the tooling asks. Otherwise it
+  stops before writing anything and shows what it would have asked, so an
+  agent confirms by naming the bump after showing the proposal to the person
+  it acts for. A named bump is itself a confirmation.
+
+  @AC-VER-005.1
+  Scenario: Classified commits and an agreeing proposal need no confirmation
+    Given every commit in the range is classified
+    And the computed impact is minor
+    And the proposal is minor
+    When the tooling reconciles the impact
+    Then the confirmed impact is minor and no confirmation is requested
+
+  @AC-VER-005.2
+  Scenario: A lower proposal does not lower the computed impact
+    Given every commit in the range is classified
+    And the computed impact is minor
+    And the proposal is patch
+    When the tooling reconciles the impact
+    Then the confirmed impact is minor, no confirmation is requested, and the difference is reported
+
+  @AC-VER-005.3
+  Scenario: A higher proposal requires confirmation
+    Given every commit in the range is classified
+    And the computed impact is patch
+    And the proposal is minor
+    And the maintainer names no bump
+    When the tooling reconciles the impact
+    Then the tooling requires a person to confirm the impact
+
+  @AC-VER-005.4
+  Scenario: An unclassified commit requires confirmation
+    Given one commit in the range is unclassified
+    And the proposal is no higher than the computed impact
+    And the maintainer names no bump
+    When the tooling reconciles the impact
+    Then the tooling requires a person to confirm the impact
+
+  @AC-VER-005.5
+  Scenario: The person confirming sees the proposal and its reasons
+    Given confirmation is required
+    And the tooling is running interactively
+    When the tooling asks for confirmation
+    Then it shows the computed impact, the proposal, the proposal's rationale and drivers, and the unclassified commits
+    And the impact the person chooses is the confirmed impact
+
+  @AC-VER-005.6
+  Scenario: A named bump confirms the impact
+    Given one commit in the range is unclassified
+    And the proposal is major
+    And the maintainer names a bump of minor
+    When the tooling reconciles the impact
+    Then the confirmed impact is minor and no confirmation is requested
+
+  @AC-VER-005.7 @negative
+  Scenario: Non-interactively, needed confirmation stops without writing
+    Given confirmation is required
+    And the tooling is not running interactively
+    And the maintainer names no bump
+    When the tooling reconciles the impact
+    Then the tooling stops without writing to the repository
+    And it shows the computed impact, the proposal, the proposal's rationale and drivers, the unclassified commits, and how to confirm by naming a bump
+
+  @AC-VER-005.8
+  Scenario: The authored corpus can make a range releasable
+    Given no commit in the range carries a signal above none
+    And the authored corpus carries an entry of the kind feature
+    When the tooling decides whether the range is releasable
+    Then the range is releasable
+
+  @AC-VER-005.9
+  Scenario: A range with neither a signal nor a user-visible entry is not releasable
+    Given no commit in the range carries a signal above none
+    And the authored corpus carries only entries the project does not publish
+    When the tooling decides whether the range is releasable
+    Then the range is not releasable
+
+  @AC-VER-005.10
+  Scenario: An empty range is not releasable
+    Given no commit exists since the base version
+    When the tooling decides whether the range is releasable
+    Then the range is not releasable
 ```
 
 ### FEAT-VER-003: Next Version Computation
@@ -250,7 +391,7 @@ Feature: Next Version Computation
 
   @AC-VER-003.7
   Scenario: No impact means no release
-    Given a computed impact of none
+    Given a confirmed impact of none
     When the tooling computes the next version
     Then the tooling reports that no release is warranted rather than returning a version
 ```
@@ -345,7 +486,9 @@ Feature: Release Name Derivation
 
 - [[adr-001]] — the tooling is branch-agnostic; reachability distinguishes
   release lines
-- [[adr-003]] — the bump is computed, never proposed
+- [[adr-003]] — reviewed records in git decide the impact; a person
+  confirms anything unreviewed, and the confirmation is committed
+- [[frd-changelog-authoring]] — the proposal and its reasons
 - [[release-tooling-standards]] — the policy these criteria enforce
 - [[component-semver-core]], [[component-tag-reader]],
   [[component-bump-classifier]], [[component-version-calculator]] — the

@@ -5,11 +5,12 @@ description: Cutting a release as a stage branch and its pull request, with
 slug: frd-release-staging
 type: frd
 status: approved
-updated_at: 2026-10-08T00:00:00Z
+updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001
   - adr-002
   - adr-003
+  - frd-version-computation
   - release-tooling-standards
 ---
 
@@ -22,6 +23,13 @@ That is the principle this feature exists to implement: a release is
 prepared as a branch holding one commit that touches only version manifests
 and the changelog, and a human reads the version and the notes in a diff
 small enough to actually read before anything is published.
+
+The release commit also records how its impact was decided. It carries the
+confirmed impact as a `Release-Type:` trailer, so an impact a person
+confirmed, or a maintainer named, is in git and the version can be recomputed
+from a clone ([[adr-003]]). The stage pull request shows the reviewer what
+that impact rests on: the producer's proposal with its rationale and drivers,
+and the commits no reviewed signal classified.
 
 Verifying that the commit is well formed is the project's job rather than the
 tooling's, because which paths a release commit may touch differs by ecosystem
@@ -41,7 +49,10 @@ This feature SHALL comply with [[release-tooling-standards]].
   default, whose first commit is the release commit. It normally holds only
   that commit, and may hold more where the notes are corrected during review.
 - **Release commit** — a commit modifying only version manifests and the
-  changelog.
+  changelog, carrying the release's confirmed impact as a `Release-Type:`
+  trailer.
+- **Confirmed impact**, **proposal**, **unclassified commit** and
+  **releasable** — as [[frd-version-computation]] defines them.
 - **Target branch** — the release branch a stage branch is merged into.
 - **Declared release paths** — the paths a project states a release commit
   may modify.
@@ -62,7 +73,8 @@ Feature: Release Staging
 
   Every check that can fail is performed before the first write, so that a
   refusal leaves the repository untouched rather than leaving a partial
-  state behind for someone to clean up.
+  state behind for someone to clean up. Confirming the impact is one of those
+  checks.
 
   @AC-STG-001.1
   Scenario: Cutting produces a branch from the target tip whose first commit is the release commit
@@ -80,6 +92,12 @@ Feature: Release Staging
     Given the maintainer names a bump of minor
     When the tooling cuts a release
     Then the staged version increments the minor component and no impact is inferred
+
+  @AC-STG-001.15
+  Scenario: The release commit carries the confirmed impact as a trailer
+    Given the confirmed impact of the release is minor
+    When the tooling creates the release commit
+    Then the commit carries the trailer Release-Type: minor
 
   @AC-STG-001.12
   Scenario: Cutting without notes skips the authoring exchange
@@ -102,6 +120,18 @@ Feature: Release Staging
     When the tooling opens the stage pull request
     Then the pull request body contains the rendered notes for the staged version under a "Release Notes" heading
 
+  @AC-STG-001.16
+  Scenario: The pull request body shows the proposal and its reasons
+    Given the authored corpus proposes an impact with a rationale and drivers
+    When the tooling opens the stage pull request
+    Then the pull request body shows the confirmed impact, the proposed impact, its rationale, and the sources that drove it
+
+  @AC-STG-001.17
+  Scenario: The pull request body names the unclassified commits
+    Given two commits in the range carry no reviewed signal
+    When the tooling opens the stage pull request
+    Then the pull request body names both commits as unclassified
+
   @AC-STG-001.4
   Scenario: Nothing releasable means no branch
     Given no releasable change exists since the latest tag reachable from the target branch
@@ -123,9 +153,18 @@ Feature: Release Staging
     When the maintainer stages a release
     Then the tooling stages the named bump
 
+  @AC-STG-001.18
+  Scenario: User-visible changes without signals stage without forcing
+    Given no commit since the latest reachable tag carries an impact signal
+    And the authored corpus carries an entry of the kind feature
+    And the maintainer names a bump of minor without forcing the release
+    When the maintainer stages a release
+    Then the tooling stages the release
+
   @AC-STG-001.5
-  Scenario: A disagreement over impact halts before any write
-    Given the authored proposal and the computed impact disagree
+  Scenario: An unconfirmed impact halts before any write
+    Given reconciling the impact requires a person to confirm it
+    And no person has confirmed it
     When the maintainer stages a release
     Then the tooling halts and makes no write to the repository
 
@@ -151,6 +190,8 @@ Feature: Release Staging
 - [[adr-001]] — the release lines a stage branch may target
 - [[adr-002]] — stage branches as the release trigger, verified
   independently of the branch name
-- [[adr-003]] — disagreement over impact halts the release
+- [[adr-003]] — an unreviewed impact is confirmed by a person and recorded
+  on the release commit
+- [[frd-version-computation]] — reconciliation and what is releasable
 - [[repository-release-policy]] — the verification the project performs
 - [[component-stage-orchestrator]] — the component realizing this feature
