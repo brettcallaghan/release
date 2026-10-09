@@ -1,5 +1,5 @@
 description = "with no configuration file, release config answers every setting at its default, target being the branch origin/HEAD points to"
-cites = ["AC-CFG-002.1", "contract-release-cli#release-config"]
+cites = ["AC-CFG-002.1", "AC-CFG-003.1", "AC-CFG-003.2", "AC-CFG-004.2", "AC-CFG-004.6", "contract-release-cli#release-config"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],

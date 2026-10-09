@@ -58,6 +58,17 @@ type Changelog struct {
 	// ProducerCommand is the command the `command` producer runs; nil means
 	// unset. Required WHEN Producer is ProducerCommandName.
 	ProducerCommand *string `toml:"producer_command"`
+	// DiffBudget bounds the patch text one evidence bundle carries.
+	DiffBudget DiffBudget `toml:"diff_budget"`
+	// DiffExclude lists the paths whose patches no evidence bundle carries.
+	// A declared list replaces the default whole.
+	DiffExclude []string `toml:"diff_exclude"`
+}
+
+// DiffBudget is the patch text budget of an evidence bundle, in bytes.
+type DiffBudget struct {
+	// Release is the budget for a release's bundle; a positive integer.
+	Release int64 `toml:"release"`
 }
 
 // Adapters are the optional changelog source adapters. The commit adapter is
@@ -75,10 +86,30 @@ const (
 	ProducerClaudeName = "claude"
 	// ProducerCommandName runs changelog.producer_command.
 	ProducerCommandName = "command"
+	// ProducerMechanicalName composes the corpus from conventional commit
+	// subjects, with no model and no process.
+	ProducerMechanicalName = "mechanical"
 )
 
 // Producers is every producer name, the default first.
-var Producers = []string{ProducerClaudeName, ProducerCommandName}
+var Producers = []string{ProducerClaudeName, ProducerCommandName, ProducerMechanicalName}
+
+// DefaultDiffBudget is the default changelog.diff_budget.release, in bytes.
+const DefaultDiffBudget int64 = 204800
+
+// DefaultDiffExclude is the default changelog.diff_exclude.
+func DefaultDiffExclude() []string {
+	return []string{
+		"**/go.sum",
+		"**/package-lock.json",
+		"**/yarn.lock",
+		"**/pnpm-lock.yaml",
+		"**/Cargo.lock",
+		"**/poetry.lock",
+		"vendor/",
+		"testdata/**/expected/",
+	}
+}
 
 // ChangeKinds is every change kind the release core knows, in the order
 // schemas/changelog.strata declares them.
@@ -157,7 +188,10 @@ func Default() Config {
 			OtherHeading:    "Other changes",
 			BreakingHeading: "Breaking changes",
 			Producer:        ProducerClaudeName,
+			DiffBudget:      DiffBudget{Release: DefaultDiffBudget},
+			DiffExclude:     DefaultDiffExclude(),
 		},
+		Adapters: Adapters{Diffs: true},
 	}
 }
 
@@ -223,7 +257,7 @@ func (c Config) Validate() error {
 		seen[g.Kind] = true
 	}
 	switch c.Changelog.Producer {
-	case ProducerClaudeName:
+	case ProducerClaudeName, ProducerMechanicalName:
 	case ProducerCommandName:
 		if c.Changelog.ProducerCommand == nil || strings.TrimSpace(*c.Changelog.ProducerCommand) == "" {
 			reasons = append(reasons, `changelog.producer is "command" but changelog.producer_command is unset; name the command that authors the corpus`)
@@ -234,11 +268,31 @@ func (c Config) Validate() error {
 	if c.Adapters.PullRequests {
 		reasons = append(reasons, "adapters.pull_requests is on, but the pull request adapter is not implemented yet; leave it off")
 	}
-	if c.Adapters.Diffs {
-		reasons = append(reasons, "adapters.diffs is on, but no diff adapter is implemented; leave it off")
+	if c.Changelog.DiffBudget.Release <= 0 {
+		reasons = append(reasons, fmt.Sprintf("changelog.diff_budget.release is %d; it must be a positive number of bytes", c.Changelog.DiffBudget.Release))
+	}
+	for _, glob := range c.Changelog.DiffExclude {
+		if err := validExcludeGlob(glob); err != nil {
+			reasons = append(reasons, fmt.Sprintf("changelog.diff_exclude glob %q is malformed: %v", glob, err))
+		}
 	}
 	if len(reasons) > 0 {
 		return &Refusal{Reasons: reasons}
+	}
+	return nil
+}
+
+// validExcludeGlob reports a malformed diff exclusion. An entry is malformed
+// WHEN any /-separated segment other than ** is a malformed path.Match
+// pattern; ** matches any number of segments, so it is not one.
+func validExcludeGlob(glob string) error {
+	for _, seg := range strings.Split(glob, "/") {
+		if seg == "**" {
+			continue
+		}
+		if _, err := path.Match(seg, ""); err != nil {
+			return err
+		}
 	}
 	return nil
 }

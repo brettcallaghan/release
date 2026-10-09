@@ -274,8 +274,15 @@ func TestRegistrySelectsByConfiguredName(t *testing.T) {
 	if got, ok := reg["claude"].(Claude); !ok || got.Dir != "/repo" {
 		t.Errorf("claude producer = %+v", reg["claude"])
 	}
-	if len(reg) != len(config.Producers) {
-		t.Errorf("registry has %d producers, config.Producers names %d", len(reg), len(config.Producers))
+	// The mechanical producer is named by configuration but not registered
+	// until the authoring bridge gains it.
+	for _, name := range config.Producers {
+		if _, ok := reg[name]; !ok && name != config.ProducerMechanicalName {
+			t.Errorf("config.Producers names %q, which the registry lacks", name)
+		}
+	}
+	if len(reg) != len(config.Producers)-1 {
+		t.Errorf("registry has %d producers, config.Producers names %d besides mechanical", len(reg), len(config.Producers)-1)
 	}
 }
 

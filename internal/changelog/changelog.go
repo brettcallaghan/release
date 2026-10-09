@@ -108,7 +108,7 @@ func Prepare(ctx context.Context, req Request) (Result, error) {
 			return Result{}, err
 		}
 	}
-	assembled, err := corpus.Build(corpus.Input{Records: res.Commits, Range: rng, Adapters: req.Config.Adapters})
+	assembled, err := corpus.Build(corpus.Input{Records: res.Commits, Range: rng, Adapters: assemblyAdapters(req.Config.Adapters)})
 	if err != nil {
 		return Result{}, err
 	}
@@ -180,4 +180,12 @@ func WebURL(remote string) string {
 		}
 	}
 	return ""
+}
+
+// assemblyAdapters is the adapters the corpus assembler is asked for. It
+// reads commits only; diffs default on in configuration, and assembly takes
+// no diff adapter until the operation authors from evidence.
+func assemblyAdapters(a config.Adapters) config.Adapters {
+	a.Diffs = false
+	return a
 }
