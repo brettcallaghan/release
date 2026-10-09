@@ -70,6 +70,19 @@ is declared in `release_paths`, without which cut refuses the propagated
 change. The publication workflow refuses a merge commit whose plugin
 version differs from the stage branch's.
 
+The marketplace pins the plugin to its release tag: the same propagation
+writes the marketplace entry's source as this repository at `v<version>`,
+so an installed plugin's skills are the ones published with the binary
+they provision. `.claude-plugin/marketplace.json` is declared in
+`release_paths` alongside the plugin manifest. The release commit names a
+tag that exists once publication creates it; until then the marketplace
+keeps serving the previous release.
+
+Until the repository is public, a session reads the release assets with
+the credential of an account that can read it, through the order in
+[[frd-plugin-distribution]] FEAT-PLG-003. Once it is public, the same
+REST requests succeed without one.
+
 ## Alternatives Considered
 
 | Option | Pros | Cons | Why rejected |
@@ -79,7 +92,7 @@ version differs from the stage branch's.
 | A package manager (Homebrew) | The idiomatic local install<br>The person's terminal gets the CLI too | Not yet published<br>Absent from cloud containers<br>Installs the formula's current version, not the plugin's | Cannot pin, and does not exist in the environment where most agent sessions run |
 | A `SessionStart` hook | The CLI is on PATH before any skill runs<br>No step for a skill to forget | Every session pays a network check, including the many that never release<br>Plugin hooks run only in Claude Code; the skills also load in harnesses that ignore them<br>A hook's PATH change reaches subprocesses only through `CLAUDE_ENV_FILE`, unverified for plugin hooks | Cost on sessions that never use it, and a harness dependency the skills do not otherwise have |
 | Require a manual install | Nothing to build | The agent discovers the gap mid-task; the version drifts from the skills | Defeats the FRD's premise that installing the plugin is adoption |
-| Download and verify the pinned release asset when a skill needs it | One archive per machine and version, cached across sessions<br>Nothing happens in sessions that do not release<br>Works wherever the skill's script can run<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs a credential for a private repository<br>Needs the GitHub API reachable at first use | N/A — selected |
+| Download and verify the pinned release asset when a skill needs it | One archive per machine and version, cached across sessions<br>Nothing happens in sessions that do not release<br>Works wherever the skill's script can run<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs a credential while the repository is private<br>Needs the GitHub API reachable at first use | N/A — selected |
 
 ## Consequences
 
@@ -98,13 +111,15 @@ version differs from the stage branch's.
 
 **Negative:**
 
-- A private repository makes first use depend on a credential; a session
-  with none reports the remedy and runs without the CLI.
+- While the repository is private, first use depends on a credential; a
+  session with none reports the remedy and runs without the CLI.
 - The plugin and the CLI cannot be released separately. A skill-only fix
   is a CLI patch release.
-- Between releases, the skills on the default branch can describe
-  commands the pinned binary lacks. The cut-release skill defers flags to
-  the binary's own `--help` for that reason.
+- Every release commit edits the marketplace file as well as the plugin
+  manifest.
+- The skills on the default branch can describe commands the last
+  release lacks; the marketplace's tag pin keeps them from installed
+  plugins until the next release.
 - `ensure-cli` is a Bash script. Windows depends on the agent's shell
   being a Bash, as Claude Code's is on Windows (**unverified**).
 - Every skill that drives the CLI carries its own copy of `ensure-cli`,
@@ -113,17 +128,6 @@ version differs from the stage branch's.
 - A repository that builds the CLI from its own working tree, as this one
   does, must point the skills at that build so the pinned copy does not
   shadow it.
-
-## Open Questions
-
-- **Marketplace pinning.** The marketplace serves the plugin from the
-  default branch. Pointing its source at the release tag would make the
-  installed skills match the pinned binary exactly, at the cost of a
-  marketplace edit in every release commit.
-- **Sessions without this repository attached.** Whether the cloud
-  session's repository access reaches the release assets of a repository
-  it was not given; if not, a `GH_TOKEN` in the cloud environment is the
-  credential.
 
 ## References
 

@@ -236,13 +236,20 @@ Feature: One Version for Plugin and CLI
   So that a skill always describes the binary its plugin provisions
 
   The release commit is where the two are bound: the plugin manifest's
-  version is written by the same cut that writes the changelog.
+  version, and the marketplace's pin to the release tag, are written by
+  the same cut that writes the changelog.
 
   @AC-PLG-004.1
   Scenario: Cutting a release writes the plugin's version
     Given the repository's release configuration
     When a release of version "0.2.0" is cut
     Then the release commit sets the plugin manifest's version to "0.2.0"
+
+  @AC-PLG-004.3
+  Scenario: Cutting a release pins the marketplace to its tag
+    Given the repository's release configuration
+    When a release of version "0.2.0" is cut
+    Then the release commit sets the marketplace's plugin source to tag "v0.2.0"
 
   @AC-PLG-004.2 @negative
   Scenario: A release whose plugin version disagrees is not published
