@@ -1,0 +1,13 @@
+version: 1.9.0
+branch: cut/1.9.0
+writes:
+  - create branch cut/1.9.0 at 541c4b2
+  - commit "Release 1.9.0" on cut/1.9.0
+  - push cut/1.9.0 to origin
+  - open pull request "Release 1.9.0" from cut/1.9.0 into main
+section: |-
+  ## 1.9.0
+
+  ### Features
+
+  - The --verbose flag prints each step as it runs. (541c4b2)

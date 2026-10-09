@@ -1,0 +1,2 @@
+release changelog: warning: the named bump minor is below the suggested bump major; these entries drove the suggestion:
+  - A maintainer can compute a version for any release line — naïvely fast.

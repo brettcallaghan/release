@@ -1,1 +1,0 @@
-release cut: the authored corpus proposes major, but the commits indicate minor; confirm the impact by naming it (release cut minor), or correct the commits

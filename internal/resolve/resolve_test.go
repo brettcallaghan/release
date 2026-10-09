@@ -126,6 +126,45 @@ func TestNamedBumpIsReportedAsNamed(t *testing.T) {
 	}
 }
 
+func TestInferredIsWhatTheCommitsIndicateWhateverIsNamed(t *testing.T) {
+	f := newFixture(t)
+	f.commit("initial")
+	f.git("tag", "v2.0.0")
+	major := releasemodel.BumpMajor
+	if res := f.resolve(&major); res.Floor != releasemodel.BumpNone {
+		t.Errorf("no commits: inferred = %s, want NONE", res.Floor)
+	}
+	f.commit("docs: readme")
+	if res := f.resolve(&major); res.Floor != releasemodel.BumpNone || res.Impact != releasemodel.BumpMajor {
+		t.Errorf("docs only: got impact %s inferred %s, want MAJOR and NONE", res.Impact, res.Floor)
+	}
+	f.commit("fix: a bug")
+	if res := f.resolve(&major); res.Floor != releasemodel.BumpPatch {
+		t.Errorf("a fix: inferred = %s, want PATCH", res.Floor)
+	}
+	if res := f.resolve(nil); res.Floor != res.Impact {
+		t.Errorf("unnamed: inferred %s differs from impact %s", res.Floor, res.Impact)
+	}
+}
+
+func TestNothingReleasableDescribesTheRange(t *testing.T) {
+	commits := func(n int) []releasemodel.CommitRecord { return make([]releasemodel.CommitRecord, n) }
+	cases := []struct {
+		res  Resolution
+		want string
+	}{
+		{Resolution{BaseTag: "v1.2.0"}, "since v1.2.0: no commits"},
+		{Resolution{BaseTag: "v1.2.0", Commits: commits(1)}, "since v1.2.0: 1 commit, which indicates no bump"},
+		{Resolution{BaseTag: "v1.2.0", Commits: commits(3)}, "since v1.2.0: 3 commits, none of which indicates a bump"},
+		{Resolution{Commits: commits(2)}, "with no release tag reachable: 2 commits, none of which indicates a bump"},
+	}
+	for _, c := range cases {
+		if got := c.res.NothingReleasable(); got != c.want {
+			t.Errorf("got %q, want %q", got, c.want)
+		}
+	}
+}
+
 func TestNoSignalIsNoRelease(t *testing.T) {
 	f := newFixture(t)
 	f.commit("initial")
@@ -185,5 +224,34 @@ func TestUnknownNamedBumpIsAnError(t *testing.T) {
 	bogus := releasemodel.Bump("BOGUS")
 	if _, err := Resolve(context.Background(), Request{Dir: f.dir, Target: "HEAD", Named: &bogus, Policy: DefaultPolicy()}); err == nil {
 		t.Error("want an error for an unknown named bump")
+	}
+}
+
+// AC: AC-VER-002.6
+func TestResolutionReportsUnclassifiedCommitsAndANamedBumpBelowTheFloor(t *testing.T) {
+	f := newFixture(t)
+	f.commit("initial")
+	f.git("tag", "v1.0.0")
+	plain := f.commit("Update the vendored parser")
+	feat := f.commit("feat: add a flag")
+
+	res := f.resolve(nil)
+	if len(res.Unclassified) != 1 || res.Unclassified[0].Hash != plain {
+		t.Errorf("unclassified = %v, want only %s", res.Unclassified, plain)
+	}
+	if len(res.Signals) != 2 || res.Signals[0].Commit.Hash != feat || !res.Signals[0].Classified {
+		t.Errorf("signals = %+v, want newest first with feat classified", res.Signals)
+	}
+	if res.BelowFloor {
+		t.Error("an inferred bump is below the floor")
+	}
+
+	patch := releasemodel.BumpPatch
+	if named := f.resolve(&patch); !named.BelowFloor || named.Floor != releasemodel.BumpMinor {
+		t.Errorf("named patch: below floor = %v, floor = %s; want true and MINOR", named.BelowFloor, named.Floor)
+	}
+	minor := releasemodel.BumpMinor
+	if named := f.resolve(&minor); named.BelowFloor {
+		t.Error("a named bump equal to the floor is below it")
 	}
 }

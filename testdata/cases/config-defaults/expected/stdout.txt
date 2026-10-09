@@ -27,6 +27,17 @@ changelog:
   breaking_heading: Breaking changes
   producer: claude
   producer_command: null
+  diff_budget:
+    release: 204800
+  diff_exclude:
+    - "**/go.sum"
+    - "**/package-lock.json"
+    - "**/yarn.lock"
+    - "**/pnpm-lock.yaml"
+    - "**/Cargo.lock"
+    - "**/poetry.lock"
+    - vendor/
+    - testdata/**/expected/
 adapters:
   pull_requests: false
-  diffs: false
+  diffs: true

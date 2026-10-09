@@ -1,13 +1,13 @@
 ---
 title: "Component Blueprint: Changelog Authoring Bridge"
 entity_name: Changelog Authoring Bridge
-description: The seam across which a selected producer receives a changelog
-  corpus and returns an authored one, with the returned corpus validated
-  against the schema and its proposed impact checked.
+description: The seam across which a selected producer receives a release's
+  evidence bundle and returns a structured changelog, validated against the
+  schema and the bundle, and cached by range.
 slug: component-changelog-authoring-bridge
 type: component-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog
@@ -22,20 +22,23 @@ test_paths:
 ## Overview
 
 The boundary between the module and whoever writes the prose. It selects a
-producer, hands it the assembled corpus, takes an authored corpus back,
-**validates that structured representation against the schema**, and compares
-its `proposed_bump` against the computed impact.
+producer, hands it the release's evidence bundle, takes the **structured
+changelog** back, and **validates it against the schema and against the
+bundle** before anything reads it.
 
-Validation is the bridge's main job. Everything downstream — the renderer, the
-changelog writer, the staging sequence — assumes a conforming corpus, so this
-is the one place a malformed one is caught before reaching something that
-would render it partially.
+Validation is the bridge's main job. Everything downstream — the Bump
+Suggester, the renderer, the changelog writer, the staging sequence —
+assumes a conforming changelog, so this is the one place a malformed one is
+caught before reaching something that would suggest a bump from it or
+render it partially. Beyond its shape, the bridge checks what makes the
+changelog an account of the range: its entries are changes, each breaking
+entry says how to migrate, and every commit in the range is either cited by
+an entry or listed as omitted with a reason. Nothing is dropped silently.
 
 Producers are plugins rather than a fixed set: a language model, a configured
-command, a conventional-commit parser, or a person editing a file.
-[[component-changelog-producer]] governs what every producer must do, the same
-way [[component-changelog-corpus-builder]] governs its adapters. The bridge
-tells them apart only by name.
+command, the mechanical producer, or a person editing a file.
+[[component-changelog-producer]] governs what every producer must do. The
+bridge tells them apart only by name.
 
 The default producer runs outside the process. A language model is available
 on the workstation where a maintainer stages a release, and putting the call
@@ -45,83 +48,121 @@ component's value: it makes authoring replaceable and keeps the tooling free
 of model configuration.
 
 Authoring is slow, and for a model producer it is paid for, so the bridge
-caches what comes back. Re-staging after a correction reuses the authored
-corpus rather than paying for it twice.
+caches what comes back. Re-staging after a correction, or calling again with
+a person's confirmation, reuses the authored changelog rather than paying
+for it twice, and the suggestion derived from it stays the one the person
+saw.
 
-- **Role:** producer selection, the exchange, validation, and caching.
-- **Scope:** in — selecting a producer, exchanging a corpus, schema
-  validation, impact comparison, caching the result; out — calling a model
-  directly, and composing prose.
+- **Role:** producer selection, the exchange, validation and caching.
+- **Scope:** in — selecting a producer, exchanging a bundle, validating the
+  changelog against the schema and the bundle, caching the result; out —
+  calling a model directly, composing prose, and suggesting or deciding a
+  bump.
 - **Composed into:** [[module-release-core]] — between
-  [[component-changelog-corpus-builder]] and
+  [[component-evidence-builder]] and both [[component-bump-suggester]] and
   [[component-changelog-renderer]]; see the module for relationships.
 - **Source & tests:** `internal/authoring`.
 
 ## Interface
 
-- **Surface:** select a producer, exchange a corpus with it, validate the
-  result, cache it, and report agreement or disagreement with a computed
-  impact.
+- **Surface:** select a producer, exchange an evidence bundle with it,
+  validate the structured changelog it returns, and cache it.
 - **Guarantees:**
-  - The component SHALL validate a returned corpus against the schema
-    [[contract-changelog]] names before any consumer reads it.
-  - IF a returned corpus declares a `schema_version` the component does not
-    implement, THEN the component SHALL reject it.
-  - WHEN the returned `proposed_bump` differs from the computed impact, the
-    component SHALL report a disagreement.
-  - The component SHALL NOT resolve a disagreement between the returned
-    `proposed_bump` and the computed impact.
+  - The component SHALL validate a returned changelog against the schema
+    [[contract-changelog]] names, and against the validation rules below,
+    before any consumer reads it.
+  - IF a returned changelog declares a `schema_version` the component does
+    not implement, THEN the component SHALL reject it.
+  - IF a commit in the bundle is neither cited by an entry's `sources` nor
+    listed in `omitted` with a reason, THEN the component SHALL reject the
+    changelog and name the commit.
+  - IF a breaking entry carries no `migration`, THEN the component SHALL
+    reject the changelog and name the entry.
   - The component SHALL preserve returned prose byte-for-byte.
-  - The component SHALL cache an authored corpus keyed by the commit range it
-    was authored from.
-  - WHEN a cached corpus exists for the range being staged, the component
-    SHALL reuse it rather than invoking a producer.
-  - The component SHALL allow the maintainer to discard a cached corpus and
-    author again.
-  - WHEN the maintainer requests staging without notes, the component SHALL
-    be skipped entirely.
+  - The component SHALL cache an accepted changelog keyed by the commit
+    range it was authored from.
+  - The component SHALL keep the evidence bundle the producer was given
+    beside the cached changelog, as `<from>..<to>.evidence.json`.
+  - WHEN a cached changelog exists for the range, the component SHALL reuse
+    it rather than invoking a producer.
+  - The component SHALL allow the maintainer to discard a cached changelog
+    and author again.
+  - WHEN the maintainer requests staging without notes (`--skip-notes`),
+    the component SHALL exchange the bundle with
+    [[component-mechanical-producer]] in place of the configured producer,
+    report that it did so, and neither read nor write the cache.
+  - WHEN the configured producer is unavailable or fails, the component
+    SHALL report the failure and stop, naming `--skip-notes` as the way to
+    author the changelog with the mechanical producer, and SHALL NOT fall
+    back to another producer on its own.
+  - The component SHALL NOT suggest or decide a bump.
   - The component SHALL NOT call a language model itself.
   - The component SHALL NOT require network access of its own.
-- **Operation:** `authoring.Exchange` takes the assembled corpus, the
-  computed impact, the configured producer name with the producers a
-  configuration may select, the cache path, and the redo and skip requests.
-  It answers with the accepted corpus, whether it was skipped, read from
-  the cache or authored, the proposed and computed impacts, and whether they
-  disagree.
-- **Pinned rules:**
-  - A producer receives the assembled corpus as indented JSON, HTML
-    characters unescaped, and returns the authored corpus as JSON.
-  - `Accept` rejects, before anything decodes the document for use, one
-    that is not a JSON object, one whose `schema_version` is not a version
-    or has a major other than 1, one that does not validate against the
-    generated JSON Schema, and one carrying no `proposed_bump`. A cached or
-    named corpus is accepted the same way as a returned one.
-  - A returned, cached or named corpus whose corpus-level `sources` differ
-    from the assembled corpus's is rejected: a producer carries them
-    through, and a corpus for another range does not apply. Entry `sources`
-    are not compared, because a producer may merge entries.
-  - The cache file is `<git common dir>/release/corpus/<from>..<to>.json`,
+- **Operation:** `authoring.ExchangeEvidence` takes the evidence bundle, the
+  configured producer name with the producers a configuration may select
+  (the registry includes `mechanical`), the cache path, and the redo and
+  skip requests. It answers with the accepted changelog, which producer
+  authored it, and whether it was authored mechanically, read from the
+  cache, or authored by the configured producer. A producer that fails or
+  is unavailable is returned as `*ProducerFailure`, which names
+  `--skip-notes`. `authoring.AcceptChangelog` is the validation alone.
+  `proposed_bump` is ignored: neither compared nor rejected.
+  `authoring.ChangelogCachePath` names a range's cache file.
+- **Validation rules:**
+  - **Shape.** `AcceptChangelog` rejects, before anything decodes the document for
+    use, one that is not a JSON object, one whose `schema_version` is not a
+    version or has a major other than the one implemented, and one that
+    does not validate against the generated JSON Schema. A cached or named
+    changelog is accepted the same way as a returned one.
+  - **Range.** A changelog returned by a producer whose corpus-level
+    `sources` differ from the bundle's `sources` is rejected: a producer
+    copies them unchanged. A changelog read from a file (the cache, or a
+    named corpus) is compared on the range only: every adapter run in its
+    `sources` and in the bundle's records the same `from` and `to`, and a
+    differing adapter set or diff budget does not matter. One for another
+    range is rejected as such.
+  - **Entries are changes.** Entries are not matched to commits one for
+    one. An entry may cite several commits, and one commit may be cited by
+    several entries. Every entry cites at least one commit, and an entry
+    citing a commit absent from the bundle, or a pull request no commit in
+    the bundle carries, is rejected.
+  - **Entry fields.** Each entry has a `kind` from `ChangeKind`, or none
+    for the other heading; an optional `scope`; a non-empty `summary`
+    holding no blank line and no more than two sentences (a sentence end
+    is `.`, `!` or `?` followed by whitespace and an uppercase letter, or
+    by the end of the summary); an optional `detail`; and `migration` WHEN it
+    is `breaking`.
+  - **Every commit accounted for.** Every commit in the bundle is cited by
+    at least one entry or listed in `omitted`, each `omitted` item naming a
+    commit in the bundle with a non-empty one-line reason. `omitted` is not
+    rendered.
+  - **Rejection** names every rule broken, not only the first, so a
+    producer or a person correcting by hand fixes them in one pass.
+- **Cache:**
+  - The cache file is `<git common dir>/release/changelog/<from>..<to>.json`,
     `from` and `to` the range's commit hashes and `from` `root` for a line
     with no release. The common directory is `git rev-parse
     --git-common-dir`, shared by every worktree. The file holds the
     producer's output byte for byte, and is replaced by an atomic rename
-    of a fully written temporary file, so a failed write keeps the corpus
-    already there.
+    of a fully written temporary file, so a failed write keeps the
+    changelog already there.
+  - The evidence bundle the producer was given is kept beside it, written
+    whenever a producer authors, as the cache file's name with
+    `.evidence.json` in place of `.json`; for a maintainer-named changelog
+    `x.json` it is `x.evidence.json`.
   - WHEN the cache file exists and redo was not requested, the bridge reads
     it and invokes no producer. WHEN redo is requested, it invokes the
     producer and replaces the file only after accepting the result, so a
-    failed redo keeps the earlier corpus.
-  - WHEN skip is requested, the bridge reads no cache, invokes no producer,
-    and returns the assembled corpus with no proposal and no disagreement.
-  - A disagreement is `proposed_bump` differing from the computed impact.
-    The bridge reports it and leaves the decision to its caller.
+    failed redo keeps the earlier one.
 
 ## Cross-Cutting Standards
 
 This component SHALL comply with:
 
-- [[release-tooling-standards]] — the halt-on-disagreement rule.
-- [[contract-changelog]] — the corpus semantics it validates against.
+- [[release-tooling-standards]] — the authored changelog a suggestion is
+  derived from, and releasability.
+- [[contract-changelog]] — the evidence and changelog semantics it
+  validates against.
 
 ## Change Guidance
 
@@ -143,6 +184,15 @@ published.
 
 ---
 
+The component SHALL NOT relax the every-commit-accounted-for rule.
+
+**Rationale:** It looks like strictness a producer could be spared, but it
+is what makes a changelog's silence meaningful: a commit absent from every
+entry is one the producer decided, with a stated reason, does not matter to
+a reader, not one it missed.
+
+---
+
 WHEN a producer is added, it SHALL conform to
 [[component-changelog-producer]] rather than being special-cased here.
 
@@ -151,22 +201,29 @@ nothing else can replace.
 
 ---
 
-The component SHALL NOT invalidate a cached corpus on anything but a change to
-the commit range or an explicit request.
+The component SHALL NOT invalidate a cached changelog on anything but a
+change to the commit range or an explicit request.
 
 **Rationale:** A cache that clears on an unrelated change makes every re-run
-of a failed staging cost again, which is the expense it exists to prevent.
+of a failed staging cost again, which is the expense it exists to prevent,
+and would let the suggestion change between a halt and its confirmation.
 
 ---
 
-- **Verification gates:** the component's unit suite, including rejection of
-  an unknown schema version, the disagreement path, a byte-identical round
-  trip of prose containing markdown and non-ASCII text, and a cache hit that
-  does not invoke a producer.
+- **Verification gates:** the component's unit suite, including rejection
+  of an unknown schema version, a changelog for another range, an entry
+  citing a commit outside the bundle, a breaking entry without migration, a
+  commit neither cited nor omitted, an omission without a reason, a
+  byte-identical round trip of prose containing markdown and non-ASCII
+  text, a cache hit that does not invoke a producer, the mechanical
+  producer under a skip request, and a reported failure naming
+  `--skip-notes`, with no other producer invoked, when the configured
+  producer is unavailable or fails.
 
 ## Key Decisions
 
-- [[adr-003]] — a proposal is compared, never trusted.
+- [[adr-003]] — a language model authors a structured changelog from commit
+  evidence, with every commit cited or omitted with a reason.
 - [[adr-004]] — changelog authoring is a replaceable step rather than a render
   template.
 
@@ -176,12 +233,13 @@ None. The cache lives inside the repository under a path the project
 gitignores. That keeps it discoverable by a maintainer wondering why
 re-cutting was instant, keeps it out of commits, and means a clean checkout
 starts empty — which is the correct behaviour, since a fresh clone has no
-authored corpus to trust.
+authored changelog to trust.
 
 ## References
 
 - `shared/c4-standards.md` — C4 mapping rules and diagram conventions
 - [[module-release-core]] — the module this component is composed into
 - [[component-changelog-producer]] — what every producer must do
-- [[contract-changelog]] — the corpus exchanged across this seam
+- [[contract-changelog]] — the bundle and changelog exchanged across this
+  seam
 - [[frd-changelog-authoring]] — the feature this component serves

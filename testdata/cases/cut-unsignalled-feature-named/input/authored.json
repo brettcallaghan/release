@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "entries": [
+    {
+      "kind": "FEATURE",
+      "summary": "The --verbose flag prints each step as it runs.",
+      "breaking": false,
+      "derived": false,
+      "sources": [
+        {
+          "__type": "Commit",
+          "hash": "541c4b2eac225560ef2880ceaeff47be9b69fee3"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "adapter": "COMMITS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "541c4b2eac225560ef2880ceaeff47be9b69fee3"
+    },
+    {
+      "adapter": "DIFFS",
+      "from": "c2aea8f44df5afe616009556bcfc6b1f729a44cb",
+      "to": "541c4b2eac225560ef2880ceaeff47be9b69fee3",
+      "budget": {
+        "limit": 204800,
+        "total": 0,
+        "used": 0,
+        "omitted": []
+      }
+    }
+  ]
+}

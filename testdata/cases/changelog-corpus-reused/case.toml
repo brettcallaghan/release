@@ -1,4 +1,4 @@
-description = "an existing corpus at --corpus is read instead of invoking the producer, which would fail"
+description = "an existing changelog at --corpus is read instead of invoking the producer, which would fail"
 cites = ["AC-CLOG-003.9"]
 git = [
   ["init", "-q", "-b", "main"],

@@ -1,0 +1,6 @@
+{
+  "jsonSchema": {
+    "root": "Evidence",
+    "bundle": true
+  }
+}

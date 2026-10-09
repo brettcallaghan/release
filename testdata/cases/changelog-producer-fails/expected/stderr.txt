@@ -1,1 +1,1 @@
-release changelog: the command producer failed: exit status 4: no model available
+release changelog: the command producer failed: exit status 4: no model available; pass --skip-notes to author the changelog with the mechanical producer

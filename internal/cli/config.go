@@ -188,11 +188,17 @@ func changelogAnswer(c config.Changelog) yMap {
 			{"heading", yStr(g.Heading)},
 		})
 	}
+	exclude := ySeq{}
+	for _, e := range c.DiffExclude {
+		exclude = append(exclude, yStr(e))
+	}
 	return yMap{
 		{"groups", groups},
 		{"other_heading", yStr(c.OtherHeading)},
 		{"breaking_heading", yStr(c.BreakingHeading)},
 		{"producer", yStr(c.Producer)},
 		{"producer_command", command},
+		{"diff_budget", yMap{{"release", yInt(c.DiffBudget.Release)}}},
+		{"diff_exclude", exclude},
 	}
 }

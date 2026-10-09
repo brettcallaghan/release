@@ -40,6 +40,8 @@ func TestEnabledSignalMapsToImpact(t *testing.T) {
 		{"Release-Type: minor trailer", commit("a", "Change things", "", map[string]string{"Release-Type": "minor"}), releasemodel.BumpMinor, SignalReleaseType},
 		{"feat type", commit("a", "feat: add a flag", "", nil), releasemodel.BumpMinor, SignalConventionalType},
 		{"fix type", commit("a", "fix: handle empty input", "", nil), releasemodel.BumpPatch, SignalConventionalType},
+		{"revert type", commit("a", "revert: undo the flag", "", nil), releasemodel.BumpPatch, SignalConventionalType},
+		{"refactor type", commit("a", "refactor: split", "", nil), releasemodel.BumpPatch, SignalConventionalType},
 		{"breaking marker", commit("a", "feat(cli)!: drop --old", "", nil), releasemodel.BumpMajor, SignalBreakingMarker},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,7 +92,7 @@ func TestNoSignalYieldsNone(t *testing.T) {
 		commit("a", "docs: readme", "", nil),
 		commit("b", "Update dependencies", "", nil),
 	)
-	if r.Impact != releasemodel.BumpNone || len(r.Commits) != 0 || len(r.Entries) != 0 {
+	if r.Impact != releasemodel.BumpNone || r.Floor != releasemodel.BumpNone || len(r.Commits) != 0 {
 		t.Fatalf("got %+v, want NONE with nothing reported", r)
 	}
 	if r := Classify(Input{Enabled: AllSignals()}); r.Impact != releasemodel.BumpNone {
@@ -99,18 +101,76 @@ func TestNoSignalYieldsNone(t *testing.T) {
 }
 
 // AC: AC-VER-002.5
-func TestAuthoredProposalIsIgnored(t *testing.T) {
-	// The changelog's proposed_bump (major) is not an input at all: only its
-	// entries are, and a FIX entry indicates patch.
-	major := releasemodel.BumpMajor
-	_ = releasemodel.Changelog{ProposedBump: &major}
+func TestTheFloorIgnoresTheStructuredChangelog(t *testing.T) {
+	// Input has no changelog field: the floor is computed from the commits
+	// alone, so a breaking entry cannot raise it.
+	r := classify(commit("a", "fix: crash", "", nil))
+	if r.Floor != releasemodel.BumpPatch {
+		t.Fatalf("floor = %s, want PATCH", r.Floor)
+	}
+}
+
+// AC: AC-VER-002.6
+func TestCommitsWithoutASignalAreUnclassified(t *testing.T) {
+	r := classify(
+		commit("a", "fix: one", "", nil),
+		commit("b", "Update dependencies", "", nil),
+		commit("c", "docs: three", "", nil),
+	)
+	if len(r.Unclassified) != 2 || r.Unclassified[0].Hash != "b" || r.Unclassified[1].Hash != "c" {
+		t.Errorf("unclassified = %v, want b and c", r.Unclassified)
+	}
+	if len(r.Signals) != 3 || !r.Signals[0].Classified || r.Signals[1].Classified || r.Signals[2].Classified {
+		t.Errorf("signals = %+v, want only a classified", r.Signals)
+	}
+	// With every signal disabled, every commit is unclassified.
+	if r := Classify(Input{Commits: []releasemodel.CommitRecord{commit("a", "feat: x", "", nil)}, Enabled: Signals{}}); len(r.Unclassified) != 1 {
+		t.Errorf("unclassified with no signal enabled = %v, want the one commit", r.Unclassified)
+	}
+}
+
+// AC: AC-VER-002.7
+func TestReleaseTypeNoneClassifiesACommit(t *testing.T) {
+	r := classify(commit("a", "Skip this", "", map[string]string{"Release-Type": "none"}))
+	if len(r.Unclassified) != 0 {
+		t.Errorf("unclassified = %v, want none", r.Unclassified)
+	}
+	if len(r.Signals) != 1 || !r.Signals[0].Classified || r.Signals[0].Impact != releasemodel.BumpNone || r.Signals[0].Signal != SignalReleaseType {
+		t.Errorf("signals = %+v, want a classified none via release-type", r.Signals)
+	}
+}
+
+// AC: AC-VER-002.8
+func TestTheFloorNeedsNoProducer(t *testing.T) {
+	// The classifier is a pure function of commits and the enabled set; the
+	// signature admits no producer or changelog.
+	a := classify(commit("a", "feat: x", "", nil))
+	b := classify(commit("a", "feat: x", "", nil))
+	if a.Floor != b.Floor || a.Floor != releasemodel.BumpMinor {
+		t.Errorf("floors = %s, %s; want MINOR twice", a.Floor, b.Floor)
+	}
+}
+
+// AC: AC-CFG-004.7
+func TestAConventionalTypeIsNoSignalWhenItsSignalIsNotEnabled(t *testing.T) {
 	r := Classify(Input{
-		Changelog: []releasemodel.ChangelogEntry{{Kind: releasemodel.ChangeKindFix, Summary: "Fix a crash"}},
-		Commits:   []releasemodel.CommitRecord{commit("a", "fix: crash", "", nil)},
-		Enabled:   AllSignals(),
+		Commits: []releasemodel.CommitRecord{commit("a", "feat: add", "", nil)},
+		Enabled: Signals{SignalReleaseType: true, SignalBreakingMarker: true},
 	})
-	if r.Impact != releasemodel.BumpPatch {
-		t.Fatalf("impact = %s, want PATCH", r.Impact)
+	if len(r.Unclassified) != 1 || r.Floor != releasemodel.BumpNone {
+		t.Errorf("got %+v, want the commit unclassified at floor NONE", r)
+	}
+}
+
+func TestEachCommitIsReportedOnceWithItsPrecedingSignal(t *testing.T) {
+	c := commit("a", "feat!: big", "", map[string]string{"Release-Type": "major"})
+	r := classify(c)
+	if got := hashes(r); len(got) != 1 || got[0] != "a:breaking-marker" {
+		t.Errorf("determined by %v, want a once via breaking-marker", got)
+	}
+	d := commit("b", "feat: big", "", map[string]string{"Release-Type": "minor"})
+	if got := hashes(classify(d)); len(got) != 1 || got[0] != "b:release-type" {
+		t.Errorf("determined by %v, want b once via release-type", got)
 	}
 }
 
@@ -132,44 +192,23 @@ func TestReleaseTypeNoneNeverLowers(t *testing.T) {
 	}
 }
 
-func TestNamedBumpOverridesEverySignal(t *testing.T) {
+func TestNamedBumpContradictsEverySignalButTheFloorIsStillReported(t *testing.T) {
 	r := Classify(Input{
-		Named:     bumpPtr(releasemodel.BumpPatch),
-		Changelog: []releasemodel.ChangelogEntry{{Kind: releasemodel.ChangeKindFeature, Breaking: true}},
-		Commits:   []releasemodel.CommitRecord{commit("a", "feat!: big", "", map[string]string{"Release-Type": "major"})},
-		Enabled:   AllSignals(),
+		Named:   bumpPtr(releasemodel.BumpPatch),
+		Commits: []releasemodel.CommitRecord{commit("a", "feat!: big", "", map[string]string{"Release-Type": "major"}), commit("b", "Skip", "", nil)},
+		Enabled: AllSignals(),
 	})
-	if r.Impact != releasemodel.BumpPatch || !r.Named || len(r.Commits) != 0 || len(r.Entries) != 0 {
-		t.Fatalf("got %+v, want named PATCH with nothing inferred", r)
+	if r.Impact != releasemodel.BumpPatch || !r.Named {
+		t.Fatalf("got %+v, want named PATCH", r)
 	}
-}
-
-func TestChangelogEntriesMap(t *testing.T) {
-	feature := releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFeature, Summary: "f"}
-	breaking := releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindFix, Summary: "b", Breaking: true}
-	chore := releasemodel.ChangelogEntry{Kind: releasemodel.ChangeKindChore, Summary: "c"}
-	for _, tc := range []struct {
-		entries []releasemodel.ChangelogEntry
-		want    releasemodel.Bump
-		drivers int
-	}{
-		{[]releasemodel.ChangelogEntry{chore}, releasemodel.BumpPatch, 1},
-		{[]releasemodel.ChangelogEntry{chore, feature}, releasemodel.BumpMinor, 1},
-		{[]releasemodel.ChangelogEntry{feature, breaking, chore}, releasemodel.BumpMajor, 1},
-	} {
-		r := Classify(Input{Changelog: tc.entries, Enabled: AllSignals()})
-		if r.Impact != tc.want || len(r.Entries) != tc.drivers {
-			t.Errorf("entries %v: got %s with %d drivers, want %s with %d", tc.entries, r.Impact, len(r.Entries), tc.want, tc.drivers)
-		}
+	if r.Floor != releasemodel.BumpMajor {
+		t.Errorf("floor = %s, want MAJOR", r.Floor)
 	}
-	// Entries and commits indicating the same impact are both reported.
-	r := Classify(Input{
-		Changelog: []releasemodel.ChangelogEntry{feature},
-		Commits:   []releasemodel.CommitRecord{commit("a", "feat: x", "", nil)},
-		Enabled:   AllSignals(),
-	})
-	if len(r.Entries) != 1 || len(r.Commits) != 1 {
-		t.Errorf("got %d entries and %d commits, want 1 and 1", len(r.Entries), len(r.Commits))
+	if got := hashes(r); len(got) != 1 || got[0] != "a:breaking-marker" {
+		t.Errorf("determined by %v, want a via breaking-marker", got)
+	}
+	if len(r.Unclassified) != 1 || r.Unclassified[0].Hash != "b" {
+		t.Errorf("unclassified = %v, want b", r.Unclassified)
 	}
 }
 
@@ -197,6 +236,7 @@ func TestConventionalTypes(t *testing.T) {
 		"fix(parser): a":       releasemodel.BumpPatch,
 		"perf: a":              releasemodel.BumpPatch,
 		"refactor: a":          releasemodel.BumpPatch,
+		"revert: a":            releasemodel.BumpPatch,
 		"chore: a":             "",
 		"docs: a":              "",
 		"feat:no space":        "",

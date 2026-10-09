@@ -1,10 +1,11 @@
 // Package changelog is the release core's changelog operation: resolve the
-// version, assemble the corpus from the range's commits, exchange it with
-// the configured producer, and render it. It composes version resolution,
-// the Changelog Corpus Builder, the Changelog Authoring Bridge and the
-// Changelog Renderer so that a front end holds no release logic. It writes
-// only the authoring cache; placing the section in CHANGELOG.md is the
-// Changelog Writer's, at the caller's request.
+// base version and the signal floor, collect the range's evidence, exchange
+// it with the configured producer for a structured changelog, suggest and
+// decide the bump, compute the version from it, and render. It composes
+// version resolution, the Diff Collector, the Evidence Builder, the
+// Changelog Authoring Bridge, the Bump Suggester and the Changelog Renderer
+// so that a front end holds no release logic. It writes only the authoring cache; placing the section in
+// CHANGELOG.md is the Changelog Writer's, at the caller's request.
 package changelog
 
 import (
@@ -13,12 +14,14 @@ import (
 	"strings"
 
 	"github.com/brettcallaghan/release/internal/authoring"
+	"github.com/brettcallaghan/release/internal/bump"
 	"github.com/brettcallaghan/release/internal/config"
-	"github.com/brettcallaghan/release/internal/corpus"
+	"github.com/brettcallaghan/release/internal/evidence"
 	"github.com/brettcallaghan/release/internal/gitread"
 	"github.com/brettcallaghan/release/internal/releasemodel"
 	"github.com/brettcallaghan/release/internal/render"
 	"github.com/brettcallaghan/release/internal/resolve"
+	"github.com/brettcallaghan/release/internal/suggest"
 	"github.com/brettcallaghan/release/internal/version"
 )
 
@@ -30,20 +33,25 @@ type Request struct {
 	Git string
 	// Target is the release line's ref.
 	Target string
-	// Named is the bump the maintainer named, or nil to classify one. A
-	// named bump governs, and a disagreeing proposal is advisory.
+	// Named is the bump the maintainer named, or nil to have the suggestion
+	// decide.
 	Named *releasemodel.Bump
+	// Forced accepts a named bump below the signal floor.
+	Forced bool
+	// Accepted confirms the suggested bump WHEN no bump is named.
+	Accepted bool
 	// Config is the loaded configuration: its policy, changelog settings and
 	// adapters.
 	Config config.Config
 	// Producers maps every producer name to its producer.
 	Producers map[string]authoring.Producer
-	// CorpusPath, WHEN set, replaces the cache path: the corpus is read from
-	// it WHEN it exists and written to it otherwise.
+	// CorpusPath, WHEN set, replaces the cache path: the changelog is read
+	// from it WHEN it exists and written to it otherwise.
 	CorpusPath string
-	// Redo discards a cached corpus and authors again.
+	// Redo discards a cached changelog and authors again.
 	Redo bool
-	// Skip invokes no producer: the assembled corpus is rendered.
+	// Skip invokes no configured producer: the mechanical producer composes
+	// the changelog, and no cache is read or written.
 	Skip bool
 }
 
@@ -51,37 +59,56 @@ type Request struct {
 type Outcome int
 
 const (
-	// Prepared: Version, Corpus and Section are set.
+	// Prepared: Version, Changelog and Rendering are set.
 	Prepared Outcome = iota
-	// NoRelease: the version calculation answered no release, or a policy
-	// violation; Resolution.Next says which.
+	// NoRelease: nothing in the range is releasable, or the version policy
+	// refuses the version; Next says which.
 	NoRelease
-	// Disagreement: the proposal differs from the computed impact and no
-	// bump was named. Nothing is rendered.
-	Disagreement
+	// Refused: the named bump is below the signal floor and was not forced.
+	// Refusal is set, and no producer was invoked.
+	Refused
+	// Halted: the bump awaits a person: the suggestion awaits acceptance,
+	// or, WHEN Suggestion.Halt.OnlyNamed, only a named bump answers it.
+	// Nothing is rendered.
+	Halted
 )
 
 // Result is what Prepare concluded.
 type Result struct {
 	Outcome    Outcome
 	Resolution resolve.Resolution
-	// Authoring is the exchange's result: how it concluded, the proposal and
-	// the computed impact. Unset for NoRelease.
-	Authoring authoring.Result
-	// CorpusPath is where the authored corpus is cached, or the path the
+	// Evidence is the bundle the producer was given. Unset for NoRelease.
+	Evidence releasemodel.Evidence
+	// Authoring is the exchange's result: the accepted changelog, the
+	// producer that authored it and how it was obtained. Unset for
+	// NoRelease.
+	Authoring authoring.EvidenceResult
+	// CorpusPath is where the authored changelog is cached, or the path the
 	// request named. Empty WHEN Skip.
 	CorpusPath string
-	// Version is the resolved version, without a tag prefix.
+	// Suggestion is the Bump Suggester's result: the suggested bump with its
+	// reasons, and the decision, halt or refusal. Set WHEN a changelog was
+	// authored.
+	Suggestion suggest.Result
+	// Refusal is set for Refused.
+	Refusal *suggest.Refusal
+	// Bump is the confirmed bump. Set for Prepared.
+	Bump releasemodel.Bump
+	// Next is the version calculator's answer for the confirmed bump, or,
+	// WHEN none was confirmed, version resolution's answer.
+	Next version.Result
+	// Version is the version, without a tag prefix. Set for Prepared.
 	Version string
-	// Corpus is the accepted corpus with its version set.
-	Corpus releasemodel.Changelog
+	// Changelog is the accepted changelog with its version set.
+	Changelog releasemodel.Changelog
 	// Rendering is the rendered changelog section and release body.
 	Rendering render.Rendering
 }
 
-// Prepare resolves, assembles, authors and renders. An error means the
-// repository, the producer or the returned corpus failed; an unwarranted
-// release or a disagreement is a Result.
+// Prepare resolves, collects evidence, authors, decides the bump and
+// renders. An error means the repository, the producer or the returned
+// changelog failed; an unwarranted release, a refused named bump and a halt
+// for confirmation are Results.
 func Prepare(ctx context.Context, req Request) (Result, error) {
 	repo := gitread.Repo{Dir: req.Dir, Git: req.Git}
 	// Pin the target first: the commits read, the range recorded and the
@@ -90,40 +117,70 @@ func Prepare(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	policy := req.Config.Policy()
 	res, err := resolve.Resolve(ctx, resolve.Request{
-		Dir: req.Dir, Git: req.Git, Target: head, Named: req.Named, Policy: req.Config.Policy(),
+		Dir: req.Dir, Git: req.Git, Target: head, Named: req.Named, Policy: policy,
 	})
 	if err != nil {
 		return Result{}, err
 	}
-	out := Result{Resolution: res}
-	if res.Next.Kind != version.Release {
+	out := Result{Resolution: res, Next: res.Next}
+	if len(res.Commits) == 0 && req.Named == nil {
 		out.Outcome = NoRelease
 		return out, nil
 	}
+	drivers := floorDrivers(res)
+	// A named bump below the floor is refused before any producer runs: the
+	// refusal reads only the floor, so authoring could not change it.
+	if res.BelowFloor && !req.Forced {
+		out.Outcome = Refused
+		out.Refusal = &suggest.Refusal{Named: *req.Named, Floor: res.Floor, FloorDrivers: drivers}
+		return out, nil
+	}
 
-	rng := corpus.Range{To: head}
+	in := evidence.Input{
+		Range:   evidence.Range{To: head},
+		Commits: res.Commits,
+		Budget:  releasemodel.BudgetReport{Limit: req.Config.Changelog.DiffBudget.Release},
+		Signals: map[string]releasemodel.Bump{},
+	}
 	if res.BaseTag != "" {
-		if rng.From, err = repo.CommitHash(ctx, res.BaseTag); err != nil {
+		if in.Range.From, err = repo.CommitHash(ctx, res.BaseTag); err != nil {
+			return Result{}, err
+		}
+		in.BaseVersion = res.Base.String()
+	}
+	for _, s := range res.Signals {
+		if s.Classified {
+			in.Signals[s.Commit.Hash] = s.Impact
+		}
+	}
+	if req.Config.Adapters.Diffs {
+		// Oldest first, the order the bundle lists them in, so the budget
+		// is shared out in the order a reader meets the commits.
+		hashes := make([]string, len(res.Commits))
+		for i, c := range res.Commits {
+			hashes[len(hashes)-1-i] = c.Hash
+		}
+		in.DiffsCollected = true
+		if in.Diffs, in.Budget, err = repo.Diffs(ctx, hashes, req.Config.Changelog.DiffExclude, req.Config.Changelog.DiffBudget.Release); err != nil {
 			return Result{}, err
 		}
 	}
-	assembled, err := corpus.Build(corpus.Input{Records: res.Commits, Range: rng, Adapters: req.Config.Adapters})
-	if err != nil {
+	if out.Evidence, err = evidence.Build(in); err != nil {
 		return Result{}, err
 	}
 
 	if !req.Skip {
 		out.CorpusPath = req.CorpusPath
 		if out.CorpusPath == "" {
-			if out.CorpusPath, err = authoring.CachePath(ctx, repo, rng.From, rng.To); err != nil {
+			if out.CorpusPath, err = authoring.ChangelogCachePath(ctx, repo, in.Range.From, in.Range.To); err != nil {
 				return Result{}, err
 			}
 		}
 	}
-	out.Authoring, err = authoring.Exchange(ctx, authoring.Request{
-		Assembled: assembled,
-		Computed:  res.Impact,
+	out.Authoring, err = authoring.ExchangeEvidence(ctx, authoring.EvidenceRequest{
+		Evidence:  out.Evidence,
 		Producer:  req.Config.Changelog.Producer,
 		Producers: req.Producers,
 		CachePath: out.CorpusPath,
@@ -133,24 +190,70 @@ func Prepare(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if out.Authoring.Disagrees && !res.Named {
-		out.Outcome = Disagreement
+
+	var omitted []releasemodel.OmittedCommit
+	if c := out.Authoring.Changelog.Omitted; c != nil {
+		omitted = *c
+	}
+	out.Suggestion = suggest.Suggest(suggest.Input{
+		Entries:      out.Authoring.Changelog.Entries,
+		Omitted:      omitted,
+		Floor:        res.Floor,
+		FloorDrivers: drivers,
+		Unclassified: res.Unclassified,
+		Commits:      len(res.Commits),
+		Named:        req.Named,
+		Forced:       req.Forced,
+		Accepted:     req.Accepted,
+	})
+	switch out.Suggestion.Outcome {
+	case suggest.NotReleasable:
+		out.Outcome = NoRelease
+		return out, nil
+	case suggest.Refused:
+		out.Outcome = Refused
+		out.Refusal = out.Suggestion.Refusal
+		return out, nil
+	case suggest.Halted:
+		out.Outcome = Halted
 		return out, nil
 	}
 
-	out.Version = res.Next.Version.String()
-	out.Corpus = out.Authoring.Corpus
+	out.Bump = out.Suggestion.Decision.Bump
+	if out.Next, err = resolve.Next(res.Base, out.Bump, false, policy); err != nil {
+		return Result{}, err
+	}
+	if out.Next.Kind != version.Release {
+		out.Outcome = NoRelease
+		return out, nil
+	}
+	out.Version = out.Next.Version.String()
+	out.Changelog = out.Authoring.Changelog
 	v := out.Version
-	out.Corpus.Version = &v
+	out.Changelog.Version = &v
 	repoURL, err := webURL(ctx, repo)
 	if err != nil {
 		return Result{}, err
 	}
-	if out.Rendering, err = render.Render(out.Corpus, req.Config.Changelog, repoURL); err != nil {
+	if out.Rendering, err = render.Render(out.Changelog, req.Config.Changelog, repoURL); err != nil {
 		return Result{}, err
 	}
 	out.Outcome = Prepared
 	return out, nil
+}
+
+// floorDrivers is the commits that set the signal floor, with their
+// signals, as the Bump Suggester reads them.
+func floorDrivers(res resolve.Resolution) []bump.CommitDriver {
+	records := make(map[string]releasemodel.CommitRecord, len(res.Commits))
+	for _, c := range res.Commits {
+		records[c.Hash] = c
+	}
+	out := make([]bump.CommitDriver, 0, len(res.DeterminedBy))
+	for _, d := range res.DeterminedBy {
+		out = append(out, bump.CommitDriver{Commit: records[d.Hash], Signal: d.Signal})
+	}
+	return out
 }
 
 // remotePatterns recognise a GitHub remote over HTTPS or SSH.

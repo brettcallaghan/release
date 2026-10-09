@@ -1,11 +1,16 @@
-version answers with the base version, the resolved impact, what determined
-that impact, and the next version. It is read-only.
+version answers with the base version, the resolved impact, the commits that
+set the signal floor, the commits that carry no signal, and the next
+version. It is read-only and invokes no producer.
 
-bump is major, minor or patch, and names the impact instead of inferring
-it. Without a bump, the impact is inferred from the commits since the base
-version. Without --target, the release line is the configured target, or
-else the branch origin/HEAD points to. Exits 1, after printing the answer,
-when no release is warranted or the version policy refuses the version.
+bump is major, minor or patch, and names the impact instead of using the
+signal floor: the highest impact the commits' Release-Type trailers,
+conventional types and breaking markers indicate. A named bump over commits
+that indicate none prints a warning. A named bump below the signal floor is
+refused: exit 1, no answer, and standard error names the floor and the
+commits that set it.
+Without --target, the release line is the configured target, or else the
+branch origin/HEAD points to. Exits 1, after printing the answer, when no
+release is warranted or the version policy refuses the version.
 
 Usage:
   release version [bump] [flags]

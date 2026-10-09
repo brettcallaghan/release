@@ -1,0 +1,1 @@
+release version: warning: nothing releasable since v1.8.0: 1 commit, which indicates no bump; release cut decides from the authored changelog, and needs --force only if that holds nothing releasable either

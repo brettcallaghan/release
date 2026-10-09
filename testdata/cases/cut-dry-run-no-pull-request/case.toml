@@ -12,6 +12,6 @@ git = [
   ["push", "-q", "origin", "main", "--tags"],
   ["remote", "set-head", "origin", "main"],
 ]
-args = ["cut", "patch", "--skip-notes", "--dry-run", "--no-pull-request"]
+args = ["cut", "minor", "--skip-notes", "--dry-run", "--no-pull-request"]
 exit_code = 0
 artifacts = ["stdout.txt", "stderr.txt"]

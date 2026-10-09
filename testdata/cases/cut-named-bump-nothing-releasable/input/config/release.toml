@@ -1,0 +1,8 @@
+release_paths = ["VERSION"]
+
+[commands]
+propagate = "printf \"%s\\n\" \"$RELEASE_VERSION\" > VERSION"
+
+[changelog]
+producer = "command"
+producer_command = "false"

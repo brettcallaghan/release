@@ -6,7 +6,7 @@ Usage:
   release [command]
 
 Available Commands:
-  changelog   Assemble, author and render the changelog section a release would carry
+  changelog   Author and render the changelog section a release would carry
   config      Answer with the effective configuration and validate it
   cut         Cut a release as a stage branch and open its pull request
   help        Help about any command

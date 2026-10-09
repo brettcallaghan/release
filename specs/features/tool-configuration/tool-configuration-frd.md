@@ -1,14 +1,16 @@
 ---
 title: "FRD: Tool Configuration"
 description: Expressing every repository-specific behaviour as configuration
-  — the commands the tooling delegates to, the values it defaults, and the
+  — the commands the tooling delegates to, the evidence it collects, the
+  producer and signals it uses, the values it defaults, and the
   configurations it refuses.
 slug: frd-tool-configuration
 type: frd
 status: approved
-updated_at: 2026-10-07T00:00:00Z
+updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001
+  - adr-003
   - adr-005
   - release-tooling-standards
 ---
@@ -30,6 +32,13 @@ neither beyond what it was told, because which branches carry which majors
 is the adopting project's policy and not the tool's business
 ([[adr-001]]).
 
+Configuration also bounds the evidence a producer reads. How much patch
+text a release may carry, which paths are noise, which producer authors,
+and which signals set the impact's floor differ by repository, and each has a default that serves a repository declaring
+nothing. How the evidence is collected and used is [[frd-changelog-authoring]]
+and [[frd-version-computation]]; this document is what can be configured, and
+what is refused.
+
 This feature SHALL comply with [[release-tooling-standards]].
 
 ## Terminology
@@ -40,6 +49,19 @@ This feature SHALL comply with [[release-tooling-standards]].
   a release.
 - **Release-branch pattern** — the glob a repository uses to identify its
   release branches in branch protection and workflow filters.
+- **Diff budget** — the most patch text, in bytes, a release's evidence
+  bundle may carry.
+- **Diff exclusion** — a path glob whose patches no evidence bundle carries.
+  The path still appears in its commit's file list.
+- **Adapter** — a collector of evidence that can be turned on or off: the
+  diff adapter and the optional pull request adapter, which enriches commits
+  from the hosting platform. The commit adapter is always on.
+- **Producer** — what authors from the evidence: `claude`, a configured
+  `command`, or `mechanical`, the built-in producer that needs no model,
+  which `--skip-notes` also selects.
+- **Signal** — an explicit record in a commit that indicates its impact,
+  named in configuration as `release-type`, `conventional-type` or
+  `breaking-marker` ([[frd-version-computation]]).
 
 ## Requirements
 
@@ -137,11 +159,186 @@ Feature: Defaults and Refusals
     Then the tooling derives no constraint from that name
 ```
 
+### FEAT-CFG-003: Evidence Collection Settings
+
+**Acceptance Criteria:**
+
+```gherkin
+@FEAT-CFG-003
+Feature: Evidence Collection Settings
+
+  As an adopting project
+  I want to bound and filter the diffs a producer reads
+  So that the evidence fits a model's context and leaves out what no reader cares about
+
+  Diffs are collected by default, because they are the only record of a
+  change nobody described. The budget and the exclusions are settings
+  because a repository's size and its generated paths are its own. The pull
+  request adapter is an optional enrichment, off by default; nothing
+  depends on it.
+
+  @AC-CFG-003.1
+  Scenario Outline: An unconfigured evidence setting takes its documented default
+    Given the repository configures no value for "<setting>"
+    When the tooling reads its configuration
+    Then the effective value is "<default>"
+
+    Examples:
+      | setting                               | default |
+      | changelog.diff_budget.release         | 204800  |
+      | adapters.diffs                        | true    |
+      | adapters.pull_requests                | false   |
+
+  @AC-CFG-003.2
+  Scenario Outline: Lockfiles, vendored code and snapshot outputs are excluded by default
+    Given the repository configures no diff exclusions
+    When the tooling reads its configuration
+    Then "<path>" is a diff exclusion
+
+    Examples:
+      | path                  |
+      | **/go.sum             |
+      | **/package-lock.json  |
+      | **/yarn.lock          |
+      | **/pnpm-lock.yaml     |
+      | **/Cargo.lock         |
+      | **/poetry.lock        |
+      | vendor/               |
+      | testdata/**/expected/ |
+
+  @AC-CFG-003.3
+  Scenario: A declared exclusion list replaces the default whole
+    Given the repository configures "gen/**" as its only diff exclusion
+    When the tooling reads its configuration
+    Then "gen/**" is the only diff exclusion
+    And "**/go.sum" is not a diff exclusion
+
+  @AC-CFG-003.4
+  Scenario: The diff adapter is accepted when turned on
+    Given the repository configures the diff adapter on
+    When the tooling reads its configuration
+    Then the tooling accepts the configuration
+
+  @AC-CFG-003.5
+  Scenario: Turning the diff adapter off leaves diffs out of the evidence
+    Given the repository configures the diff adapter off
+    When the tooling collects evidence for a release
+    Then the evidence carries no diff
+    And the evidence does not list the diff adapter among the adapters used
+
+  @AC-CFG-003.6 @negative
+  Scenario Outline: A diff budget that is not a positive integer is refused
+    Given the repository configures "<value>" as a diff budget
+    When the tooling reads its configuration
+    Then the tooling refuses the configuration, naming the setting
+
+    Examples:
+      | value |
+      | 0     |
+      | -1    |
+      | 100KB |
+
+  @AC-CFG-003.7 @negative
+  Scenario: A malformed diff exclusion is refused
+    Given the repository configures a diff exclusion that is not a valid glob
+    When the tooling reads its configuration
+    Then the tooling refuses the configuration, naming the glob
+
+  @AC-CFG-003.8 @negative
+  Scenario: The pull request adapter is refused until it is available
+    Given the repository configures the pull request adapter on
+    When the tooling reads its configuration
+    Then the tooling refuses the configuration, naming the setting
+```
+
+### FEAT-CFG-004: Producer and Signal Settings
+
+**Acceptance Criteria:**
+
+```gherkin
+@FEAT-CFG-004
+Feature: Producer and Signal Settings
+
+  As an adopting project
+  I want to choose what authors my notes and which records in git set the floor of my impact
+  So that a repository with no model, or with its own conventions, can still release
+
+  The mechanical producer exercises no judgement: it composes entries from
+  conventional commit subjects, so the bump suggested from its changelog is
+  the signal floor alone. Signals are what set that floor.
+
+  @AC-CFG-004.1
+  Scenario Outline: A producer is configured by name
+    Given the repository configures "<producer>" as its changelog producer
+    When the tooling reads its configuration
+    Then the tooling accepts the configuration
+
+    Examples:
+      | producer   |
+      | claude     |
+      | command    |
+      | mechanical |
+
+  @AC-CFG-004.2
+  Scenario: The default producer is claude
+    Given the repository configures no changelog producer
+    When the tooling reads its configuration
+    Then the effective producer is "claude"
+
+  @AC-CFG-004.3
+  Scenario: The mechanical producer authors a release without a model
+    Given the repository configures "mechanical" as its changelog producer
+    When the maintainer prepares a release changelog
+    Then the tooling composes the corpus with the mechanical producer and starts no producer process
+
+  @AC-CFG-004.5 @negative
+  Scenario Outline: An unusable producer setting is refused
+    Given the repository configures <setting>
+    When the tooling reads its configuration
+    Then the tooling refuses the configuration
+
+    Examples:
+      | setting                                            |
+      | a changelog producer naming no producer            |
+      | the command producer with no producer command      |
+
+  @AC-CFG-004.6
+  Scenario Outline: Every signal is enabled by default
+    Given the repository configures no signals
+    When the tooling reads its configuration
+    Then "<signal>" is an enabled signal
+
+    Examples:
+      | signal            |
+      | release-type      |
+      | conventional-type |
+      | breaking-marker   |
+
+  @AC-CFG-004.7
+  Scenario: A conventional type is no signal when its signal is not enabled
+    Given the repository configures the signals "release-type" and "breaking-marker"
+    And a commit whose only signal is the conventional-commit type feat
+    When the tooling computes the signal floor
+    Then the commit is reported as unclassified
+
+  @AC-CFG-004.8 @negative
+  Scenario: An unknown signal name is refused
+    Given the repository configures a signal named "issue-label"
+    When the tooling reads its configuration
+    Then the tooling refuses the configuration, naming the signal
+```
+
 ## References
 
 - [[adr-001]] — the tooling is branch-agnostic, so branch names carry no
   configuration meaning
+- [[adr-003]] — explicit signals in git set the floor of the suggested
+  bump, which is why the mechanical producer's suggestion is that floor
 - [[adr-005]] — repository-specific behaviour is delegated rather than
   implemented
+- [[frd-changelog-authoring]] — how evidence is collected within the budget
+  and the exclusions, and how producers author from it
+- [[frd-version-computation]] — how enabled signals compute the impact
+- [[contract-release-cli]] — `release config`, which reports these settings
 - [[release-tooling-standards]] — the configuration requirements these
   criteria verify

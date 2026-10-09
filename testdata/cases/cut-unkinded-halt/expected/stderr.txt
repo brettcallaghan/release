@@ -1,0 +1,7 @@
+release cut: the authored changelog suggests no bump, but entries carry no kind, so only a named bump can release them: name it (release cut <major|minor|patch>)
+  suggested bump: none
+  signal floor: none
+  unclassified commits:
+    - 4217e4158d4773ba849ded9e4354cd19593438b5 Tidy the help text
+  entries with no kind:
+    - Tidy the help text

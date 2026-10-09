@@ -15,8 +15,10 @@ import (
 
 	"github.com/brettcallaghan/release/internal/authoring"
 	"github.com/brettcallaghan/release/internal/authoring/producers"
+	"github.com/brettcallaghan/release/internal/changelog"
 	"github.com/brettcallaghan/release/internal/config"
 	"github.com/brettcallaghan/release/internal/releasemodel"
+	"github.com/brettcallaghan/release/internal/suggest"
 )
 
 // fixture is a working repository released at v1.8.0 with a feature since,
@@ -239,7 +241,6 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 		setup func(*fixture, *Request)
 		want  string
 	}{
-		"skip without a bump":    {func(_ *fixture, r *Request) { r.Named = nil }, "needs a named bump"},
 		"propagate unconfigured": {func(_ *fixture, r *Request) { r.Config.Commands.Propagate = nil }, "commands.propagate is unconfigured"},
 		"preflight fails": {func(_ *fixture, r *Request) {
 			r.Config.Commands.Preflight = []string{"true", "echo preflight said no; exit 4"}
@@ -284,8 +285,13 @@ func TestNothingIsWrittenOnARefusal(t *testing.T) {
 		"stage branch exists on origin": {func(f *fixture, _ *Request) {
 			f.git(f.work, "push", "-q", "origin", "main:refs/heads/cut/1.9.0")
 		}, "already exists on origin"},
-		"gh unavailable":     {func(f *fixture, r *Request) { r.Gh = filepath.Join(f.root, "no-gh") }, "gh is not available"},
-		"gh unauthenticated": {func(f *fixture, r *Request) { f.t.Setenv("GHSTUB_AUTH_FAIL", "The token in GH_TOKEN is invalid.") }, "gh is not authenticated"},
+		"named bump over nothing releasable": {func(f *fixture, _ *Request) {
+			f.git(f.work, "tag", "-a", "-m", "v1.9.0", "v1.9.0")
+			f.git(f.work, "push", "-q", "origin", "--tags")
+		}, "nothing releasable since v1.9.0: no commits; pass --force"},
+		"force without a bump": {func(_ *fixture, r *Request) { r.Named, r.Skip, r.Force = nil, false, true }, "--force needs a named bump"},
+		"gh unavailable":       {func(f *fixture, r *Request) { r.Gh = filepath.Join(f.root, "no-gh") }, "gh is not available"},
+		"gh unauthenticated":   {func(f *fixture, r *Request) { f.t.Setenv("GHSTUB_AUTH_FAIL", "The token in GH_TOKEN is invalid.") }, "gh is not authenticated"},
 		"declined": {func(_ *fixture, r *Request) {
 			r.Confirm = func(Result) (bool, error) { return false, nil }
 		}, "declined"},
@@ -344,18 +350,69 @@ func TestNoReleaseRefusesWithoutABranch(t *testing.T) {
 	}
 }
 
-// writeAuthored makes the command producer answer with a corpus proposing
-// proposed.
-func (f *fixture) writeAuthored(req *Request, proposed string) {
+func TestForceStagesANamedBumpOverNothingReleasable(t *testing.T) {
+	f := newFixture(t)
+	f.git(f.work, "tag", "-a", "-m", "v1.9.0", "v1.9.0")
+	f.git(f.work, "push", "-q", "origin", "--tags")
+	req := f.request()
+	req.Force, req.DryRun = true, true
+	res, err := Cut(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Cut: %v", err)
+	}
+	if res.Version != "1.10.0" || res.Branch != "cut/1.10.0" {
+		t.Errorf("staged %s on %s, want 1.10.0 on cut/1.10.0", res.Version, res.Branch)
+	}
+}
+
+// writeAuthored makes the command producer answer with a changelog of one
+// feature citing every commit in the range, with summary as its prose. The
+// bundle's sources are read from the changelog operation itself, so the
+// answer carries them through as a conforming producer does.
+func (f *fixture) writeAuthored(req *Request, summary string) {
 	f.t.Helper()
+	f.writeAuthoredOmitting(req, summary, nil)
+}
+
+// writeAuthoredOmitting is writeAuthored, with the commits whose subjects
+// omit names omitted for the reasons it gives instead of cited.
+func (f *fixture) writeAuthoredOmitting(req *Request, summary string, omit map[string]string) {
+	f.t.Helper()
+	f.writeAuthoredWith(req, summary, omit, false)
+}
+
+// writeAuthoredWith is writeAuthoredOmitting, the one entry marked breaking
+// WHEN breaking is set.
+func (f *fixture) writeAuthoredWith(req *Request, summary string, omit map[string]string, breaking bool) {
+	f.t.Helper()
+	prepared, err := changelog.Prepare(context.Background(), changelog.Request{
+		Dir: f.work, Target: "main", Config: req.Config, Named: minor(), Skip: true,
+		Producers: producers.Registry(req.Config.Changelog, f.work),
+	})
+	if err != nil {
+		f.t.Fatalf("reading the evidence: %v", err)
+	}
+	sources, omitted := []any{}, []any{}
+	for _, ce := range prepared.Evidence.Commits {
+		if reason, ok := omit[ce.Record.Subject]; ok {
+			omitted = append(omitted, map[string]any{"hash": ce.Record.Hash, "reason": reason})
+			continue
+		}
+		if pr := ce.Record.PullRequest; pr != nil {
+			sources = append(sources, map[string]any{"__type": "PullRequest", "number": pr.Number})
+		}
+		sources = append(sources, map[string]any{"__type": "Commit", "hash": ce.Record.Hash})
+	}
+	entry := map[string]any{"kind": "FEATURE", "summary": summary, "breaking": breaking, "derived": false,
+		"sources": sources}
+	if breaking {
+		entry["migration"] = "Update callers of the changed flag."
+	}
 	c := map[string]any{
 		"schema_version": "1.0.0",
-		"proposed_bump":  proposed,
-		"entries": []any{map[string]any{"kind": "FEATURE", "summary": "Compute for any release line.", "breaking": false, "derived": false,
-			"sources": []any{map[string]any{"__type": "PullRequest", "number": 12}}}},
-		"sources": []any{map[string]any{"adapter": "COMMITS",
-			"from": strings.TrimSpace(f.git(f.work, "rev-parse", "v1.8.0^{commit}")),
-			"to":   strings.TrimSpace(f.git(f.work, "rev-parse", "HEAD"))}},
+		"entries":        []any{entry},
+		"omitted":        omitted,
+		"sources":        prepared.Evidence.Sources,
 	}
 	data, err := json.Marshal(c)
 	if err != nil {
@@ -370,27 +427,119 @@ func (f *fixture) writeAuthored(req *Request, proposed string) {
 	req.Producers = func(dir string, env []string) map[string]authoring.Producer {
 		return producers.Registry(changelog, dir, env...)
 	}
-	req.Named, req.Skip = nil, false
+	req.Named, req.Skip = minor(), false
 }
 
-func TestADisagreementHaltsBeforeAnyWrite(t *testing.T) {
+// AC: AC-STG-001.15
+func TestTheReleaseCommitCarriesTheConfirmedBumpAsATrailer(t *testing.T) {
 	f := newFixture(t)
 	req := f.request()
-	f.writeAuthored(&req, "MAJOR")
+	f.writeAuthored(&req, "Compute for any release line.")
 	res, err := Cut(context.Background(), req)
-	var d *Disagreement
-	if !errors.As(err, &d) || !strings.Contains(d.Error(), "release cut minor") {
-		t.Fatalf("err = %v, want a disagreement naming the confirming command", err)
+	if err != nil {
+		t.Fatalf("Cut: %v", err)
 	}
-	if len(res.Writes) != 0 || f.hasRef(f.work, "refs/heads/cut/1.9.0") {
+	message := f.git(f.bare, "log", "-1", "--format=%B", res.Commit)
+	cmd := exec.Command("git", "interpret-trailers", "--parse")
+	cmd.Stdin = strings.NewReader(message)
+	trailers, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(trailers) != "Release-Type: minor\n" {
+		t.Errorf("trailers = %q, want Release-Type: minor\nmessage:\n%s", trailers, message)
+	}
+	if subject := f.git(f.bare, "log", "-1", "--format=%s", res.Commit); subject != "Release 1.9.0\n" {
+		t.Errorf("subject = %q", subject)
+	}
+}
+
+// AC: AC-STG-001.9
+// AC: AC-STG-001.16
+// AC: AC-STG-001.17
+// AC: AC-CLOG-004.4
+func TestThePullRequestBodyShowsTheNotesTheBumpAndTheOmittedCommits(t *testing.T) {
+	f := newFixture(t)
+	f.git(f.work, "commit", "-q", "--allow-empty", "-m", "Tidy the help text")
+	f.git(f.work, "commit", "-q", "--allow-empty", "-m", "docs: describe the flag")
+	f.git(f.work, "push", "-q", "origin", "main")
+	req := f.request()
+	f.writeAuthoredOmitting(&req, "Compute for any release line.", map[string]string{
+		"docs: describe the flag": "Documents the flag the feature entry already covers.",
+	})
+	if _, err := Cut(context.Background(), req); err != nil {
+		t.Fatalf("Cut: %v", err)
+	}
+	// --body is the last argument, and the stub writes one per line, so the
+	// body is everything after it.
+	_, body, _ := strings.Cut(strings.Join(f.ghArgs(), "\n")+"\n", "--body\n")
+	feat := strings.TrimSpace(f.git(f.work, "rev-parse", "--short=7", "HEAD~2"))
+	tidy := strings.TrimSpace(f.git(f.work, "rev-parse", "--short=7", "HEAD~1"))
+	docs := strings.TrimSpace(f.git(f.work, "rev-parse", "--short=7", "HEAD"))
+	for _, want := range []string{
+		"## Release Notes\n\n### Features\n\n- Compute for any release line. (#12, " + feat,
+		"\n\n## Bump\n\nConfirmed bump: **minor**, named by the maintainer.\n",
+		"Suggested bump: **minor**, from these entries:\n\n- Compute for any release line. (#12, " + feat + ", " + tidy + ")\n",
+		"Signal floor: **minor**, set by:\n\n- " + feat + " feat: add a --target flag (#12) (conventional-type)\n",
+		"Unclassified commits, carrying no signal:\n\n- " + docs + " docs: describe the flag\n- " + tidy + " Tidy the help text\n",
+		"\n## Omitted commits\n\n- " + docs + " docs: describe the flag: Documents the flag the feature entry already covers.\n",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the pull request body lacks %q:\n%s", want, body)
+		}
+	}
+}
+
+// AC: AC-STG-001.5
+func TestAnUnconfirmedSuggestionHaltsBeforeAnyWrite(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	res, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) || h.OnlyNamed || h.Suggestion.Suggestion != releasemodel.BumpMinor || !strings.Contains(h.Error(), "release cut --yes") {
+		t.Fatalf("err = %v, want a halt with the minor suggestion naming --yes", err)
+	}
+	if len(res.Writes) != 0 || res.Branch != "" || f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") || f.ghArgs() != nil {
 		t.Errorf("a halted cut wrote: %v", res.Writes)
 	}
+
+	// Accepting reads the cached changelog: the producer is not run again.
+	req.Config.Changelog.ProducerCommand = ptr("exit 7")
+	changelog := req.Config.Changelog
+	req.Producers = func(dir string, env []string) map[string]authoring.Producer {
+		return producers.Registry(changelog, dir, env...)
+	}
+	req.Accepted = true
+	res, err = Cut(context.Background(), req)
+	if err != nil || res.Version != "1.9.0" || res.Changelog.Authoring.Obtained != authoring.FromCache {
+		t.Fatalf("accepted: version %q, obtained %v, err %v; want 1.9.0 from the cached changelog", res.Version, res.Changelog.Authoring.Obtained, err)
+	}
 }
 
-func TestAnAgreeingProposalIsAuthoredIntoTheRelease(t *testing.T) {
+// AC: AC-VER-005.14
+func TestANamedBumpBelowTheFloorIsRefusedUnlessForced(t *testing.T) {
 	f := newFixture(t)
 	req := f.request()
-	f.writeAuthored(&req, "MINOR")
+	patch := releasemodel.BumpPatch
+	req.Named = &patch
+	_, err := Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, "below the signal floor minor") || !strings.Contains(r.Reason, "--force") {
+		t.Fatalf("err = %v, want a refusal naming the floor and --force", err)
+	}
+	req.Force = true
+	res, err := Cut(context.Background(), req)
+	if err != nil || res.Version != "1.8.1" {
+		t.Fatalf("forced: version %q, err %v; want 1.8.1", res.Version, err)
+	}
+}
+
+func TestTheAuthoredChangelogIsWrittenIntoTheRelease(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
 	res, err := Cut(context.Background(), req)
 	if err != nil {
 		t.Fatalf("Cut: %v", err)
@@ -547,7 +696,7 @@ func TestReleasePathsMatchExactlyByDirectoryOrByGlob(t *testing.T) {
 func TestTheProducerSeesTheReleaseVersion(t *testing.T) {
 	f := newFixture(t)
 	req := f.request()
-	f.writeAuthored(&req, "MINOR")
+	f.writeAuthored(&req, "Compute for any release line.")
 	command := `test "$RELEASE_VERSION" = 1.9.0 && ` + *req.Config.Changelog.ProducerCommand
 	req.Config.Changelog.ProducerCommand = &command
 	changelog := req.Config.Changelog
@@ -646,5 +795,125 @@ func TestRemoteHost(t *testing.T) {
 		if got := remoteHost(url + "\n"); got != want {
 			t.Errorf("remoteHost(%q) = %q, want %q", url, got, want)
 		}
+	}
+}
+
+func TestAConfirmingCutIsRefusedWhenTheTargetMovedSinceTheHalt(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) || first.Base == "" {
+		t.Fatalf("first cut: base %q, err %v; want a halt with a base", first.Base, err)
+	}
+
+	f.git(f.work, "commit", "-q", "--allow-empty", "-m", "fix: another change")
+	f.git(f.work, "push", "-q", "origin", "main")
+	moved := strings.TrimSpace(f.git(f.bare, "rev-parse", "main"))
+
+	req.Accepted, req.ExpectBase = true, first.Base
+	_, err = Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, first.Base) || !strings.Contains(r.Reason, moved) {
+		t.Fatalf("err = %v, want a refusal naming %s and %s", err, first.Base, moved)
+	}
+	if f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") || f.ghArgs() != nil {
+		t.Errorf("a refused confirmation wrote a branch or a pull request")
+	}
+	if got := strings.TrimSpace(f.git(f.bare, "rev-parse", "main")); got != moved {
+		t.Errorf("origin main = %s, want %s", got, moved)
+	}
+}
+
+func TestAConfirmingCutPinnedToAnUnmovedBaseConfirmsTheShownSuggestion(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) {
+		t.Fatalf("first cut err = %v, want a halt", err)
+	}
+	req.Config.Changelog.ProducerCommand = ptr("exit 7")
+	req.Accepted, req.ExpectBase, req.Shown = true, first.Base, shownBy(first, h)
+	res, err := Cut(context.Background(), req)
+	if err != nil {
+		t.Fatalf("pinned cut: %v", err)
+	}
+	if d := res.Changelog.Suggestion.Decision; d == nil || d.DecidedBy != suggest.ByConfirmed || res.Changelog.Authoring.Obtained != authoring.FromCache {
+		t.Fatalf("decision %+v, obtained %v; want confirmed from the cache", d, res.Changelog.Authoring.Obtained)
+	}
+}
+
+// shownBy is what the halted first cut showed, as the interactive path pins it.
+func shownBy(first Result, h *Halt) *Shown {
+	return &Shown{BaseTag: first.Resolution.BaseTag, Suggestion: h.Suggestion.Suggestion}
+}
+
+func TestAConfirmingCutIsRefusedWhenTheRangeStartMovedSinceTheHalt(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) {
+		t.Fatalf("first cut err = %v, want a halt", err)
+	}
+	shown := shownBy(first, h)
+
+	// A release tag on an ancestor of the unchanged tip, pushed to origin: the
+	// confirming call's fetch follows it into the local repository.
+	other := filepath.Join(f.root, "other")
+	f.git(f.root, "clone", "-q", f.bare, other)
+	f.git(other, "tag", "-a", "-m", "v1.8.5", "v1.8.5", "HEAD~1")
+	f.git(other, "push", "-q", "origin", "v1.8.5")
+	tip := strings.TrimSpace(f.git(f.bare, "rev-parse", "main"))
+
+	req.Accepted, req.ExpectBase, req.Shown = true, first.Base, shown
+	_, err = Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, "v1.8.0") || !strings.Contains(r.Reason, "v1.8.5") {
+		t.Fatalf("err = %v, want a refusal naming v1.8.0 and v1.8.5", err)
+	}
+	if f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") || f.ghArgs() != nil {
+		t.Errorf("a refused confirmation wrote a branch or a pull request")
+	}
+	if got := strings.TrimSpace(f.git(f.bare, "rev-parse", "main")); got != tip {
+		t.Errorf("origin main = %s, want %s", got, tip)
+	}
+}
+
+func TestAConfirmingCutIsRefusedWhenTheSuggestedBumpChangedSinceTheHalt(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) {
+		t.Fatalf("first cut err = %v, want a halt", err)
+	}
+	shown := shownBy(first, h)
+	tip := strings.TrimSpace(f.git(f.bare, "rev-parse", "main"))
+
+	// The authored changelog is rewritten over the same range with a
+	// breaking entry.
+	f.writeAuthoredWith(&req, "Compute for any release line.", nil, true)
+	req.Redo = true
+	req.Accepted, req.ExpectBase, req.Shown = true, first.Base, shown
+	_, err = Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, "MINOR") || !strings.Contains(r.Reason, "MAJOR") {
+		t.Fatalf("err = %v, want a refusal naming MINOR and MAJOR", err)
+	}
+	if f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/2.0.0") || f.ghArgs() != nil {
+		t.Errorf("a refused confirmation wrote a branch or a pull request")
+	}
+	if got := strings.TrimSpace(f.git(f.bare, "rev-parse", "main")); got != tip {
+		t.Errorf("origin main = %s, want %s", got, tip)
 	}
 }

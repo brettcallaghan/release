@@ -5,4 +5,5 @@ determined_by:
   - hash: 7af4e0b417fbd139ad82900476a7aa68df8c142e
     subject: "fix: handle empty input"
     signal: conventional-type
+unclassified: []
 next: 0.0.1

@@ -1,2 +1,2 @@
-release changelog: the corpus from the command producer is rejected: the corpus does not validate against the changelog schema: jsonschema validation failed with 'release:///changelog.schema.json#'
+release changelog: the changelog from the command producer is rejected: the corpus does not validate against the changelog schema: jsonschema validation failed with 'release:///changelog.schema.json#'
 - at '': missing properties 'entries', 'sources'

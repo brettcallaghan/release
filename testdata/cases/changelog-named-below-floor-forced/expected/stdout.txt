@@ -1,0 +1,36 @@
+version: 1.8.1
+bump: patch
+named: true
+suggested: minor
+floor: minor
+reasons:
+  - kind: feature
+    breaking: false
+    scope: null
+    summary: A maintainer can compute a version for any release line — naïvely fast.
+    sources:
+      - "#12"
+      - 238393dee49924ef28901ac042110166d4739c49
+raised_by_floor: false
+unclassified:
+  - hash: 53b6ea9aa35aa95ab7d00846da292db29f5ac460
+    subject: "docs: describe the flag"
+corpus_path: .git/release/changelog/c2aea8f44df5afe616009556bcfc6b1f729a44cb..53b6ea9aa35aa95ab7d00846da292db29f5ac460.json
+section: |-
+  ## 1.8.1
+
+  **Release lines on demand**
+
+  Compute for any line.
+
+  Nothing breaks.
+
+  ### Features
+
+  - A maintainer can compute a version for any release line — naïvely fast. (#12, 238393d)
+
+    Pass `--target <branch>`.
+
+  ### Fixes
+
+  - **cli:** Handle empty input. (#11, e48de63)

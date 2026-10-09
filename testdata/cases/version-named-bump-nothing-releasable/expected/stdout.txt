@@ -1,0 +1,8 @@
+base: 1.8.0
+impact: patch
+named: true
+determined_by: []
+unclassified:
+  - hash: 870941240fd40acc06f151df0d74a611cfbe0280
+    subject: "docs: describe the flag"
+next: 1.8.1

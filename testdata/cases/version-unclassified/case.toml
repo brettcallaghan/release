@@ -1,0 +1,14 @@
+description = "release version reports the commits that carry no enabled signal under unclassified, and a Release-Type: none commit is classified rather than reported"
+cites = ["AC-VER-002.6", "AC-VER-002.7", "AC-VER-002.8", "contract-release-cli#release-version-bump"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "fix: handle empty input (#11)"],
+  ["commit", "-q", "--allow-empty", "-m", "Update the vendored parser (#12)"],
+  ["commit", "-q", "--allow-empty", "-m", "Skip this one", "-m", "Release-Type: none"],
+  ["commit", "-q", "--allow-empty", "-m", "docs: describe the flag"],
+]
+args = ["version", "--target", "main"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]
