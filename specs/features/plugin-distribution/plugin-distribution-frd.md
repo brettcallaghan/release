@@ -1,8 +1,9 @@
 ---
 title: "FRD: Plugin Distribution"
 description: Delivering the release CLI through the `release` agent plugin —
-  the plugin provisions the CLI version it was published with, teaches an
-  agent to cut a release, and carries the release-management standards.
+  the plugin provisions the CLI version it was published with, and its one
+  skill teaches an agent to cut a release with the release-management
+  standards built in.
 slug: frd-plugin-distribution
 type: frd
 status: draft
@@ -22,7 +23,7 @@ The `release` CLI is published from a private repository and nobody has
 used it before, so an agent asked to cut a release has neither the binary
 nor any knowledge of how to drive it. Installing the plugin should be the
 whole of adoption: the agent's session gains the CLI, at the version the
-plugin was written against, and the skills that say how to use it and what
+plugin was written against, and the skill that says how to use it and what
 a well-run release process looks like.
 
 Pinning matters more than convenience. A skill describes one version's
@@ -298,18 +299,20 @@ Feature: Cutting a Release From a Skill
 Feature: Release-Management Standards
 
   As an agent setting up or reviewing a repository's release process
-  I want the release-management standards available as a skill
+  I want the release-management standards built into the cut-release skill
   So that my advice follows the same rules the release CLI enforces
 
-  The plugin carries copies of this corpus's standards rather than a
-  paraphrase, so the advice and the specification cannot disagree. The
+  The plugin has one skill for users, cut-release, and the standards are
+  its references rather than a skill of their own. They are copies of
+  this corpus's standards rather than a paraphrase, so the advice and the
+  specification cannot disagree. The
   first version covers the command-line tool or library and the
   continuously deployed service archetypes; web and mobile apps follow.
 
   @AC-PLG-006.1
   Scenario Outline: Each standard ships unchanged
     Given the corpus standard "<standard>"
-    Then the plugin carries a byte-identical copy of it
+    Then the cut-release skill carries a byte-identical copy of it
 
     Examples:
       | standard                      |
