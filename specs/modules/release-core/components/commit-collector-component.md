@@ -6,7 +6,7 @@ description: Commits between two refs, with trailers, conventional-commit
   changed-file lists, parsed out of the commits themselves.
 slug: component-commit-collector
 type: component-blueprint
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed: []

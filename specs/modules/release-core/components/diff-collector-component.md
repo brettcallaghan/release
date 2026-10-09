@@ -6,7 +6,7 @@ description: Per-commit code diffs collected as changelog evidence, leaving
   everything it truncated or omitted.
 slug: component-diff-collector
 type: component-blueprint
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed: []

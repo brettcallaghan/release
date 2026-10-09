@@ -7,7 +7,7 @@ description: The suggested bump derived from the structured changelog's
   naming what a person must confirm.
 slug: component-bump-suggester
 type: component-blueprint
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:

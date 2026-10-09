@@ -7,7 +7,7 @@ description: The library that collects commit evidence from git, has a
   every component of the release process, behind one in-process interface.
 slug: module-release-core
 type: module-blueprint
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 kind: standard
 visibility: internal

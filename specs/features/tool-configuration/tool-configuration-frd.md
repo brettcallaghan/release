@@ -6,7 +6,7 @@ description: Expressing every repository-specific behaviour as configuration
   configurations it refuses.
 slug: frd-tool-configuration
 type: frd
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001

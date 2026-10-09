@@ -4,7 +4,7 @@ description: Cutting a release as a stage branch and its pull request, with
   the tooling confining its writes to the paths a project declares.
 slug: frd-release-staging
 type: frd
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001

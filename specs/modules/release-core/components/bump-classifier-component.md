@@ -6,7 +6,7 @@ description: The signal floor computed deterministically from the explicit
   no signal reported alongside it.
 slug: component-bump-classifier
 type: component-blueprint
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed: []

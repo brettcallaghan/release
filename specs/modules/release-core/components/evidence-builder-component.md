@@ -6,7 +6,7 @@ description: Collected commit records, the pull request information git
   bundle a producer authors the structured changelog from.
 slug: component-evidence-builder
 type: component-blueprint
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:

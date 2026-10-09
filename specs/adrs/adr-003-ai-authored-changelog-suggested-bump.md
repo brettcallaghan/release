@@ -7,13 +7,13 @@ description: A language model authors a structured changelog from commit
   from git.
 slug: adr-003
 type: adr
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 ---
 
 # ADR-003: AI-Authored Changelog with a Suggested, Confirmed Bump
 
-**Status:** draft
+**Status:** approved
 **Date:** 2026-10-09
 
 ## Context

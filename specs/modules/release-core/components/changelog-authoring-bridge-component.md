@@ -6,7 +6,7 @@ description: The seam across which a selected producer receives a release's
   schema and the bundle, and cached by range.
 slug: component-changelog-authoring-bridge
 type: component-blueprint
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:

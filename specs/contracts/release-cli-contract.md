@@ -4,7 +4,7 @@ description: The commands, arguments, flags, output and exit codes the release
   command-line tool vends to maintainers and to the scripts that drive it.
 slug: contract-release-cli
 type: contract
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 provider: container-release-cli
 visibility: public
