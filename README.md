@@ -1,7 +1,7 @@
 # release
 
 <!-- coverage:badge:start -->
-[![coverage](https://img.shields.io/badge/coverage-93.9%25-brightgreen)](#test-coverage)
+[![coverage](https://img.shields.io/badge/coverage-93.8%25-brightgreen)](#test-coverage)
 <!-- coverage:badge:end -->
 
 A command-line tool that computes the next version from git history,
@@ -48,10 +48,10 @@ A statement is covered if any layer reaches it.
 <!-- coverage:table:start -->
 | Test layer | Statements covered | Coverage |
 |:---|---:|---:|
-| Unit tests | 2,154 / 2,527 | 85.2% |
-| Snapshot cases | 1,687 / 2,527 | 66.8% |
-| End-to-end (built binary) | 1,408 / 2,527 | 55.7% |
-| **All layers combined** | **2,372 / 2,527** | **93.9%** |
+| Unit tests | 2,161 / 2,535 | 85.2% |
+| Snapshot cases | 1,689 / 2,535 | 66.6% |
+| End-to-end (built binary) | 1,410 / 2,535 | 55.6% |
+| **All layers combined** | **2,379 / 2,535** | **93.8%** |
 
 | Package | Statements | Covered | Coverage |
 |:---|---:|---:|---:|
@@ -63,9 +63,9 @@ A statement is covered if any layer reaches it.
 | `release/internal/bump` | 85 | 85 | 100.0% |
 | `release/internal/changelog` | 87 | 71 | 81.6% |
 | `release/internal/changelogfile` | 62 | 62 | 100.0% |
-| `release/internal/cli` | 575 | 533 | 92.7% |
+| `release/internal/cli` | 576 | 534 | 92.7% |
 | `release/internal/config` | 149 | 148 | 99.3% |
-| `release/internal/cut` | 316 | 279 | 88.3% |
+| `release/internal/cut` | 323 | 285 | 88.2% |
 | `release/internal/delegate` | 32 | 32 | 100.0% |
 | `release/internal/evidence` | 49 | 47 | 95.9% |
 | `release/internal/gitread` | 439 | 421 | 95.9% |
@@ -75,7 +75,7 @@ A statement is covered if any layer reaches it.
 | `release/internal/semver` | 110 | 110 | 100.0% |
 | `release/internal/suggest` | 61 | 61 | 100.0% |
 | `release/internal/version` | 75 | 75 | 100.0% |
-| **Total** | **2,527** | **2,372** | **93.9%** |
+| **Total** | **2,535** | **2,379** | **93.8%** |
 
 Generated code is excluded from these figures: 513 statements in 1 file (`releasemodel.go`) carrying the `// Code generated … DO NOT EDIT.` marker. It is excluded from the coverage profile too, so every report derived from it agrees with this table.
 <!-- coverage:table:end -->

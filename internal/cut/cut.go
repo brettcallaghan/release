@@ -41,6 +41,13 @@ import (
 	"github.com/brettcallaghan/release/internal/version"
 )
 
+// Shown is what a halted cut showed the person: the tag that starts the
+// range ("" when no release tag is reachable) and the bump it suggested.
+type Shown struct {
+	BaseTag    string
+	Suggestion releasemodel.Bump
+}
+
 // Request is the input to Cut.
 type Request struct {
 	// Dir is the repository root.
@@ -60,6 +67,10 @@ type Request struct {
 	// ExpectBase, WHEN set, is the commit the fetched tip of the target must
 	// be: a cut whose target has moved since is refused, writing nothing.
 	ExpectBase string
+	// Shown, WHEN set, is what the halted first call showed: a cut whose
+	// range now starts at another release tag, or whose authored changelog
+	// now suggests another bump, is refused, writing nothing.
+	Shown *Shown
 	// Config is the loaded configuration.
 	Config config.Config
 	// Producers returns every changelog producer, by name, for the checkout
@@ -281,6 +292,10 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	}); err != nil {
 		return res, err
 	}
+	if req.Shown != nil && res.Resolution.BaseTag != req.Shown.BaseTag {
+		return res, &Refusal{Reason: fmt.Sprintf("the range for %s started at %s when the suggestion was shown and now starts at %s, so the suggestion no longer applies: run release cut again",
+			req.Target, tagOrNone(req.Shown.BaseTag), tagOrNone(res.Resolution.BaseTag))}
+	}
 	if len(res.Resolution.Commits) == 0 && !req.Force {
 		if req.Named == nil {
 			return res, &NoRelease{Next: res.Resolution.Next}
@@ -338,6 +353,10 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 		Config: req.Config, Producers: producers, Redo: req.Redo, Skip: req.Skip,
 	}); err != nil {
 		return res, err
+	}
+	if req.Shown != nil && res.Changelog.Suggestion.Suggestion != req.Shown.Suggestion {
+		return res, &Refusal{Reason: fmt.Sprintf("the suggested bump for %s was %s when it was shown and is now %s, so the suggestion no longer applies: run release cut again",
+			req.Target, req.Shown.Suggestion, res.Changelog.Suggestion.Suggestion)}
 	}
 	switch res.Changelog.Outcome {
 	case changelog.NoRelease:
@@ -793,4 +812,12 @@ func (e *GitError) Error() string {
 		msg = "no output"
 	}
 	return fmt.Sprintf("git %s: exit status %d: %s", strings.Join(e.Args, " "), e.ExitCode, msg)
+}
+
+// tagOrNone renders a range start for a message: "" is no release tag.
+func tagOrNone(tag string) string {
+	if tag == "" {
+		return "no release tag"
+	}
+	return tag
 }

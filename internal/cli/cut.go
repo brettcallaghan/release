@@ -109,12 +109,13 @@ func newCutCmd(s *streams) *cobra.Command {
 				if !s.interactive || halt.OnlyNamed {
 					return s.cutHalted(asJSON, res, halt)
 				}
-				// The second call reads the authored changelog from the
-				// cache and is pinned to the first call's base, so the
-				// suggestion confirmed is the one shown: a target that
-				// moved meanwhile is a refusal.
+				// The second call is pinned to the first call's base,
+				// range start and suggested bump: a target that moved, a
+				// range that now starts at another release tag, or a
+				// changed suggestion is a refusal.
 				req.Redo = false
 				req.ExpectBase = res.Base
+				req.Shown = &cut.Shown{BaseTag: res.Resolution.BaseTag, Suggestion: halt.Suggestion.Suggestion}
 				named, accepted, perr := s.promptBump(res)
 				if perr != nil {
 					return perr

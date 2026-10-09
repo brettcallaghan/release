@@ -378,6 +378,13 @@ func (f *fixture) writeAuthored(req *Request, summary string) {
 // omit names omitted for the reasons it gives instead of cited.
 func (f *fixture) writeAuthoredOmitting(req *Request, summary string, omit map[string]string) {
 	f.t.Helper()
+	f.writeAuthoredWith(req, summary, omit, false)
+}
+
+// writeAuthoredWith is writeAuthoredOmitting, the one entry marked breaking
+// WHEN breaking is set.
+func (f *fixture) writeAuthoredWith(req *Request, summary string, omit map[string]string, breaking bool) {
+	f.t.Helper()
 	prepared, err := changelog.Prepare(context.Background(), changelog.Request{
 		Dir: f.work, Target: "main", Config: req.Config, Named: minor(), Skip: true,
 		Producers: producers.Registry(req.Config.Changelog, f.work),
@@ -396,12 +403,16 @@ func (f *fixture) writeAuthoredOmitting(req *Request, summary string, omit map[s
 		}
 		sources = append(sources, map[string]any{"__type": "Commit", "hash": ce.Record.Hash})
 	}
+	entry := map[string]any{"kind": "FEATURE", "summary": summary, "breaking": breaking, "derived": false,
+		"sources": sources}
+	if breaking {
+		entry["migration"] = "Update callers of the changed flag."
+	}
 	c := map[string]any{
 		"schema_version": "1.0.0",
-		"entries": []any{map[string]any{"kind": "FEATURE", "summary": summary, "breaking": false, "derived": false,
-			"sources": sources}},
-		"omitted": omitted,
-		"sources": prepared.Evidence.Sources,
+		"entries":        []any{entry},
+		"omitted":        omitted,
+		"sources":        prepared.Evidence.Sources,
 	}
 	data, err := json.Marshal(c)
 	if err != nil {
@@ -827,12 +838,82 @@ func TestAConfirmingCutPinnedToAnUnmovedBaseConfirmsTheShownSuggestion(t *testin
 		t.Fatalf("first cut err = %v, want a halt", err)
 	}
 	req.Config.Changelog.ProducerCommand = ptr("exit 7")
-	req.Accepted, req.ExpectBase = true, first.Base
+	req.Accepted, req.ExpectBase, req.Shown = true, first.Base, shownBy(first, h)
 	res, err := Cut(context.Background(), req)
 	if err != nil {
 		t.Fatalf("pinned cut: %v", err)
 	}
 	if d := res.Changelog.Suggestion.Decision; d == nil || d.DecidedBy != suggest.ByConfirmed || res.Changelog.Authoring.Obtained != authoring.FromCache {
 		t.Fatalf("decision %+v, obtained %v; want confirmed from the cache", d, res.Changelog.Authoring.Obtained)
+	}
+}
+
+// shownBy is what the halted first cut showed, as the interactive path pins it.
+func shownBy(first Result, h *Halt) *Shown {
+	return &Shown{BaseTag: first.Resolution.BaseTag, Suggestion: h.Suggestion.Suggestion}
+}
+
+func TestAConfirmingCutIsRefusedWhenTheRangeStartMovedSinceTheHalt(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) {
+		t.Fatalf("first cut err = %v, want a halt", err)
+	}
+	shown := shownBy(first, h)
+
+	// A release tag on an ancestor of the unchanged tip, pushed to origin: the
+	// confirming call's fetch follows it into the local repository.
+	other := filepath.Join(f.root, "other")
+	f.git(f.root, "clone", "-q", f.bare, other)
+	f.git(other, "tag", "-a", "-m", "v1.8.5", "v1.8.5", "HEAD~1")
+	f.git(other, "push", "-q", "origin", "v1.8.5")
+	tip := strings.TrimSpace(f.git(f.bare, "rev-parse", "main"))
+
+	req.Accepted, req.ExpectBase, req.Shown = true, first.Base, shown
+	_, err = Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, "v1.8.0") || !strings.Contains(r.Reason, "v1.8.5") {
+		t.Fatalf("err = %v, want a refusal naming v1.8.0 and v1.8.5", err)
+	}
+	if f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/1.9.0") || f.ghArgs() != nil {
+		t.Errorf("a refused confirmation wrote a branch or a pull request")
+	}
+	if got := strings.TrimSpace(f.git(f.bare, "rev-parse", "main")); got != tip {
+		t.Errorf("origin main = %s, want %s", got, tip)
+	}
+}
+
+func TestAConfirmingCutIsRefusedWhenTheSuggestedBumpChangedSinceTheHalt(t *testing.T) {
+	f := newFixture(t)
+	req := f.request()
+	f.writeAuthored(&req, "Compute for any release line.")
+	req.Named = nil
+	first, err := Cut(context.Background(), req)
+	var h *Halt
+	if !errors.As(err, &h) {
+		t.Fatalf("first cut err = %v, want a halt", err)
+	}
+	shown := shownBy(first, h)
+	tip := strings.TrimSpace(f.git(f.bare, "rev-parse", "main"))
+
+	// The authored changelog is rewritten over the same range with a
+	// breaking entry.
+	f.writeAuthoredWith(&req, "Compute for any release line.", nil, true)
+	req.Redo = true
+	req.Accepted, req.ExpectBase, req.Shown = true, first.Base, shown
+	_, err = Cut(context.Background(), req)
+	var r *Refusal
+	if !errors.As(err, &r) || !strings.Contains(r.Reason, "MINOR") || !strings.Contains(r.Reason, "MAJOR") {
+		t.Fatalf("err = %v, want a refusal naming MINOR and MAJOR", err)
+	}
+	if f.hasRef(f.work, "refs/heads/cut/1.9.0") || f.hasRef(f.bare, "refs/heads/cut/2.0.0") || f.ghArgs() != nil {
+		t.Errorf("a refused confirmation wrote a branch or a pull request")
+	}
+	if got := strings.TrimSpace(f.git(f.bare, "rev-parse", "main")); got != tip {
+		t.Errorf("origin main = %s, want %s", got, tip)
 	}
 }
