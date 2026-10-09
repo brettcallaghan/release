@@ -358,7 +358,7 @@ Feature: Authoring Exchange
 
   @AC-CLOG-003.11
   Scenario: Authoring can be skipped entirely
-    Given the maintainer requests a release without notes and names a bump
+    Given the maintainer requests a release without notes
     When the tooling reaches the authoring exchange
     Then the tooling invokes no configured producer and proceeds with the corpus the mechanical producer composes
 ```
