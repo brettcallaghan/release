@@ -18,8 +18,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -38,7 +40,7 @@ var installCLI = filepath.Join("..", "..", "plugin", "skills", "cut-release", "s
 var tools = []string{
 	"bash", "sh", "curl", "tar", "gzip", "sha256sum", "shasum", "awk", "sed",
 	"mkdir", "rm", "mv", "chmod", "ln", "cat", "dirname", "git", "uname",
-	"tr", "env", "sleep", "mktemp",
+	"tr", "env", "sleep",
 }
 
 // fakeAPI stands in for api.github.com and for the host its asset downloads
@@ -618,6 +620,89 @@ func TestReleaseOnPathThatBlocksFallsThroughToTheDownload(t *testing.T) {
 	if path == onPath || path != h.provisioned("release") {
 		t.Errorf("path = %s, want the downloaded release", path)
 	}
+}
+
+// pidLog wraps sleep so each one started puts its PID in a file, and returns
+// the file; alive reads it back.
+func (h *harness) pidLog() string {
+	h.t.Helper()
+	real, err := exec.LookPath("sleep")
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	log := filepath.Join(h.root, "sleep-pids")
+	h.tool("sleep", "#!/bin/sh\necho $$ >> '"+log+"'\nexec '"+real+"' \"$@\"\n")
+	return log
+}
+
+func alive(pid int) bool {
+	p, err := os.FindProcess(pid)
+	return err == nil && p.Signal(syscall.Signal(0)) == nil
+}
+
+func requireNoneAlive(t *testing.T, pidFile string) {
+	t.Helper()
+	data, _ := os.ReadFile(pidFile)
+	for _, f := range strings.Fields(string(data)) {
+		pid, err := strconv.Atoi(f)
+		if err != nil {
+			t.Fatalf("bad pid %q", f)
+		}
+		deadline := time.Now().Add(2 * time.Second)
+		for alive(pid) && time.Now().Before(deadline) {
+			time.Sleep(20 * time.Millisecond)
+		}
+		if alive(pid) {
+			t.Errorf("process %d outlived install-cli", pid)
+			p, _ := os.FindProcess(pid)
+			_ = p.Kill()
+		}
+	}
+}
+
+// A release that ignores TERM and later prints the pinned version is not
+// accepted, and nothing the probe started outlives the run.
+func TestReleaseOnPathThatIgnoresTermIsNotAccepted(t *testing.T) {
+	h := newHarness(t)
+	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "1"
+	pids := filepath.Join(h.root, "child-pids")
+	onPath := h.tool("release", "#!/bin/bash\ntrap '' TERM\nsleep 4 &\necho $! >> '"+pids+"'\nwait\necho 'release v"+pinned+"'\n")
+	sleeps := h.pidLog()
+	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+
+	start := time.Now()
+	path := h.succeed()
+	if elapsed := time.Since(start); elapsed > 3*time.Second+time.Second {
+		t.Errorf("took %v, want the probe abandoned after about 1s", elapsed)
+	}
+	if path == onPath || path != h.provisioned("release") {
+		t.Errorf("path = %s, want the downloaded release", path)
+	}
+	requireNoneAlive(t, pids)
+	requireNoneAlive(t, sleeps)
+}
+
+// A probe that answers at once leaves no sleep behind, whatever the limit.
+func TestReleaseOnPathProbeLeavesNoSleepBehind(t *testing.T) {
+	h := newHarness(t)
+	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "77"
+	onPath := h.tool("release", string(fakeRelease(pinned)))
+	sleeps := h.pidLog()
+	if path := h.succeed(); path != onPath {
+		t.Errorf("path = %s, want the release on the PATH, %s", path, onPath)
+	}
+	requireNoneAlive(t, sleeps)
+}
+
+// The probe needs no temporary file: an unwritable TMPDIR changes nothing.
+func TestReleaseOnPathIsUsedWhenTmpdirIsUnwritable(t *testing.T) {
+	h := newHarness(t)
+	h.env["TMPDIR"] = filepath.Join(h.root, "does-not-exist")
+	onPath := h.tool("release", string(fakeRelease(pinned)))
+	if path := h.succeed(); path != onPath {
+		t.Errorf("path = %s, want the release on the PATH, %s", path, onPath)
+	}
+	h.requireNoRequests()
 }
 
 func TestReleaseOnPathProbeReadsEndOfFileOnStdin(t *testing.T) {

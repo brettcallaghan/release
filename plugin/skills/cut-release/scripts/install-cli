@@ -25,7 +25,8 @@
 #
 # Test seams: INSTALL_CLI_API_URL (default https://api.github.com) and
 # INSTALL_CLI_LINK_DIR (default /usr/local/bin), and INSTALL_CLI_PROBE_TIMEOUT
-# (seconds the PATH probe of `release --version` may run, default 5).
+# (whole seconds the PATH probe of `release --version` may run before its
+# process group is killed, default 5).
 #
 # Exit status: 0 with the path as the only line of standard output; 1 with one
 # line `install-cli: <cause>. <remedy>` on standard error; 2 on bad usage.
@@ -143,26 +144,26 @@ fi
 
 # 3. On the PATH at the pinned version.
 if found="$(command -v release 2>/dev/null)" && [ -n "$found" ]; then
-  # An arbitrary `release` runs here: stdin is /dev/null and a watchdog kills
-  # the probe after the limit (no GNU timeout; macOS has none). A killed or
-  # failing probe is a version mismatch.
-  reported=""
-  probe_out="$(mktemp "${TMPDIR:-/tmp}/install-cli-probe.XXXXXX" 2>/dev/null)" || probe_out=""
-  if [ -n "$probe_out" ]; then
-    "$found" --version </dev/null >"$probe_out" 2>/dev/null &
-    probe_pid=$!
-    (
-      sleep "${INSTALL_CLI_PROBE_TIMEOUT:-5}"
-      kill "$probe_pid"
-    ) >/dev/null 2>&1 &
-    watchdog_pid=$!
-    if wait "$probe_pid" 2>/dev/null; then
-      reported="$(cat "$probe_out")"
-    fi
-    kill "$watchdog_pid" 2>/dev/null
-    wait "$watchdog_pid" 2>/dev/null
-    rm -f "$probe_out"
-  fi
+  # An arbitrary `release` runs here: stdin is /dev/null, and it runs in its
+  # own process group that the shell polls and kills with SIGKILL after the
+  # limit (no GNU timeout; macOS has none). A killed or failing probe appends
+  # a marker line, so it is a version mismatch even if it printed the version.
+  reported="$(
+    set -m
+    "$found" --version </dev/null 2>/dev/null &
+    p=$!
+    n=0
+    while kill -0 "$p" 2>/dev/null; do
+      if [ "$n" -ge "${INSTALL_CLI_PROBE_TIMEOUT:-5}" ]; then
+        kill -KILL -- "-$p" 2>/dev/null
+        echo '<timed out>'
+        break
+      fi
+      sleep 1
+      n=$((n + 1))
+    done
+    wait "$p" 2>/dev/null || echo '<failed>'
+  )"
   if [ "$reported" = "release v$version" ]; then
     printf '%s\n' "$found"
     exit 0
