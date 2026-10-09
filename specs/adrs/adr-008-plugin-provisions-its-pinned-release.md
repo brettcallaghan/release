@@ -7,13 +7,13 @@ description: When a `release` plugin skill needs the CLI, a script bundled
   provisioning at session start.
 slug: adr-008
 type: adr
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 ---
 
 # ADR-008: The Plugin Provisions Its Pinned Release
 
-**Status:** draft
+**Status:** approved
 **Date:** 2026-10-08
 
 ## Context

@@ -6,7 +6,7 @@ description: Delivering the release CLI through the `release` agent plugin —
   standards built in.
 slug: frd-plugin-distribution
 type: frd
-status: draft
+status: approved
 updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-008

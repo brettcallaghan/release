@@ -12,4 +12,4 @@ libraries and language toolchains.
 | [ADR-005](adr-005-composable-release-tool.md) | A Composable Library With a Thin CLI | approved |
 | [ADR-006](adr-006-git-through-the-git-binary.md) | Git Through the Git Binary | approved |
 | [ADR-007](adr-007-go-for-the-release-cli.md) | Go for the Release CLI | approved |
-| [ADR-008](adr-008-plugin-provisions-its-pinned-release.md) | The Plugin Provisions Its Pinned Release | draft |
+| [ADR-008](adr-008-plugin-provisions-its-pinned-release.md) | The Plugin Provisions Its Pinned Release | approved |
