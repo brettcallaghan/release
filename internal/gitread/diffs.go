@@ -311,7 +311,24 @@ func excluded(p string, entries []string) bool {
 		if p == e || strings.HasSuffix(e, "/") && strings.HasPrefix(p, e) {
 			return true
 		}
+		if strings.HasSuffix(e, "/") && strings.ContainsAny(e, "*?[") {
+			if underGlobDir(strings.Split(strings.TrimSuffix(e, "/"), "/"), strings.Split(p, "/")) {
+				return true
+			}
+			continue
+		}
 		if matchSegments(strings.Split(e, "/"), strings.Split(p, "/")) {
+			return true
+		}
+	}
+	return false
+}
+
+// underGlobDir reports whether some leading run of the path's directories
+// (never the file name) matches the directory glob dir.
+func underGlobDir(dir, segs []string) bool {
+	for k := 1; k < len(segs); k++ {
+		if matchSegments(dir, segs[:k]) {
 			return true
 		}
 	}

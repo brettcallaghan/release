@@ -139,6 +139,12 @@ func TestExcludedMatching(t *testing.T) {
 		{"*.golden", "dir/a.golden", false},
 		{"a/**/**/b", "a/b", true},
 		{"[", "x", false},
+		{"testdata/**/expected/", "testdata/cases/a/expected/stdout.txt", true},
+		{"testdata/**/expected/", "testdata/expected/x", true},
+		{"testdata/**/expected/", "testdata/cases/a/expected", false},
+		{"testdata/**/expected/", "internal/x/testdata/c/expected/y", false},
+		{"vendor/", "vendor/x.go", true},
+		{"**/go.sum", "a/b/go.sum", true},
 	} {
 		if got := excluded(tc.path, []string{tc.entry}); got != tc.want {
 			t.Errorf("excluded(%q, %q) = %v, want %v", tc.path, tc.entry, got, tc.want)
@@ -380,5 +386,24 @@ func TestDiffsErrors(t *testing.T) {
 	}
 	if got := splitSections(""); got != nil {
 		t.Errorf("splitSections(empty) = %v", got)
+	}
+}
+
+func TestDiffsDefaultExcludeSkipsGoldenSnapshots(t *testing.T) {
+	f := newFixture(t)
+	f.write("testdata/cases/a/expected/stdout.txt", "one\n")
+	f.write("src/main.go", "package main\n")
+	f.commitAll("base")
+	f.write("testdata/cases/a/expected/stdout.txt", "one\ntwo\n")
+	f.write("src/main.go", "package main\n// x\n")
+	f.commitAll("change")
+	c := f.head()
+	recs, rep := f.diffs([]string{c}, []string{"testdata/**/expected/"}, 1<<20)
+	if _, ok := fileNamed(recs[0], "testdata/cases/a/expected/stdout.txt"); ok {
+		t.Error("the golden snapshot's patch was carried")
+	}
+	want := releasemodel.OmittedDiff{Commit: c, Path: "testdata/cases/a/expected/stdout.txt", Reason: releasemodel.OmissionReasonExcluded}
+	if len(rep.Omitted) != 1 || rep.Omitted[0] != want {
+		t.Errorf("omitted = %+v, want [%+v]", rep.Omitted, want)
 	}
 }
