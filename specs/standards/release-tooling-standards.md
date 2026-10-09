@@ -2,12 +2,13 @@
 title: Release Tooling Standards
 description: What the release tooling guarantees and validates — stage
   branch and release commit shape, pre-publication verification, version
-  computation, and its configuration surface.
+  computation, bump suggestion and confirmation, and its configuration
+  surface.
 slug: release-tooling-standards
 type: standards
 status: approved
-updated_at: 2026-10-08T00:00:00Z
-version: "0.4"
+updated_at: 2026-10-09T00:00:00Z
+version: "0.5"
 ---
 
 # Release Tooling Standards
@@ -95,6 +96,16 @@ stage branches or fire a release from a protected-branch push.
 
 ---
 
+**RTS-034:** A release commit SHALL carry the confirmed bump of the release it
+records as a `Release-Type:` trailer.
+
+**Rationale:** A bump confirmed by a person, or named by a maintainer, exists
+nowhere else in git. Recording it on the release commit keeps the published
+version recomputable and checkable from a clone without re-running a model
+([[adr-003]]).
+
+---
+
 ## Version Computation
 
 **RTS-010:** The release tooling SHALL compute the base version from the
@@ -106,30 +117,49 @@ and no per-major query is needed.
 
 ---
 
-**RTS-011:** The release tooling SHALL compute the version bump
-deterministically from commit metadata.
+**RTS-011:** The release tooling SHALL compute the signal floor of a range
+deterministically from the explicit records its commits carry in git:
+`Release-Type:` trailers, conventional-commit types and breaking-change
+markers, and SHALL report the commits that carry none of them as
+unclassified.
+
+**Rationale:** Each of these records is written by a person and reaches git
+with the commit, so the floor needs no model and no network to reproduce. A
+commit may carry none of them; the suggested bump of RTS-014 covers such a
+commit, and reporting it shows what the floor did not see.
 
 ---
 
-**RTS-012:** The release tooling SHALL NOT require a bump signal that lives
+**RTS-012:** The release tooling SHALL NOT read a bump signal that lives
 outside the repository's git history.
 
 **Rationale:** A version must be derivable from a clone, so that it is
-reproducible offline and checkable by a reviewer who has nothing else.
+reproducible offline and checkable by a reviewer who has nothing else. This
+rules out pull request labels and other hosting-platform state as signals.
 
 ---
 
 **RTS-013:** The release tooling SHALL NOT derive a version number from a
-language model's output.
+language model's output that no person has confirmed.
+
+**Rationale:** A model's output varies between runs. A suggested bump becomes
+a version only through a person's confirmation, recorded as the
+`Release-Type:` trailer of RTS-034 on the release commit ([[adr-003]]).
 
 ---
 
-**RTS-014:** WHEN an authored proposal disagrees with the computed bump,
-the release tooling SHALL halt and require human confirmation.
+**RTS-014:** The release tooling SHALL derive a suggested bump from the
+entry kinds of the authored changelog — major WHEN any entry is breaking, else
+minor WHEN any entry is a feature, else patch WHEN any entry is a fix, a
+performance change, a refactoring or a revert, else none — raised to the signal floor
+of RTS-011 WHERE the floor is higher, and SHALL show the suggestion and its
+reasons to a person before it pushes a stage branch.
 
-**Rationale:** Disagreement usually means a change was mis-typed or
-mis-trailered, which is the failure the deterministic classifier cannot
-detect on its own ([[adr-003]]).
+**Rationale:** The changelog is the model's reading of the evidence, so the
+suggestion follows from what it says changed. The floor keeps an explicit
+record in git from being outvoted by the model. The reasons — the entries that
+drove the suggestion, and whether the floor raised it — are what let a person
+confirm it, or notice that it is wrong, before the version is fixed.
 
 ---
 
@@ -166,16 +196,49 @@ produce version 1.0.0.
 
 ---
 
-**RTS-020:** WHERE no releasable change exists since the latest reachable
-tag, the release tooling SHALL refuse to create a stage branch unless the
-maintainer names a bump and explicitly forces the release. A releasable
-change is a commit that indicates an impact of patch or above through an
-enabled signal; a range with no commits holds none.
+**RTS-020:** WHERE no releasable change (RTS-037) exists since the latest
+reachable tag, the release tooling SHALL refuse to create a stage branch
+unless the maintainer names a bump and explicitly forces the release. WHERE
+the range is releasable only because an entry has no kind and the suggested
+bump is none, the release tooling SHALL halt for a named bump, SHALL NOT
+accept the suggestion in place of one, and SHALL NOT require a force for
+it.
 
 **Rationale:** A named bump states the impact but not that anything
-changed. Staging it over an empty range publishes a release with nothing in
-it, which is usually a mistake, and occasionally intended (a rebuild, or a
-release of changes that carry no signal).
+changed. Staging it over a range with nothing releasable publishes a release
+with nothing in it, which is usually a mistake, and occasionally intended (a
+rebuild).
+
+---
+
+**RTS-036:** WHEN no bump is named, the release tooling SHALL halt before it
+pushes a stage branch until a person confirms the suggested bump, by
+answering an interactive prompt or by accepting the suggestion explicitly.
+WHEN a named bump is below the signal floor, the release tooling SHALL refuse
+it unless the release is forced. WHEN a named bump is below the suggested bump
+but not below the signal floor, the release tooling SHALL warn and proceed.
+
+**Rationale:** Without a confirmation the version would depend on a model's
+judgement that nobody checked. Non-interactively the tooling stops with the
+suggestion and its reasons, so an agent confirms after showing them to the
+person it acts for. A named bump is a person's decision, so it overrides the
+suggestion with a warning; overriding an explicit record in git takes a
+deliberate force.
+
+---
+
+**RTS-037:** The release tooling SHALL treat a range as holding a releasable
+change WHEN its suggested bump (RTS-014), the signal floor included, is patch
+or above, or WHEN any entry of the authored changelog has no kind. A range
+with no commits holds none.
+
+**Rationale:** Many commits carry no signal at all, so the signals alone
+under-report what changed; the entries' kinds say what the producer read.
+An entry with no kind is a change the producer could not classify, which
+only the mechanical producer writes, for a commit whose subject is not a
+conventional commit: it may matter to a user, so a person names its bump.
+A range of documentation and chore entries alone, or of omitted commits
+alone, holds nothing to release.
 
 ---
 
@@ -277,7 +340,7 @@ format.
   branching topology is policy rather than tooling
 - [[adr-002]] — stage branches as the release trigger, verified
   independently of the branch name
-- [[adr-003]] — deterministic bump computation with authored prose
+- [[adr-003]] — AI-authored changelog with a suggested, confirmed bump
 - [[repository-release-policy]] — the branching, support and readiness
   policy a project chooses
 - [[cli-distribution-policy]] — artifact publication and distribution

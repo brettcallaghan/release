@@ -2,13 +2,13 @@
 title: Repository Release Policy
 description: The release choices a project makes for itself — which
   branches are release lines, how long majors are supported, how fixes
-  propagate, what readiness means, and how versions relate across
-  artifacts.
+  propagate, what readiness means, how squash merges carry evidence, and
+  how versions relate across artifacts.
 slug: repository-release-policy
 type: standards
 status: approved
-updated_at: 2026-10-07T00:00:00Z
-version: "0.1"
+updated_at: 2026-10-09T00:00:00Z
+version: "0.2"
 ---
 
 # Repository Release Policy
@@ -195,6 +195,23 @@ change landed in the interim.
 
 ---
 
+## Squash Merges
+
+A squash commit that carries its pull request's title and description gives
+the release tooling the pull request's own account of the change as commit
+evidence ([[adr-003]]).
+
+**RRP-036:** A project SHOULD configure squash merges into a release line to
+use the pull request title and description as the commit message.
+
+**Rationale:** The squash commit is the only record of a pull request that
+git keeps. Its description becomes commit-body evidence for the model that
+authors the changelog, which then writes from the author's stated intent as
+well as the diff. A commit body made of the branch's commit messages still
+releases; the changelog has less to work from.
+
+---
+
 ## Version Relationships
 
 **RRP-022:** A project SHALL declare whether the artifacts it publishes
@@ -348,6 +365,8 @@ version.
 - [[adr-001]] — the tooling is branch-agnostic; the default branch is the
   default release line
 - [[adr-002]] — stage branches as the release trigger
+- [[adr-003]] — the changelog is authored from commit evidence, including
+  the pull request description a squash commit carries
 - [[release-tooling-standards]] — what the tooling enforces, as distinct
   from what a project chooses
 - [[cli-distribution-policy]] — the distribution half of a project's

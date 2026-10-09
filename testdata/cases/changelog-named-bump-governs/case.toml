@@ -1,4 +1,4 @@
-description = "naming the computed bump confirms it: a disagreeing major proposal is advisory and the version comes from the named bump"
+description = "naming the bump confirms it: a breaking entry in the authored changelog does not move the version, which comes from the named bump"
 cites = ["AC-CLOG-003.5"]
 git = [
   ["init", "-q", "-b", "main"],

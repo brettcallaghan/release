@@ -1,1 +1,1 @@
-release changelog: the command producer failed: it wrote no corpus to standard output
+release changelog: the command producer failed: it wrote no changelog to standard output; pass --skip-notes to author the changelog with the mechanical producer

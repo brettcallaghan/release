@@ -1,12 +1,19 @@
 package main_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/brettcallaghan/release/internal/authoring/producers"
+	"github.com/brettcallaghan/release/internal/changelog"
+	"github.com/brettcallaghan/release/internal/config"
+	"github.com/brettcallaghan/release/internal/releasemodel"
 )
 
 // changelogFixture is a repository released at v1.8.0 with a feature and a
@@ -14,7 +21,7 @@ import (
 // with .git/authored.json and records each run in .git/runs.log. The
 // configuration is committed and the producer's files live under .git, so
 // the tree is clean.
-func changelogFixture(t *testing.T, proposed string) string {
+func changelogFixture(t *testing.T) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not on PATH")
@@ -27,7 +34,7 @@ func changelogFixture(t *testing.T, proposed string) string {
 	fixtureGit(t, dir, "tag", "-a", "-m", "v1.8.0", "v1.8.0")
 	fixtureGit(t, dir, "commit", "-q", "--allow-empty", "-m", "feat: add a --target flag (#12)")
 	fixtureGit(t, dir, "commit", "-q", "--allow-empty", "-m", "fix(cli): handle empty input (#11)")
-	writeAuthored(t, dir, proposed, "Compute for any release line.")
+	writeAuthored(t, dir, "Compute for any release line.", false)
 	return dir
 }
 
@@ -38,29 +45,63 @@ func writeFile(t *testing.T, dir, name, content string) {
 	}
 }
 
-// writeAuthored writes the corpus the producer answers with: proposing
-// proposed, with summary as the feature's prose.
-func writeAuthored(t *testing.T, dir, proposed, summary string) {
+// writeAuthored writes the changelog the producer answers with: an entry
+// for each commit in the range, citing it and its pull request, with summary
+// as the feature's prose. breaking marks the feature breaking, with a
+// migration.
+func writeAuthored(t *testing.T, dir, summary string, breaking bool) {
 	t.Helper()
-	c := map[string]any{
-		"schema_version": "1.0.0",
-		"proposed_bump":  proposed,
-		"entries": []any{
-			map[string]any{"kind": "FEATURE", "summary": summary, "breaking": false, "derived": false,
-				"sources": []any{map[string]any{"__type": "PullRequest", "number": 12}}},
-			map[string]any{"kind": "FIX", "scope": "cli", "summary": "handle empty input", "breaking": false, "derived": true,
-				"sources": []any{map[string]any{"__type": "PullRequest", "number": 11}}},
-		},
-		// The range the assembled corpus records, which a producer carries.
-		"sources": []any{map[string]any{"adapter": "COMMITS",
-			"from": strings.TrimSpace(gitOut(t, dir, "rev-parse", "v1.8.0^{commit}")),
-			"to":   strings.TrimSpace(gitOut(t, dir, "rev-parse", "HEAD"))}},
+	ev := evidenceAt(t, dir)
+	entries := []any{}
+	for _, ce := range ev.Commits {
+		e := map[string]any{"breaking": false, "derived": false, "sources": citing(ce)}
+		switch {
+		case strings.HasPrefix(ce.Record.Subject, "feat"):
+			e["kind"], e["summary"] = "FEATURE", summary
+			if breaking {
+				e["breaking"], e["migration"] = true, "Pass --target explicitly."
+			}
+		case strings.HasPrefix(ce.Record.Subject, "fix"):
+			e["kind"], e["scope"], e["summary"] = "FIX", "cli", "Handle empty input."
+		default:
+			t.Fatalf("no entry for %q", ce.Record.Subject)
+		}
+		entries = append(entries, e)
 	}
-	data, err := json.Marshal(c)
+	data, err := json.Marshal(map[string]any{
+		"schema_version": "1.0.0",
+		"entries":        entries,
+		// The bundle's sources, which a producer carries through.
+		"sources": ev.Sources,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, dir, filepath.Join(".git", "authored.json"), string(data))
+}
+
+// evidenceAt is the evidence bundle the release core builds for main in
+// dir under the default configuration.
+func evidenceAt(t *testing.T, dir string) releasemodel.Evidence {
+	t.Helper()
+	cfg := config.Default()
+	res, err := changelog.Prepare(context.Background(), changelog.Request{
+		Dir: dir, Target: "main", Config: cfg, Skip: true, Producers: producers.Registry(cfg.Changelog, dir),
+	})
+	if err != nil {
+		t.Fatalf("building the evidence: %v", err)
+	}
+	return res.Evidence
+}
+
+// citing is the sources an entry for one commit cites: its pull request,
+// WHEN it carries one, and the commit.
+func citing(ce releasemodel.CommitEvidence) []any {
+	sources := []any{}
+	if pr := ce.Record.PullRequest; pr != nil {
+		sources = append(sources, map[string]any{"__type": "PullRequest", "number": pr.Number})
+	}
+	return append(sources, map[string]any{"__type": "Commit", "hash": ce.Record.Hash})
 }
 
 // producerRuns is how many times the producer command has run.
@@ -80,8 +121,6 @@ type changelogAnswer struct {
 	Version    string  `json:"version"`
 	CorpusPath *string `json:"corpus_path"`
 	Section    string  `json:"section"`
-	Computed   string  `json:"computed"`
-	Proposed   string  `json:"proposed"`
 }
 
 func changelogJSON(t *testing.T, dir string, args ...string) (changelogAnswer, string, int) {
@@ -96,33 +135,16 @@ func changelogJSON(t *testing.T, dir string, args ...string) (changelogAnswer, s
 	return a, stderr, code
 }
 
-// AC: AC-CLOG-003.4
-func TestADisagreementHaltsForConfirmation(t *testing.T) {
-	dir := changelogFixture(t, "MAJOR")
-	a, stderr, code := changelogJSON(t, dir, "--write")
-	if code != 1 {
-		t.Fatalf("exit = %d, want 1\n%s", code, stderr)
-	}
-	if a.Computed != "minor" || a.Proposed != "major" || a.Section != "" || a.Version != "" {
-		t.Errorf("answer = %+v, want computed minor and proposed major, and no section", a)
-	}
-	if !strings.Contains(stderr, "release changelog minor") {
-		t.Errorf("stderr does not say how to confirm:\n%s", stderr)
-	}
-	if status := gitOut(t, dir, "status", "--porcelain"); status != "" {
-		t.Errorf("a halted run changed the tree, --write notwithstanding:\n%s", status)
-	}
-}
-
 // AC: AC-CLOG-003.5
-func TestAProposalNeverDeterminesTheVersion(t *testing.T) {
-	dir := changelogFixture(t, "MAJOR")
+func TestABreakingEntryNeverDeterminesTheVersion(t *testing.T) {
+	dir := changelogFixture(t)
+	writeAuthored(t, dir, "Compute for any release line.", true)
 	a, stderr, code := changelogJSON(t, dir, "minor", "--write")
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0\n%s", code, stderr)
 	}
 	if a.Version != "1.9.0" || !strings.HasPrefix(a.Section, "## 1.9.0\n") {
-		t.Errorf("version = %q, section heading %q; want 1.9.0 from the confirmed minor, not 2.0.0 from the proposal", a.Version, firstLine(a.Section))
+		t.Errorf("version = %q, section heading %q; want 1.9.0 from the confirmed minor, not 2.0.0 from the breaking entry", a.Version, firstLine(a.Section))
 	}
 	written, err := os.ReadFile(filepath.Join(dir, "CHANGELOG.md"))
 	if err != nil {
@@ -143,16 +165,16 @@ func firstLine(s string) string {
 
 // AC: AC-CLOG-003.10
 func TestACachedCorpusCanBeDiscarded(t *testing.T) {
-	dir := changelogFixture(t, "MINOR")
+	dir := changelogFixture(t)
 	first, stderr, code := changelogJSON(t, dir)
 	if code != 0 {
 		t.Fatalf("first run: exit = %d\n%s", code, stderr)
 	}
-	if first.CorpusPath == nil || !strings.HasPrefix(*first.CorpusPath, ".git/release/corpus/") {
-		t.Fatalf("corpus_path = %v, want the cache under .git/release/corpus/", first.CorpusPath)
+	if first.CorpusPath == nil || !strings.HasPrefix(*first.CorpusPath, ".git/release/changelog/") {
+		t.Fatalf("corpus_path = %v, want the cache under .git/release/changelog/", first.CorpusPath)
 	}
 
-	writeAuthored(t, dir, "MINOR", "Freshly authored prose.")
+	writeAuthored(t, dir, "Freshly authored prose.", false)
 	again, _, _ := changelogJSON(t, dir)
 	if producerRuns(t, dir) != 1 || strings.Contains(again.Section, "Freshly") {
 		t.Errorf("without --redo-notes: %d producer runs, section\n%s\nwant 1 run and the cached prose", producerRuns(t, dir), again.Section)
@@ -177,7 +199,7 @@ func TestACachedCorpusCanBeDiscarded(t *testing.T) {
 
 // AC: AC-CLOG-003.11
 func TestAuthoringCanBeSkipped(t *testing.T) {
-	dir := changelogFixture(t, "MINOR")
+	dir := changelogFixture(t)
 	writeFile(t, dir, "release.toml", "[changelog]\nproducer = \"command\"\nproducer_command = \"echo run >> .git/runs.log; exit 7\"\n")
 	a, stderr, code := changelogJSON(t, dir, "minor", "--skip-notes")
 	if code != 0 {
@@ -189,7 +211,9 @@ func TestAuthoringCanBeSkipped(t *testing.T) {
 	if a.CorpusPath != nil {
 		t.Errorf("corpus_path = %q, want null: nothing was authored", *a.CorpusPath)
 	}
-	if !strings.Contains(a.Section, "- add a --target flag (#12)") || !strings.Contains(a.Section, "- **cli:** handle empty input (#11)") {
-		t.Errorf("section =\n%s\nwant the mechanically assembled entries", a.Section)
+	feature := regexp.MustCompile(`(?m)^- add a --target flag \([0-9a-f]{7}, #12\)$`)
+	fix := regexp.MustCompile(`(?m)^- \*\*cli:\*\* handle empty input \([0-9a-f]{7}, #11\)$`)
+	if !feature.MatchString(a.Section) || !fix.MatchString(a.Section) {
+		t.Errorf("section =\n%s\nwant the mechanical producer's entries", a.Section)
 	}
 }

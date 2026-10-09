@@ -9,5 +9,11 @@
       "signal": "conventional-type"
     }
   ],
+  "unclassified": [
+    {
+      "hash": "5dacea6a39f9a4e64d7607aee0c2a32265a18944",
+      "subject": "docs: describe the flag"
+    }
+  ],
   "next": "1.9.0"
 }

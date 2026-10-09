@@ -1,5 +1,5 @@
-description = "with --skip-notes and a named bump, the mechanically assembled corpus is rendered and no producer runs"
-cites = ["AC-CLOG-003.11", "AC-CLOG-002.2", "AC-CLOG-002.3"]
+description = "with --skip-notes and a named bump, the configured producer never runs: the mechanical producer derives one entry from each commit's subject, and a commit with no conventional type renders under the other heading; the suggestion is the signal floor, and standard error says no producer read the diffs"
+cites = ["AC-CLOG-003.11", "AC-CLOG-004.10", "AC-CLOG-004.14", "contract-release-cli#release-changelog-bump"]
 git = [
   ["init", "-q", "-b", "main"],
   ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
@@ -7,6 +7,7 @@ git = [
   ["commit", "-q", "--allow-empty", "-m", "fix(cli): handle empty input (#11)"],
   ["commit", "-q", "--allow-empty", "--cleanup=verbatim", "-m", "feat: add a --target flag (#12)\n\n## Summary\n\nReviewers: see the tests.\n\n## Release notes\n\nA maintainer can compute a version for **any** release line.\n\nPass `--target <branch>`; it defaults to the configured target."],
   ["commit", "-q", "--allow-empty", "-m", "docs: describe the flag"],
+  ["commit", "-q", "--allow-empty", "-m", "Tidy the help text"],
 ]
 args = ["changelog", "minor", "--skip-notes", "--target", "main"]
 exit_code = 0

@@ -1,14 +1,34 @@
 version: 1.9.0
+bump: minor
+named: true
+suggested: minor
+floor: minor
+reasons:
+  - kind: feature
+    breaking: false
+    scope: null
+    summary: add a --target flag
+    sources:
+      - 238393dee49924ef28901ac042110166d4739c49
+      - "#12"
+raised_by_floor: false
+unclassified:
+  - hash: 3bbe59ce27c989415b1b1560fc129fb56a346367
+    subject: Tidy the help text
+  - hash: 53b6ea9aa35aa95ab7d00846da292db29f5ac460
+    subject: "docs: describe the flag"
 corpus_path: null
 section: |-
   ## 1.9.0
 
   ### Features
 
-  - A maintainer can compute a version for **any** release line. (#12)
-
-    Pass `--target <branch>`; it defaults to the configured target.
+  - add a --target flag (238393d, #12)
 
   ### Fixes
 
-  - **cli:** handle empty input (#11)
+  - **cli:** handle empty input (e48de63, #11)
+
+  ### Other changes
+
+  - Tidy the help text (3bbe59c)

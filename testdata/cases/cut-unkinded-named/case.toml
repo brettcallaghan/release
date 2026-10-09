@@ -1,0 +1,15 @@
+description = "a named minor answers the halt for an entry with no kind without --force: no commit carries a signal, and the release is staged"
+cites = ["AC-STG-001.18", "contract-release-cli#release-cut-bump"]
+git = [
+  ["init", "-q", "-b", "main"],
+  ["commit", "-q", "--allow-empty", "-m", "Initial commit"],
+  ["tag", "-a", "-m", "v1.8.0", "v1.8.0"],
+  ["commit", "-q", "--allow-empty", "-m", "Tidy the help text"],
+  ["init", "-q", "--bare", "-b", "main", ".git/origin.git"],
+  ["remote", "add", "origin", ".git/origin.git"],
+  ["push", "-q", "origin", "main", "--tags"],
+  ["remote", "set-head", "origin", "main"],
+]
+args = ["cut", "minor", "--skip-notes", "--dry-run"]
+exit_code = 0
+artifacts = ["stdout.txt", "stderr.txt"]

@@ -1,0 +1,2 @@
+release changelog: warning: the named bump patch is below the suggested bump minor; these entries drove the suggestion:
+  - The --verbose flag prints each step as it runs.

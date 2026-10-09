@@ -1,0 +1,169 @@
+"""
+The evidence a producer authors a release's changelog from.
+
+The tooling builds an Evidence instance and a producer reads it; a producer
+never builds one. It states what git said without interpreting it.
+"""
+struct Evidence {
+    """
+    Version of this schema that the instance conforms to.
+    """
+    schema_version: String
+
+    """
+    What the bundle is evidence for.
+    """
+    purpose: EvidencePurpose
+
+    """
+    The commit range the bundle covers.
+    """
+    range: Range
+
+    """
+    The version the range starts from, without a tag prefix. Absent for a
+    release line with no release yet.
+    """
+    base_version: String?
+
+    """
+    The commits in the range, oldest first.
+    """
+    commits: [CommitEvidence]
+
+    """
+    The adapters that contributed material to the bundle.
+    """
+    sources: [AdapterRun]
+
+    """
+    How much patch text the bundle carries against its limit.
+    """
+    budget: BudgetReport
+}
+
+"""
+What a bundle is evidence for.
+"""
+enum EvidencePurpose {
+    """
+    A release's changelog.
+    """
+    RELEASE
+}
+
+"""
+The commit range a bundle covers.
+"""
+struct Range {
+    """
+    The full hash of the base commit. Absent for a release line with no
+    release yet, whose range starts at its root.
+    """
+    from: String?
+
+    """
+    The full hash of the head commit.
+    """
+    to: String
+}
+
+"""
+Everything the bundle holds about one commit.
+"""
+struct CommitEvidence {
+    """
+    The commit record: hash, subject, body, trailers, author and files.
+    """
+    record: CommitRecord
+
+    """
+    The parsed conventional subject, where the subject is one.
+    """
+    conventional: Conventional?
+
+    """
+    The pull request the commit carries, where it carries one.
+    """
+    pull_request: PullRequestInfo?
+
+    """
+    The commit's diff. Absent WHEN the Diff Collector did not run.
+    """
+    diff: DiffRecord?
+
+    """
+    The classifier's reading of the commit. Absent when unclassified.
+    """
+    signal: Bump?
+}
+
+"""
+How much patch text a bundle carries against its limit.
+"""
+struct BudgetReport {
+    """
+    Bytes of patch text permitted.
+    """
+    limit: Int
+
+    """
+    Bytes of patch text before the budget applied.
+    """
+    total: Int
+
+    """
+    Bytes of patch text carried.
+    """
+    used: Int
+
+    """
+    The patches the budget left out or cut.
+    """
+    omitted: [OmittedDiff]
+}
+
+"""
+A patch the bundle left out or cut.
+"""
+struct OmittedDiff {
+    """
+    The commit the patch belongs to.
+    """
+    commit: String
+
+    """
+    The file the patch is of.
+    """
+    path: String
+
+    """
+    Why the patch is not carried whole.
+    """
+    reason: OmissionReason
+
+    """
+    Whether part of the patch was carried.
+    """
+    truncated: Bool
+}
+
+"""
+Why a patch is not carried whole.
+"""
+enum OmissionReason {
+    """
+    The path matches a configured diff exclusion.
+    """
+    EXCLUDED
+
+    """
+    The file is binary.
+    """
+    BINARY
+
+    """
+    The release's patch budget ran out.
+    """
+    OVER_BUDGET
+}

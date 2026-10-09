@@ -56,7 +56,10 @@ func TestUnconfiguredValuesTakeTheirDocumentedDefaults(t *testing.T) {
 			OtherHeading:    "Other changes",
 			BreakingHeading: "Breaking changes",
 			Producer:        "claude",
+			DiffBudget:      DiffBudget{Release: 204800},
+			DiffExclude:     DefaultDiffExclude(),
 		},
+		Adapters: Adapters{Diffs: true},
 	}
 	if !reflect.DeepEqual(d, want) {
 		t.Errorf("Default() = %+v\nwant %+v", d, want)
@@ -327,8 +330,8 @@ func TestAuthoringSettingsDefaults(t *testing.T) {
 	if d.Changelog.ProducerCommand != nil {
 		t.Errorf("changelog.producer_command default = %q, want unset", *d.Changelog.ProducerCommand)
 	}
-	if d.Adapters.PullRequests || d.Adapters.Diffs {
-		t.Errorf("adapters default = %+v, want both off", d.Adapters)
+	if d.Adapters.PullRequests || !d.Adapters.Diffs {
+		t.Errorf("adapters default = %+v, want diffs on and pull requests off", d.Adapters)
 	}
 }
 
@@ -346,7 +349,9 @@ func TestAuthoringSettingsRefusals(t *testing.T) {
 		}, "changelog.producer_command is unset"},
 		{"unknown producer", func(c *Config) { c.Changelog.Producer = "gpt" }, `changelog.producer names "gpt"`},
 		{"pull request adapter", func(c *Config) { c.Adapters.PullRequests = true }, "adapters.pull_requests is on"},
-		{"diff adapter", func(c *Config) { c.Adapters.Diffs = true }, "adapters.diffs is on"},
+		{"zero diff budget", func(c *Config) { c.Changelog.DiffBudget.Release = 0 }, "changelog.diff_budget.release"},
+		{"negative diff budget", func(c *Config) { c.Changelog.DiffBudget.Release = -1 }, "changelog.diff_budget.release"},
+		{"malformed diff exclusion", func(c *Config) { c.Changelog.DiffExclude = []string{"a/[b"} }, `changelog.diff_exclude glob "a/[b"`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -363,5 +368,105 @@ func TestAuthoringSettingsRefusals(t *testing.T) {
 	c.Changelog.Producer, c.Changelog.ProducerCommand = "command", &cmd
 	if err := c.Validate(); err != nil {
 		t.Errorf("command producer with a command is refused: %v", err)
+	}
+}
+
+// AC: AC-CFG-003.1
+func TestEvidenceSettingDefaults(t *testing.T) {
+	d := Default()
+	if d.Changelog.DiffBudget.Release != 204800 || !d.Adapters.Diffs || d.Adapters.PullRequests {
+		t.Errorf("defaults = %+v %+v, want 204800, diffs on, pull requests off", d.Changelog.DiffBudget, d.Adapters)
+	}
+}
+
+// AC: AC-CFG-003.2
+func TestDefaultDiffExclusions(t *testing.T) {
+	want := []string{"**/go.sum", "**/package-lock.json", "**/yarn.lock", "**/pnpm-lock.yaml", "**/Cargo.lock", "**/poetry.lock", "vendor/", "testdata/**/expected/"}
+	if got := Default().Changelog.DiffExclude; !reflect.DeepEqual(got, want) {
+		t.Errorf("diff_exclude = %v, want %v", got, want)
+	}
+	if err := Default().Validate(); err != nil {
+		t.Errorf("the defaults are refused: %v", err)
+	}
+}
+
+// AC: AC-CFG-003.7
+func TestAMalformedDiffExclusionIsRefusedNamingTheGlob(t *testing.T) {
+	c := Default()
+	c.Changelog.DiffExclude = []string{"**/ok", "src/[x"}
+	got := reasons(t, c)
+	if len(got) != 1 || !strings.Contains(got[0], `"src/[x"`) {
+		t.Errorf("reasons = %q, want one naming src/[x", got)
+	}
+}
+
+// AC: AC-CFG-003.8
+func TestThePullRequestAdapterIsRefusedNamingTheSetting(t *testing.T) {
+	c := Default()
+	c.Adapters.PullRequests = true
+	got := reasons(t, c)
+	if len(got) != 1 || !strings.Contains(got[0], "adapters.pull_requests") {
+		t.Errorf("reasons = %q, want one naming adapters.pull_requests", got)
+	}
+}
+
+// AC: AC-CFG-004.1
+func TestEveryProducerNameIsAccepted(t *testing.T) {
+	cmd := "./author.sh"
+	for _, name := range []string{"claude", "command", "mechanical"} {
+		c := Default()
+		c.Changelog.Producer, c.Changelog.ProducerCommand = name, &cmd
+		if err := c.Validate(); err != nil {
+			t.Errorf("producer %q is refused: %v", name, err)
+		}
+	}
+}
+
+// AC: AC-CFG-004.2
+func TestTheDefaultProducerIsClaude(t *testing.T) {
+	if got := Default().Changelog.Producer; got != "claude" {
+		t.Errorf("producer = %q, want claude", got)
+	}
+}
+
+// AC: AC-CFG-004.5
+func TestAnUnusableProducerSettingIsRefused(t *testing.T) {
+	for name, mutate := range map[string]func(*Config){
+		"no producer":               func(c *Config) { c.Changelog.Producer = "" },
+		"command without a command": func(c *Config) { c.Changelog.Producer = "command" },
+	} {
+		c := Default()
+		mutate(&c)
+		if len(reasons(t, c)) == 0 {
+			t.Errorf("%s: accepted; want a refusal", name)
+		}
+	}
+}
+
+// AC: AC-CFG-004.6
+func TestEverySignalIsEnabledByDefault(t *testing.T) {
+	want := []string{"release-type", "conventional-type", "breaking-marker"}
+	if got := Default().Signals; !reflect.DeepEqual(got, want) {
+		t.Errorf("signals = %v, want %v", got, want)
+	}
+}
+
+// AC: AC-CFG-004.8
+func TestAnUnknownSignalIsRefusedNamingIt(t *testing.T) {
+	c := Default()
+	c.Signals = []string{"issue-label"}
+	got := reasons(t, c)
+	if len(got) != 1 || !strings.Contains(got[0], `"issue-label"`) {
+		t.Errorf("reasons = %q, want one naming issue-label", got)
+	}
+}
+
+func TestRefusalsAreReportedTogether(t *testing.T) {
+	c := Default()
+	c.Changelog.DiffBudget.Release = 0
+	c.Changelog.DiffExclude = []string{"[x"}
+	c.Adapters.PullRequests = true
+	if got := reasons(t, c); len(got) != 3 {
+		t.Errorf("reasons = %q, want three", got)
 	}
 }

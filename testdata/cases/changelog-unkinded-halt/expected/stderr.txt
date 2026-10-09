@@ -1,0 +1,2 @@
+release changelog: the authored changelog suggests no bump, but these entries carry no kind, so only a named bump can release them; name it (release changelog <major|minor|patch>):
+  - Tidy the help text

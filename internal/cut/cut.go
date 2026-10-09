@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/brettcallaghan/release/internal/authoring"
+	"github.com/brettcallaghan/release/internal/bump"
 	"github.com/brettcallaghan/release/internal/changelog"
 	"github.com/brettcallaghan/release/internal/changelogfile"
 	"github.com/brettcallaghan/release/internal/config"
@@ -36,8 +37,16 @@ import (
 	"github.com/brettcallaghan/release/internal/releasemodel"
 	"github.com/brettcallaghan/release/internal/resolve"
 	"github.com/brettcallaghan/release/internal/semver"
+	"github.com/brettcallaghan/release/internal/suggest"
 	"github.com/brettcallaghan/release/internal/version"
 )
+
+// Shown is what a halted cut showed the person: the tag that starts the
+// range ("" when no release tag is reachable) and the bump it suggested.
+type Shown struct {
+	BaseTag    string
+	Suggestion releasemodel.Bump
+}
 
 // Request is the input to Cut.
 type Request struct {
@@ -49,20 +58,34 @@ type Request struct {
 	Sh string
 	// Target is the target branch's name on origin.
 	Target string
-	// Named is the bump the maintainer named, or nil to classify one.
+	// Named is the bump the maintainer named, or nil to have the suggestion
+	// decide it, once a person accepts it.
 	Named *releasemodel.Bump
+	// Accepted confirms the suggested bump WHEN no bump is named. Without it,
+	// a cut with no named bump ends in a *Halt.
+	Accepted bool
+	// ExpectBase, WHEN set, is the commit the fetched tip of the target must
+	// be: a cut whose target has moved since is refused, writing nothing.
+	ExpectBase string
+	// Shown, WHEN set, is what the halted first call showed: a cut whose
+	// range now starts at another release tag, or whose authored changelog
+	// now suggests another bump, is refused, writing nothing.
+	Shown *Shown
 	// Config is the loaded configuration.
 	Config config.Config
 	// Producers returns every changelog producer, by name, for the checkout
 	// at dir, adding env to each producer process's environment. It is
-	// called with the scratch checkout and RELEASE_VERSION.
+	// called with the scratch checkout, and with RELEASE_VERSION WHEN a bump
+	// is named.
 	Producers func(dir string, env []string) map[string]authoring.Producer
-	// Redo discards a cached corpus and authors again.
+	// Redo discards a cached changelog and authors again.
 	Redo bool
-	// Skip stages without an authoring exchange. It requires Named.
+	// Skip authors with the mechanical producer in place of an authoring
+	// exchange.
 	Skip bool
 	// Force stages a named bump WHEN nothing releasable exists since the
-	// base version. It requires Named.
+	// base version, and accepts one below the signal floor. It requires
+	// Named.
 	Force bool
 	// NoPullRequest stops after the push.
 	NoPullRequest bool
@@ -132,18 +155,77 @@ func (r *NoRelease) Error() string {
 	return "the version policy refuses this release: " + r.Next.Reason
 }
 
-// Disagreement is the refusal WHEN the authored proposal differs from the
-// computed impact and no bump was named.
-type Disagreement struct {
-	Computed, Proposed releasemodel.Bump
+// version sets the version and the stage branch from next, refusing a
+// version the policy refuses and a stage branch that exists, here or on
+// origin.
+func (g git) version(ctx context.Context, res *Result, next version.Result, stagePrefix string) error {
+	if next.Kind != version.Release {
+		return &NoRelease{Next: next}
+	}
+	res.Version = next.Version.String()
+	res.Branch = semver.StageBranchName(stagePrefix, next.Version)
+	if exists, err := g.ok(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+res.Branch); err != nil {
+		return err
+	} else if exists {
+		return &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists locally; delete it (git branch -D %s) or release another version", res.Branch, res.Branch)}
+	}
+	remote, err := g.out(ctx, "ls-remote", "--heads", "origin", "refs/heads/"+res.Branch)
+	if err != nil {
+		return fmt.Errorf("checking origin for %s: %w", res.Branch, err)
+	}
+	if remote != "" {
+		return &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists on origin; close its pull request and delete it there, or release another version", res.Branch)}
+	}
+	return nil
 }
 
-func (d *Disagreement) Error() string {
-	computed := strings.ToLower(string(d.Computed))
-	return fmt.Sprintf("the authored corpus proposes %s, but the commits indicate %s; "+
-		"confirm the impact by naming it (release cut %s), or correct the commits",
-		strings.ToLower(string(d.Proposed)), computed, computed)
+// drivers is the commits that set the signal floor, with their signals.
+func drivers(r resolve.Resolution) []bump.CommitDriver {
+	records := make(map[string]releasemodel.CommitRecord, len(r.Commits))
+	for _, c := range r.Commits {
+		records[c.Hash] = c
+	}
+	out := make([]bump.CommitDriver, 0, len(r.DeterminedBy))
+	for _, d := range r.DeterminedBy {
+		out = append(out, bump.CommitDriver{Commit: records[d.Hash], Signal: d.Signal})
+	}
+	return out
 }
+
+// belowFloor says that a named bump is below the signal floor, how to force
+// it, and the commits that set the floor.
+func belowFloor(r *suggest.Refusal) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "the named bump %s is below the signal floor %s; pass --force to cut it anyway. These commits set the floor:",
+		strings.ToLower(string(r.Named)), strings.ToLower(string(r.Floor)))
+	for _, d := range r.FloorDrivers {
+		fmt.Fprintf(&b, "\n  %s %s (%s)", d.Commit.Hash, d.Commit.Subject, d.Signal)
+	}
+	return b.String()
+}
+
+// unconfirmed is the refusal for a bump no person confirmed: the suggestion
+// and how to confirm it by naming it.
+func unconfirmed(s suggest.Result) string {
+	if s.Halt != nil && s.Halt.OnlyNamed {
+		return "the authored changelog suggests no bump, but entries carry no kind, so only a named bump can release them: name it (release cut <major|minor|patch>)"
+	}
+	suggestion := lower(s.Suggestion)
+	return fmt.Sprintf("the suggested bump %s awaits confirmation: accept it (release cut --yes) or name a bump (release cut %s)", suggestion, suggestion)
+}
+
+// Halt is a cut that stopped for a person to confirm the bump: no bump was
+// named and the suggestion was not accepted, or, WHEN OnlyNamed, the
+// suggestion is none and an entry has no kind, which only a named bump
+// answers. Nothing was written. The Result's Changelog carries the
+// suggestion, its reasons and where the authored changelog is cached, so a
+// second call confirming it reads the same changelog.
+type Halt struct {
+	Suggestion suggest.Result
+	OnlyNamed  bool
+}
+
+func (h *Halt) Error() string { return unconfirmed(h.Suggestion) }
 
 // WriteFailure is a write that failed after Writes were made. Remedy lists
 // the commands that finish or discard the release.
@@ -156,18 +238,15 @@ type WriteFailure struct {
 func (f *WriteFailure) Error() string { return f.Err.Error() }
 func (f *WriteFailure) Unwrap() error { return f.Err }
 
-// Cut runs the cut sequence. A refusal is a *Refusal, *NoRelease or
-// *Disagreement, and nothing was written; a failed write after another
+// Cut runs the cut sequence. A refusal is a *Refusal or *NoRelease, and a
+// bump awaiting confirmation a *Halt; in each, nothing was written; a failed write after another
 // succeeded is a *WriteFailure; any other error means the repository, a
 // producer or a tool failed before any write. The Result describes what was
 // reached, including on a refusal or failure.
 func Cut(ctx context.Context, req Request) (res Result, err error) {
 	res.Target = req.Target
-	if req.Skip && req.Named == nil {
-		return res, &Refusal{Reason: "staging without notes needs a named bump: name major, minor or patch with --skip-notes"}
-	}
 	if req.Force && req.Named == nil {
-		return res, &Refusal{Reason: "--force needs a named bump: it stages that bump when nothing releasable exists; name major, minor or patch"}
+		return res, &Refusal{Reason: "--force needs a named bump: it stages that bump when nothing releasable exists, or below the signal floor; name major, minor or patch"}
 	}
 	if req.Config.Commands.Propagate == nil {
 		return res, &Refusal{Reason: "commands.propagate is unconfigured: cutting a release writes the version into the repository's manifests through it; " +
@@ -201,36 +280,38 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	if res.Base, err = g.out(ctx, "rev-parse", "--verify", "--end-of-options", remoteRef+"^{commit}"); err != nil {
 		return res, err
 	}
+	if req.ExpectBase != "" && res.Base != req.ExpectBase {
+		return res, &Refusal{Reason: fmt.Sprintf("%s on origin moved from %s to %s since the suggestion was shown, so it no longer applies: run release cut again", req.Target, req.ExpectBase, res.Base)}
+	}
 
-	// 1. Resolve the version.
+	// 1. Resolve the base version and the signal floor. WHEN a bump is
+	// named, refuse it below the floor unless forced, then compute the
+	// version and check the stage branch; otherwise both wait for step 5.
 	if res.Resolution, err = resolve.Resolve(ctx, resolve.Request{
 		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Policy: req.Config.Policy(),
 	}); err != nil {
 		return res, err
 	}
-	if res.Resolution.Next.Kind != version.Release {
-		return res, &NoRelease{Next: res.Resolution.Next}
+	if req.Shown != nil && res.Resolution.BaseTag != req.Shown.BaseTag {
+		return res, &Refusal{Reason: fmt.Sprintf("the range for %s started at %s when the suggestion was shown and now starts at %s, so the suggestion no longer applies: run release cut again",
+			req.Target, tagOrNone(req.Shown.BaseTag), tagOrNone(res.Resolution.BaseTag))}
 	}
-	v := res.Resolution.Next.Version
-	res.Version = v.String()
-	if res.Resolution.Named && res.Resolution.Inferred == releasemodel.BumpNone && !req.Force {
+	if len(res.Resolution.Commits) == 0 && !req.Force {
+		if req.Named == nil {
+			return res, &NoRelease{Next: res.Resolution.Next}
+		}
 		return res, &Refusal{Reason: fmt.Sprintf("nothing releasable %s; pass --force to cut %s anyway",
-			res.Resolution.NothingReleasable(), res.Version)}
+			res.Resolution.NothingReleasable(), res.Resolution.Next.Version)}
 	}
-	res.Branch = semver.StageBranchName(req.Config.StagePrefix, v)
-
-	// 2. Refuse a stage branch that already exists, here or on origin.
-	if exists, err := g.ok(ctx, "show-ref", "--verify", "--quiet", "refs/heads/"+res.Branch); err != nil {
-		return res, err
-	} else if exists {
-		return res, &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists locally; delete it (git branch -D %s) or release another version", res.Branch, res.Branch)}
-	}
-	remote, err := g.out(ctx, "ls-remote", "--heads", "origin", "refs/heads/"+res.Branch)
-	if err != nil {
-		return res, fmt.Errorf("checking origin for %s: %w", res.Branch, err)
-	}
-	if remote != "" {
-		return res, &Refusal{Reason: fmt.Sprintf("the stage branch %s already exists on origin; close its pull request and delete it there, or release another version", res.Branch)}
+	if req.Named != nil {
+		if res.Resolution.BelowFloor && !req.Force {
+			return res, &Refusal{Reason: belowFloor(&suggest.Refusal{
+				Named: *req.Named, Floor: res.Resolution.Floor, FloorDrivers: drivers(res.Resolution),
+			})}
+		}
+		if err := g.version(ctx, &res, res.Resolution.Next, req.Config.StagePrefix); err != nil {
+			return res, err
+		}
 	}
 
 	scratch, err := os.MkdirTemp("", "release-cut-*")
@@ -248,33 +329,60 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	if _, err := g.run(ctx, "-c", noHooks, "worktree", "add", "--quiet", "--detach", wt, res.Base); err != nil {
 		return res, fmt.Errorf("creating the scratch checkout: %w", err)
 	}
-	env := []string{"RELEASE_VERSION=" + res.Version}
-	sh := delegate.Shell{Sh: req.Sh, Env: env}
+	// The version is known before authoring only WHEN a bump is named.
+	var env []string
+	if req.Named != nil {
+		env = []string{"RELEASE_VERSION=" + res.Version}
+	}
 
-	// 3. Preflight, WHEN configured.
+	// 2. Preflight, WHEN configured.
 	if len(req.Config.Commands.Preflight) > 0 {
-		if err := step(sh.RunAll(ctx, "preflight", req.Config.Commands.Preflight, wt)); err != nil {
+		if err := step(delegate.Shell{Sh: req.Sh, Env: env}.RunAll(ctx, "preflight", req.Config.Commands.Preflight, wt)); err != nil {
 			return res, err
 		}
 	}
 
-	// 4, 5. Assemble, author unless skipped, set the version and render.
+	// 3, 4. Collect the evidence, author it (mechanically WHEN skipped),
+	// suggest the bump and decide it.
 	var producers map[string]authoring.Producer
 	if req.Producers != nil {
 		producers = req.Producers(wt, env)
 	}
 	if res.Changelog, err = changelog.Prepare(ctx, changelog.Request{
-		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Config: req.Config,
-		Producers: producers, Redo: req.Redo, Skip: req.Skip,
+		Dir: req.Dir, Git: req.Git, Target: res.Base, Named: req.Named, Forced: req.Force, Accepted: req.Accepted,
+		Config: req.Config, Producers: producers, Redo: req.Redo, Skip: req.Skip,
 	}); err != nil {
 		return res, err
 	}
+	if req.Shown != nil && res.Changelog.Suggestion.Suggestion != req.Shown.Suggestion {
+		return res, &Refusal{Reason: fmt.Sprintf("the suggested bump for %s was %s when it was shown and is now %s, so the suggestion no longer applies: run release cut again",
+			req.Target, req.Shown.Suggestion, res.Changelog.Suggestion.Suggestion)}
+	}
 	switch res.Changelog.Outcome {
 	case changelog.NoRelease:
-		return res, &NoRelease{Next: res.Changelog.Resolution.Next}
-	case changelog.Disagreement:
-		return res, &Disagreement{Computed: res.Changelog.Authoring.Computed, Proposed: *res.Changelog.Authoring.Proposed}
+		return res, &NoRelease{Next: res.Changelog.Next}
+	case changelog.Refused:
+		return res, &Refusal{Reason: belowFloor(res.Changelog.Refusal)}
+	case changelog.Halted:
+		return res, &Halt{Suggestion: res.Changelog.Suggestion, OnlyNamed: res.Changelog.Suggestion.Halt.OnlyNamed}
 	}
+	if req.Named != nil && !res.Changelog.Suggestion.Releasable && !req.Force {
+		since := "since " + res.Resolution.BaseTag
+		if res.Resolution.BaseTag == "" {
+			since = "with no release tag reachable"
+		}
+		return res, &Refusal{Reason: fmt.Sprintf("nothing releasable %s: the authored changelog suggests no bump and every entry has a kind; pass --force to cut %s anyway",
+			since, res.Version)}
+	}
+
+	// 5. With no named bump, the version comes from the confirmed
+	// suggestion: compute it, then check the stage branch.
+	if req.Named == nil {
+		if err := g.version(ctx, &res, res.Changelog.Next, req.Config.StagePrefix); err != nil {
+			return res, err
+		}
+	}
+	sh := delegate.Shell{Sh: req.Sh, Env: []string{"RELEASE_VERSION=" + res.Version}}
 
 	// 6. Write the changelog section, then propagate the version. A
 	// symbolic link would carry the write out of the scratch checkout.
@@ -327,6 +435,98 @@ func Cut(ctx context.Context, req Request) (res Result, err error) {
 	return res, write(ctx, req, g, wt, &res)
 }
 
+// commitMessage is the release commit's message: Release <version>, then
+// the confirmed bump as a Release-Type trailer, lower case as the Bump
+// Classifier reads it.
+func commitMessage(res Result) string {
+	return "Release " + res.Version + "\n\nRelease-Type: " + strings.ToLower(string(res.Changelog.Bump)) + "\n"
+}
+
+// pullRequestBody is the stage pull request's body: the rendered notes under
+// "## Release Notes"; the confirmed bump, the suggestion with its reasons,
+// the signal floor with the commits that set it, and the unclassified
+// commits under "## Bump"; and, WHEN the changelog omits any, the omitted
+// commits with their reasons under "## Omitted commits".
+func pullRequestBody(c changelog.Result) string {
+	var b strings.Builder
+	b.WriteString("## Release Notes\n\n")
+	b.WriteString(strings.TrimRight(c.Rendering.Body, "\n"))
+	b.WriteString("\n\n## Bump\n\n")
+
+	s := c.Suggestion
+	by := "confirmed from the suggestion"
+	if s.Decision != nil && s.Decision.DecidedBy == suggest.ByNamed {
+		by = "named by the maintainer"
+	}
+	fmt.Fprintf(&b, "Confirmed bump: **%s**, %s.\n\n", lower(c.Bump), by)
+	fmt.Fprintf(&b, "Suggested bump: **%s**", lower(s.Suggestion))
+	if len(s.Reasons.Entries) > 0 {
+		b.WriteString(", from these entries:\n\n")
+		for _, d := range s.Reasons.Entries {
+			fmt.Fprintf(&b, "- %s", d.Summary)
+			if refs := sourceRefs(d.Sources); refs != "" {
+				fmt.Fprintf(&b, " (%s)", refs)
+			}
+			b.WriteString("\n")
+		}
+	} else {
+		b.WriteString(", from no entry's kind.\n")
+	}
+	if s.Reasons.FloorRaised {
+		fmt.Fprintf(&b, "\nThe signal floor raised the suggestion from %s.\n", lower(s.Reasons.FromKinds))
+	}
+
+	fmt.Fprintf(&b, "\nSignal floor: **%s**", lower(s.Floor))
+	if len(s.FloorDrivers) > 0 {
+		b.WriteString(", set by:\n\n")
+		for _, d := range s.FloorDrivers {
+			fmt.Fprintf(&b, "- %s %s (%s)\n", short(d.Commit.Hash), d.Commit.Subject, d.Signal)
+		}
+	} else {
+		b.WriteString(".\n")
+	}
+
+	if len(s.Unclassified) > 0 {
+		b.WriteString("\nUnclassified commits, carrying no signal:\n\n")
+		for _, u := range s.Unclassified {
+			fmt.Fprintf(&b, "- %s %s\n", short(u.Hash), u.Subject)
+		}
+	} else {
+		b.WriteString("\nUnclassified commits: none.\n")
+	}
+
+	if c.Changelog.Omitted != nil && len(*c.Changelog.Omitted) > 0 {
+		subjects := map[string]string{}
+		for _, ce := range c.Evidence.Commits {
+			subjects[ce.Record.Hash] = ce.Record.Subject
+		}
+		b.WriteString("\n## Omitted commits\n\n")
+		for _, o := range *c.Changelog.Omitted {
+			fmt.Fprintf(&b, "- %s %s: %s\n", short(o.Hash), subjects[o.Hash], strings.TrimSpace(o.Reason))
+		}
+	}
+	return b.String()
+}
+
+// sourceRefs is an entry's sources as references: #<n> for a pull request,
+// the short hash for a commit, the id for an issue.
+func sourceRefs(sources []releasemodel.ChangeSource) string {
+	refs := make([]string, 0, len(sources))
+	for _, src := range sources {
+		switch v := src.Value.(type) {
+		case releasemodel.PullRequestSource:
+			refs = append(refs, fmt.Sprintf("#%d", v.Number))
+		case releasemodel.CommitSource:
+			refs = append(refs, short(v.Hash))
+		case releasemodel.IssueSource:
+			refs = append(refs, v.Id)
+		}
+	}
+	return strings.Join(refs, ", ")
+}
+
+func lower(b releasemodel.Bump) string { return strings.ToLower(string(b)) }
+
 // planned is the writes step 9 makes.
 func planned(res Result, req Request) []Write {
 	w := []Write{
@@ -356,7 +556,7 @@ func write(ctx context.Context, req Request, g git, wt string, res *Result) erro
 	if _, err := wg.run(ctx, "add", "--all"); err != nil {
 		return &WriteFailure{Err: fmt.Errorf("staging the release: %w", err), Writes: res.Writes, Remedy: discard}
 	}
-	if _, err := wg.run(ctx, "-c", noHooks, "commit", "--quiet", "--no-verify", "-m", "Release "+res.Version); err != nil {
+	if _, err := wg.run(ctx, "-c", noHooks, "commit", "--quiet", "--no-verify", "-m", commitMessage(*res)); err != nil {
 		return &WriteFailure{Err: fmt.Errorf("committing the release: %w", err), Writes: res.Writes, Remedy: discard}
 	}
 	commit, err := wg.out(ctx, "rev-parse", "HEAD")
@@ -394,7 +594,7 @@ func write(ctx context.Context, req Request, g git, wt string, res *Result) erro
 	}
 
 	title := "Release " + res.Version
-	body := "## Release Notes\n\n" + res.Changelog.Rendering.Body
+	body := pullRequestBody(res.Changelog)
 	out, err := ghRun(ctx, req, "pr", "create", "--base", res.Target, "--head", res.Branch, "--title", title, "--body", body)
 	if err != nil {
 		return &WriteFailure{
@@ -612,4 +812,12 @@ func (e *GitError) Error() string {
 		msg = "no output"
 	}
 	return fmt.Sprintf("git %s: exit status %d: %s", strings.Join(e.Args, " "), e.ExitCode, msg)
+}
+
+// tagOrNone renders a range start for a message: "" is no release tag.
+func tagOrNone(tag string) string {
+	if tag == "" {
+		return "no release tag"
+	}
+	return tag
 }

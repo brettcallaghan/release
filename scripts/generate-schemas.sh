@@ -62,6 +62,13 @@ strata build "$SRC" --target json-schema \
   --output "$WORK/changelog"
 mv "$WORK/changelog/ReleaseModel.schema.json" "$WORK/schema/changelog.schema.json"
 
+# 2.3. The same, rooted at Evidence: the schema a producer's input bundle
+#      is validated against.
+strata build "$SRC" --target json-schema \
+  --config "$SRC/overlays/evidence.json" \
+  --output "$WORK/evidence"
+mv "$WORK/evidence/ReleaseModel.schema.json" "$WORK/schema/evidence.schema.json"
+
 # 2.5. go:embed cannot reach outside its own package directory, so the
 #      wrapper lives beside the JSON. It is written here rather than by hand
 #      so the package's contents and its exported var cannot drift apart.
@@ -88,6 +95,13 @@ var ReleaseModel []byte
 //
 //go:embed changelog.schema.json
 var Changelog []byte
+
+// Evidence is the evidence bundle schema, rooted at Evidence: the one a
+// bundle is validated against before a producer reads it.
+// evidence.schema.json.
+//
+//go:embed evidence.schema.json
+var Evidence []byte
 GOFILE
 
 # 3. Go types for the release core. strata does not align struct fields the

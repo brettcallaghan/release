@@ -74,11 +74,22 @@ type Resolution struct {
 	Impact  releasemodel.Bump
 	// Named is true WHEN Impact is the maintainer's named bump.
 	Named bool
-	// Inferred is the impact the commits indicate, whether or not a bump was
-	// named. none means nothing releasable exists since the base version.
-	Inferred releasemodel.Bump
-	// DeterminedBy lists the commits that indicated Impact, newest first.
+	// Floor is the signal floor: the highest impact the commits' explicit
+	// signals indicate, whether or not a bump was named. none means nothing
+	// releasable exists since the base version.
+	Floor releasemodel.Bump
+	// BelowFloor is true WHEN a bump was named and ranks below Floor. Next
+	// is still computed from the named bump; a front end that refuses a
+	// named bump below the floor reads this to do so.
+	BelowFloor bool
+	// DeterminedBy lists the commits that set Floor, newest first, whether or
+	// not a bump was named.
 	DeterminedBy []Driver
+	// Unclassified lists the commits that carry no enabled signal, newest
+	// first.
+	Unclassified []releasemodel.CommitRecord
+	// Signals is every commit's signal, newest first.
+	Signals []bump.CommitSignal
 	// Commits are every commit record in the range, newest first.
 	Commits []releasemodel.CommitRecord
 	// Next is the calculator's answer: a version, no release, or a policy
@@ -130,26 +141,32 @@ func Resolve(ctx context.Context, req Request) (Resolution, error) {
 		Enabled: req.Policy.Signals,
 	})
 	res.Commits = commits
-	res.Impact, res.Named = classified.Impact, classified.Named
-	res.Inferred = classified.Impact
-	if classified.Named {
-		res.Inferred = bump.Classify(bump.Input{Commits: commits, Enabled: req.Policy.Signals}).Impact
-	}
+	res.Impact, res.Named, res.Floor = classified.Impact, classified.Named, classified.Floor
+	res.BelowFloor = classified.Named && bump.Rank(classified.Impact) < bump.Rank(classified.Floor)
+	res.Unclassified, res.Signals = classified.Unclassified, classified.Signals
 	for _, d := range classified.Commits {
 		res.DeterminedBy = append(res.DeterminedBy, Driver{Hash: d.Commit.Hash, Subject: d.Commit.Subject, Signal: d.Signal})
 	}
 
-	impact, err := toImpact(res.Impact)
-	if err != nil {
+	if res.Next, err = Next(res.Base, res.Impact, req.Graduate, req.Policy); err != nil {
 		return Resolution{}, err
 	}
-	res.Next = version.Next(version.Request{
-		Base:     res.Base,
-		Impact:   impact,
-		Graduate: req.Graduate,
-		Policy:   req.Policy.Version,
-	})
 	return res, nil
+}
+
+// Next is the version calculator's answer for a bump from base, nil for a
+// line with no release, under policy.
+func Next(base *semver.Version, b releasemodel.Bump, graduate bool, policy Policy) (version.Result, error) {
+	impact, err := toImpact(b)
+	if err != nil {
+		return version.Result{}, err
+	}
+	return version.Next(version.Request{
+		Base:     base,
+		Impact:   impact,
+		Graduate: graduate,
+		Policy:   policy.Version,
+	}), nil
 }
 
 // toImpact maps the classifier's bump onto the calculator's own impact

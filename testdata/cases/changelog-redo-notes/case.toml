@@ -1,4 +1,4 @@
-description = "--redo-notes invokes the producer even though a corpus exists at --corpus, and renders its fresh prose"
+description = "--redo-notes invokes the producer even though a changelog exists at --corpus, and renders its fresh prose"
 cites = ["AC-CLOG-003.10"]
 git = [
   ["init", "-q", "-b", "main"],

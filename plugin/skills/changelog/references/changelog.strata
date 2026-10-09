@@ -7,10 +7,10 @@ the deterministic consumers that render it. Authoring may vary; rendering may
 not. Every published artifact describing a release is rendered from one
 instance, so no two artifacts can disagree.
 
-`proposed_bump` carries the producer's conclusion about release impact. It is
-a proposal, never an authority: the release tooling computes the bump
-independently and halts when the two disagree. Where a maintainer names the
-bump explicitly, the named bump governs and the proposal is advisory.
+A producer states the impact of each change through its entries' `kind` and
+`breaking`, never the impact of the release: the release tooling suggests the
+bump from those. Where a maintainer names the bump explicitly, the named bump
+governs.
 """
 struct Changelog {
     """
@@ -22,12 +22,8 @@ struct Changelog {
     schema_version: String
 
     """
-    The release impact the producer concluded from the content.
-
-    Absent on a corpus the tooling assembled, which proposes nothing, and
-    required of every corpus a producer returns. Compared against the bump
-    the tooling computes. A disagreement halts the release for human
-    confirmation; it is never resolved by preferring one side.
+    Left unset by every producer and ignored by the tooling, which suggests
+    the bump from the entries' kinds and breaking flags.
     """
     proposed_bump: Bump?
 
@@ -74,11 +70,33 @@ struct Changelog {
     Every adapter that contributed material to this corpus, and the commit
     range each read.
 
-    Written when the corpus is assembled and carried through authoring
-    unchanged, so a reviewer can tell what the prose was written from. Empty
-    for a corpus nobody assembled, such as one written by hand.
+    Carried from the evidence the corpus was authored from, so a reviewer can
+    tell what the prose was written from. Empty for a corpus written by hand.
     """
     sources: [AdapterRun]
+
+    """
+    The commits no entry cites, each with why.
+
+    Every commit in the evidence is either cited by an entry or listed here.
+    Never rendered.
+    """
+    omitted: [OmittedCommit]?
+}
+
+"""
+A commit that no entry cites.
+"""
+struct OmittedCommit {
+    """
+    The full commit hash, as the evidence carries it.
+    """
+    hash: String
+
+    """
+    One line saying why no entry cites the commit.
+    """
+    reason: String
 }
 
 """
@@ -102,6 +120,12 @@ struct AdapterRun {
     read.
     """
     to: String
+
+    """
+    The diff budget report of the evidence the corpus was authored from. Set
+    on the run of the `DIFFS` adapter.
+    """
+    budget: BudgetReport?
 }
 
 """
@@ -131,11 +155,16 @@ A single itemized change.
 struct ChangelogEntry {
     """
     What kind of change this is. Determines which section renders it.
+
+    Every entry a model or a person authors carries one. Only the mechanical
+    producer writes an entry with none, for a commit whose subject carries no
+    conventional type; such an entry renders under the other heading.
     """
-    kind: ChangeKind
+    kind: ChangeKind?
 
     """
-    One line stating the change from the reader's point of view.
+    One or two full sentences stating the change from the reader's point of
+    view.
 
     Written as an outcome a consumer can recognize, not as the work that
     produced it: "closed decoders reject undeclared keys", not "refactored the
@@ -187,12 +216,10 @@ struct ChangelogEntry {
 
     """
     Whether `summary` was derived mechanically from a commit subject rather
-    than written by a person or a producer.
+    than written by a person or a model.
 
-    Set when the tooling assembles an entry from a commit that carried no
-    author-written release-notes block. A producer that replaces the summary
-    with prose of its own clears it; one that keeps the derived summary
-    leaves it set, so a reviewer can see which lines nobody wrote.
+    Set only by the mechanical producer, for a summary it derived from a
+    commit subject: nobody wrote the sentence.
     """
     derived: Bool
 }

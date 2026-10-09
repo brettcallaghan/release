@@ -1,3 +1,0 @@
-computed: minor
-proposed: major
-corpus_path: .git/release/corpus/c2aea8f44df5afe616009556bcfc6b1f729a44cb..53b6ea9aa35aa95ab7d00846da292db29f5ac460.json
