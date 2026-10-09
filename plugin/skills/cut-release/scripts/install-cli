@@ -68,7 +68,7 @@ if [ -r "$manifest" ]; then
           else if (c == "\\") { esc = 1; buf = buf c }
           else if (c == "\"") {
             instr = 0
-            if (want) { print buf; want = 0 }
+            if (want) { print buf; found++; want = 0 }
             else last = buf
           } else buf = buf c
           continue
@@ -80,12 +80,11 @@ if [ -r "$manifest" ]; then
         else if (c == ":") { want = (depth == 1 && last == "version"); last = "" }
         else { want = 0; last = "" }
       }
+      if (found > 1) exit 2
     }' "$manifest")"
-  nl=$'\n'
-  case "$candidates" in
-    *"$nl"*)
-      fail "more than one top-level version in $manifest" "keep a single version key in the plugin manifest" ;;
-  esac
+  status=$?
+  [ "$status" -ne 2 ] ||
+    fail "more than one top-level version in $manifest" "keep a single version key in the plugin manifest"
   version="${candidates%%[[:space:]]*}"
 fi
 [ -n "$version" ] ||

@@ -991,6 +991,15 @@ func TestManifestWithoutExactlyOneTopLevelVersionFails(t *testing.T) {
 	if got := h.fail(); !strings.Contains(got, "more than one top-level version") {
 		t.Errorf("stderr = %q, want the duplicate-version failure", got)
 	}
+	for _, m := range []string{
+		`{"version":"0.3.1","version":""}`,
+		`{"version":"","version":"0.3.1"}`,
+	} {
+		h.writeManifest(m)
+		if got := h.fail(); !strings.Contains(got, "more than one top-level version") {
+			t.Errorf("manifest %s: stderr = %q, want the duplicate-version failure", m, got)
+		}
+	}
 }
 
 // snapshot records every path under root except skip, with what would show
