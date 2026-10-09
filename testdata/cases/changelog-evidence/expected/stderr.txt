@@ -18,7 +18,7 @@ release changelog: the command producer failed: exit status 3: {
           "description": "Greets the user by name on start.\nAdds a greeting template.\nReads the name from the environment.\nFalls back to \"friend\".",
           "origin": "SQUASH"
         },
-        "author_date": "2026-01-01T00:00:00+00:00",
+        "author_date": "2026-01-01T00:00:00Z",
         "files": [
           {
             "path": "src/greet.txt",
@@ -65,7 +65,7 @@ release changelog: the command producer failed: exit status 3: {
         "hash": "5d05a801b07bfd87330f4e949e51559336ed138c",
         "subject": "fix: say goodbye on exit",
         "body": "The farewell was never printed.\n\nRefs: #4\n",
-        "author_date": "2026-01-01T00:00:00+00:00",
+        "author_date": "2026-01-01T00:00:00Z",
         "files": [
           {
             "path": "src/farewell.txt",
@@ -106,7 +106,7 @@ release changelog: the command producer failed: exit status 3: {
         "hash": "392e539c7d761530b38364455101566c6f21d6f6",
         "subject": "docs: describe the greeter",
         "body": "",
-        "author_date": "2026-01-01T00:00:00+00:00",
+        "author_date": "2026-01-01T00:00:00Z",
         "files": [
           {
             "path": "README.md",

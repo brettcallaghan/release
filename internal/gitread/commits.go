@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/brettcallaghan/release/internal/releasemodel"
 )
@@ -80,13 +81,19 @@ func parseCommit(raw string) (releasemodel.CommitRecord, error) {
 		return releasemodel.CommitRecord{}, fmt.Errorf("git log: unexpected record with %d fields", len(f))
 	}
 	trailers := parseTrailers(f[6])
+	// git's strict ISO 8601 writes UTC as +00:00 in some versions and Z in
+	// others; RFC 3339 output is the same under every git.
+	date, err := time.Parse(time.RFC3339, f[5])
+	if err != nil {
+		return releasemodel.CommitRecord{}, fmt.Errorf("git log: author date %q: %w", f[5], err)
+	}
 	rec := releasemodel.CommitRecord{
 		Hash:         f[0],
 		AuthorName:   f[1],
 		AuthorEmail:  f[2],
 		Subject:      f[3],
 		Body:         f[4],
-		AuthorDate:   f[5],
+		AuthorDate:   date.Format(time.RFC3339),
 		Conventional: conventionalParts(f[3], f[4]),
 		PullRequest:  pullRequestInfo(f[3], f[4], len(trailers) > 0),
 		Files:        []releasemodel.FileChange{},

@@ -345,7 +345,7 @@ func TestCommitsAuthorDateAndConventionalParts(t *testing.T) {
 	recs := f.commits("", "HEAD")
 
 	chore, nonConv, readme, fix, feat := recs[0], recs[1], recs[2], recs[3], recs[4]
-	if feat.AuthorDate != "2026-01-01T00:00:00+00:00" {
+	if feat.AuthorDate != "2026-01-01T00:00:00Z" {
 		t.Errorf("author_date = %q", feat.AuthorDate)
 	}
 	c := feat.Conventional
