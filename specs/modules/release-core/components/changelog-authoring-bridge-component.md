@@ -123,7 +123,7 @@ saw.
     range is rejected as such.
   - **Entries are changes.** Entries are not matched to commits one for
     one. An entry may cite several commits, and one commit may be cited by
-    several entries. Every entry cites at least one source, and an entry
+    several entries. Every entry cites at least one commit, and an entry
     citing a commit absent from the bundle, or a pull request no commit in
     the bundle carries, is rejected.
   - **Entry fields.** Each entry has a `kind` from `ChangeKind`, or none

@@ -243,12 +243,11 @@ func check(c releasemodel.Changelog, ev releasemodel.Evidence, rangeOnly bool) [
 	cited := map[string]bool{}
 	for i, e := range c.Entries {
 		label := fmt.Sprintf("entry %d (%q)", i+1, excerpt([]byte(e.Summary)))
-		if len(e.Sources) == 0 {
-			problems = append(problems, label+" cites no source")
-		}
+		entryCommits := false
 		for _, s := range e.Sources {
 			switch v := s.Value.(type) {
 			case releasemodel.CommitSource:
+				entryCommits = true
 				cited[v.Hash] = true
 				if !commits[v.Hash] {
 					problems = append(problems, fmt.Sprintf("%s cites commit %s, which is not in the evidence bundle", label, v.Hash))
@@ -258,6 +257,9 @@ func check(c releasemodel.Changelog, ev releasemodel.Evidence, rangeOnly bool) [
 					problems = append(problems, fmt.Sprintf("%s cites pull request #%d, which no commit in the evidence bundle carries", label, v.Number))
 				}
 			}
+		}
+		if !entryCommits {
+			problems = append(problems, label+" cites no commit")
 		}
 		switch summary := strings.TrimSpace(e.Summary); {
 		case summary == "":

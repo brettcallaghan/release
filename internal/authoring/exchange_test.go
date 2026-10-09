@@ -164,7 +164,17 @@ func TestAnEntryWithNoSourceIsRejected(t *testing.T) {
 	ev := threeCommits()
 	c := changelogFor(ev)
 	c.Entries[1].Sources = []releasemodel.ChangeSource{}
-	reject(t, ev, c, "entry 2", "cites no source")
+	reject(t, ev, c, "entry 2", "cites no commit")
+}
+
+// AC: AC-CLOG-003.15
+func TestAnEntryCitingOnlyAPullRequestIsRejected(t *testing.T) {
+	ev := threeCommits()
+	c := changelogFor(ev)
+	extra := entry("Invented summary on a real pull request.")
+	extra.Sources = []releasemodel.ChangeSource{releasemodel.NewChangeSourcePullRequest(releasemodel.PullRequestSource{Number: 7})}
+	c.Entries = append(c.Entries, extra)
+	reject(t, ev, c, "entry 4", "cites no commit")
 }
 
 // AC: AC-CLOG-003.9
