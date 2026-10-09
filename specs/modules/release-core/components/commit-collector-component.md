@@ -80,7 +80,7 @@ landed even when its diff was cut to fit the budget.
   or copy, `status`, and `additions` and `deletions` — from git's
   `--name-status` and `--numstat` with rename detection. A binary file,
   for which git counts no lines, has both counts 0. A merge commit's list is
-  empty, as `git log` reports it.
+  taken against its first parent too, as the Diff Collector diffs it.
 - **Guarantees:**
   - The component SHALL extract the pull request number, title and
     description from a squash commit and from a merge commit, as above.
