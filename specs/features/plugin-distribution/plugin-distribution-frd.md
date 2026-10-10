@@ -7,7 +7,7 @@ description: Delivering the release CLI through the `release` agent plugin —
 slug: frd-plugin-distribution
 type: frd
 status: approved
-updated_at: 2026-10-09T00:00:00Z
+updated_at: 2026-10-10T00:00:00Z
 sources:
   - adr-008
   - cli-distribution-policy
@@ -170,18 +170,24 @@ Feature: Where the CLI Is Installed
     And no system package is installed or upgraded
 
   @AC-PLG-002.3
-  Scenario: A release CLI already at the pinned version is used as found
-    Given "release" on the path already reports the pinned version
+  Scenario: A release CLI already provisioned for the pinned version is reused
+    Given the plugin's cached copy of the pinned version is provisioned
     When a release skill runs
     Then provisioning fetches nothing and places nothing
 
   @AC-PLG-002.5 @negative
-  Scenario: A release CLI at another version is never run
-    Given "release" on the path reports version "0.1.0"
+  Scenario Outline: A release CLI on the path is never run
+    Given "release" on the path reports version "<reported>"
     And the plugin's pinned version is "0.2.0"
     When a release skill runs a release command
     Then the command runs the pinned version "0.2.0"
+    And the "release" on the path is never run
     And the "release" on the path is left unchanged
+
+    Examples:
+      | reported |
+      | 0.1.0    |
+      | 0.2.0    |
 
   @AC-PLG-002.4
   Scenario: A repository can direct the skills to its own build

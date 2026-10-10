@@ -18,12 +18,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
-	"time"
 )
 
 const (
@@ -40,7 +37,7 @@ var installCLI = filepath.Join("..", "..", "plugin", "skills", "cut-release", "s
 var tools = []string{
 	"bash", "sh", "curl", "tar", "gzip", "sha256sum", "shasum", "awk", "sed",
 	"mkdir", "rm", "mv", "chmod", "ln", "cat", "dirname", "git", "uname",
-	"tr", "env", "sleep",
+	"tr", "env",
 }
 
 // fakeAPI stands in for api.github.com and for the host its asset downloads
@@ -218,7 +215,6 @@ type harness struct {
 	t                                *testing.T
 	root, script, data, home, work   string
 	extra, toolDir, linkDir, curlLog string
-	stdin                            *os.File
 	api                              *fakeAPI
 	env                              map[string]string
 }
@@ -306,7 +302,6 @@ func (h *harness) run() (stdout, stderr string, code int) {
 	h.t.Helper()
 	cmd := exec.Command("bash", h.script, h.data)
 	cmd.Dir = h.work
-	cmd.Stdin = h.stdin
 	cmd.Env = []string{
 		"PATH=" + h.extra + string(os.PathListSeparator) + h.toolDir,
 		"HOME=" + h.home,
@@ -591,158 +586,89 @@ func TestLocalSessionChangesNothingOutsideTheDataDir(t *testing.T) {
 }
 
 // AC: AC-PLG-002.3
-func TestReleaseOnPathAtThePinnedVersionIsUsedAsFound(t *testing.T) {
+func TestProvisionedPinnedVersionIsReusedFetchingAndPlacingNothing(t *testing.T) {
 	h := newHarness(t)
-	onPath := h.tool("release", string(fakeRelease(pinned)))
+	h.provision(pinned)
+	before := snapshot(t, h.root, "")
 
-	if path := h.succeed(); path != onPath {
-		t.Errorf("path = %s, want the release on the PATH, %s", path, onPath)
+	if path := h.succeed(); path != h.provisioned("release") {
+		t.Errorf("path = %s, want the cached copy, %s", path, h.provisioned("release"))
 	}
 	h.requireNoRequests()
-	if _, err := os.Stat(h.data); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("the data directory was touched (err %v)", err)
+	after := snapshot(t, h.root, "")
+	for p, v := range after {
+		if before[p] != v {
+			t.Errorf("%s was created or changed", p)
+		}
+	}
+	for p := range before {
+		if _, ok := after[p]; !ok {
+			t.Errorf("%s was removed", p)
+		}
 	}
 }
 
-// A release on the PATH that never returns is given up on, and the probe
-// reads end-of-file on stdin.
-func TestReleaseOnPathThatBlocksFallsThroughToTheDownload(t *testing.T) {
-	h := newHarness(t)
-	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "1"
-	onPath := h.tool("release", "#!/bin/sh\nexec sleep 1000\n")
-	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
-
-	start := time.Now()
-	path := h.succeed()
-	if elapsed := time.Since(start); elapsed > 20*time.Second {
-		t.Errorf("took %v, want the probe abandoned after about 1s", elapsed)
-	}
-	if path == onPath || path != h.provisioned("release") {
-		t.Errorf("path = %s, want the downloaded release", path)
-	}
-}
-
-// pidLog wraps sleep so each one started puts its PID in a file, and returns
-// the file; alive reads it back.
-func (h *harness) pidLog() string {
+// provision puts a cached copy of release v<version> where the script keeps
+// one, and returns its path.
+func (h *harness) provision(version string) string {
 	h.t.Helper()
-	real, err := exec.LookPath("sleep")
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	log := filepath.Join(h.root, "sleep-pids")
-	h.tool("sleep", "#!/bin/sh\necho $$ >> '"+log+"'\nexec '"+real+"' \"$@\"\n")
-	return log
+	p := filepath.Join(h.data, "bin", version, "release")
+	mustMkdir(h.t, filepath.Dir(p))
+	mustWrite(h.t, p, fakeRelease(version), 0o755)
+	return p
 }
 
-func alive(pid int) bool {
-	p, err := os.FindProcess(pid)
-	return err == nil && p.Signal(syscall.Signal(0)) == nil
-}
-
-func requireNoneAlive(t *testing.T, pidFile string) {
-	t.Helper()
-	data, _ := os.ReadFile(pidFile)
-	for _, f := range strings.Fields(string(data)) {
-		pid, err := strconv.Atoi(f)
-		if err != nil {
-			t.Fatalf("bad pid %q", f)
-		}
-		deadline := time.Now().Add(2 * time.Second)
-		for alive(pid) && time.Now().Before(deadline) {
-			time.Sleep(20 * time.Millisecond)
-		}
-		if alive(pid) {
-			t.Errorf("process %d outlived install-cli", pid)
-			p, _ := os.FindProcess(pid)
-			_ = p.Kill()
-		}
-	}
-}
-
-// A release that ignores TERM and later prints the pinned version is not
-// accepted, and nothing the probe started outlives the run.
-func TestReleaseOnPathThatIgnoresTermIsNotAccepted(t *testing.T) {
-	h := newHarness(t)
-	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "1"
-	pids := filepath.Join(h.root, "child-pids")
-	onPath := h.tool("release", "#!/bin/bash\ntrap '' TERM\nsleep 4 &\necho $! >> '"+pids+"'\nwait\necho 'release v"+pinned+"'\n")
-	sleeps := h.pidLog()
-	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
-
-	start := time.Now()
-	path := h.succeed()
-	if elapsed := time.Since(start); elapsed > 3*time.Second+time.Second {
-		t.Errorf("took %v, want the probe abandoned after about 1s", elapsed)
-	}
-	if path == onPath || path != h.provisioned("release") {
-		t.Errorf("path = %s, want the downloaded release", path)
-	}
-	requireNoneAlive(t, pids)
-	requireNoneAlive(t, sleeps)
-}
-
-// A probe that answers at once leaves no sleep behind, whatever the limit.
-func TestReleaseOnPathProbeLeavesNoSleepBehind(t *testing.T) {
-	h := newHarness(t)
-	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "77"
-	onPath := h.tool("release", string(fakeRelease(pinned)))
-	sleeps := h.pidLog()
-	if path := h.succeed(); path != onPath {
-		t.Errorf("path = %s, want the release on the PATH, %s", path, onPath)
-	}
-	requireNoneAlive(t, sleeps)
-}
-
-// The probe needs no temporary file: an unwritable TMPDIR changes nothing.
-func TestReleaseOnPathIsUsedWhenTmpdirIsUnwritable(t *testing.T) {
-	h := newHarness(t)
-	h.env["TMPDIR"] = filepath.Join(h.root, "does-not-exist")
-	onPath := h.tool("release", string(fakeRelease(pinned)))
-	if path := h.succeed(); path != onPath {
-		t.Errorf("path = %s, want the release on the PATH, %s", path, onPath)
-	}
-	h.requireNoRequests()
-}
-
-// The probe does not block on the script's own stdin. It does not pin the
-// probe's `</dev/null`: bash gives a background job inside a command
-// substitution /dev/null on stdin even under `set -m`, so removing the
-// redirection leaves this test green.
-func TestReleaseOnPathProbeDoesNotBlockOnInheritedStdin(t *testing.T) {
-	h := newHarness(t)
-	h.env["INSTALL_CLI_PROBE_TIMEOUT"] = "5"
-	// Script stdin is a pipe nobody writes to or closes: a probe that
-	// inherited it would block in `read` until the timeout.
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r.Close()
-	defer w.Close()
-	h.stdin = r
-	onPath := h.tool("release", "#!/bin/sh\nif read -r _line; then exit 1; fi\necho 'release v"+pinned+"'\n")
-	if path := h.succeed(); path != onPath {
-		t.Errorf("path = %s, want the release on the PATH, %s", path, onPath)
+// pathRelease puts a `release` on the PATH that reports version and, when
+// run, leaves a marker file; ran reports whether it was ever run.
+func (h *harness) pathRelease(version string) (path string, ran func() bool) {
+	h.t.Helper()
+	marker := filepath.Join(h.root, "path-release-ran")
+	path = h.tool("release", "#!/bin/sh\n: > '"+marker+"'\necho 'release v"+version+"'\n")
+	return path, func() bool {
+		_, err := os.Stat(marker)
+		return err == nil
 	}
 }
 
 // AC: AC-PLG-002.5
-func TestReleaseOnPathAtAnotherVersionIsNeverUsed(t *testing.T) {
-	h := newHarness(t)
-	old := string(fakeRelease("0.1.0"))
-	onPath := h.tool("release", old)
-	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+func TestReleaseOnPathIsNeverRunWhateverItsVersion(t *testing.T) {
+	for _, onPathVersion := range []string{"0.1.0", pinned} {
+		for _, source := range []string{"cached", "downloaded"} {
+			t.Run(onPathVersion+" on the PATH, "+source, func(t *testing.T) {
+				h := newHarness(t)
+				onPath, ran := h.pathRelease(onPathVersion)
+				original, err := os.ReadFile(onPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if source == "cached" {
+					h.provision(pinned)
+				} else {
+					h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+				}
 
-	path := h.succeed()
-	if path == onPath {
-		t.Fatal("the release on the PATH at 0.1.0 was chosen")
-	}
-	if got := h.version(path); got != "release v"+pinned {
-		t.Errorf("--version = %q, want the pinned version", got)
-	}
-	if got, _ := os.ReadFile(onPath); string(got) != old {
-		t.Error("the release on the PATH was changed")
+				path := h.succeed()
+				if path != h.provisioned("release") {
+					t.Errorf("path = %s, want the %s copy, %s", path, source, h.provisioned("release"))
+				}
+				if ran() {
+					t.Error("the release on the PATH was run")
+				}
+				if got := h.version(path); got != "release v"+pinned {
+					t.Errorf("--version = %q, want the pinned version", got)
+				}
+				_, _, downloaded := h.api.requests()
+				if source == "cached" && len(downloaded) != 0 {
+					t.Errorf("downloaded %v, want nothing", downloaded)
+				}
+				if source == "downloaded" && len(downloaded) != 2 {
+					t.Errorf("downloaded %v, want SHA256SUMS and the archive", downloaded)
+				}
+				if got, _ := os.ReadFile(onPath); !bytes.Equal(got, original) {
+					t.Error("the release on the PATH was changed")
+				}
+			})
+		}
 	}
 }
 
@@ -941,9 +867,10 @@ func TestMissingDataDirIsAUsageError(t *testing.T) {
 func TestPinnedVersionIsThePluginManifestVersion(t *testing.T) {
 	h := newHarness(t)
 	h.pin("0.3.1")
-	onPath := h.tool("release", string(fakeRelease("0.3.1")))
-	if path := h.succeed(); path != onPath {
-		t.Errorf("path = %s, want the release at the manifest's 0.3.1", path)
+	h.provision(pinned)
+	cached := h.provision("0.3.1")
+	if path := h.succeed(); path != cached {
+		t.Errorf("path = %s, want the release at the manifest's 0.3.1, %s", path, cached)
 	}
 }
 
@@ -972,15 +899,16 @@ func TestOnlyTheTopLevelManifestVersionPins(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
 			h.writeManifest(body)
-			onPath := h.tool("release", string(fakeRelease("0.3.1")))
-			if path := h.succeed(); path != onPath {
-				t.Errorf("path = %s, want the release at the top-level 0.3.1", path)
+			cached := h.provision("0.3.1")
+			if path := h.succeed(); path != cached {
+				t.Errorf("path = %s, want the release at the top-level 0.3.1, %s", path, cached)
 			}
 		})
 	}
 }
 
-// A manifest with no top-level version, or two, is the one-line failure.
+// A manifest with no top-level version, or two, or one awk cannot read, is
+// the one-line failure, each with its own cause.
 func TestManifestWithoutExactlyOneTopLevelVersionFails(t *testing.T) {
 	h := newHarness(t)
 	h.writeManifest(`{"name":"release","meta":{"version":"9.9.9"}}`)
@@ -1000,16 +928,28 @@ func TestManifestWithoutExactlyOneTopLevelVersionFails(t *testing.T) {
 			t.Errorf("manifest %s: stderr = %q, want the duplicate-version failure", m, got)
 		}
 	}
+
+	// awk's own fatal error is a manifest that cannot be read, not a duplicate.
+	manifest := filepath.Join(h.root, "plugin", ".claude-plugin", "plugin.json")
+	if err := os.Remove(manifest); err != nil {
+		t.Fatal(err)
+	}
+	mustMkdir(t, manifest)
+	got := h.fail()
+	if !strings.Contains(got, "cannot read ") || !strings.HasSuffix(got, "plugin.json. reinstall the release plugin") {
+		t.Errorf("plugin.json as a directory: stderr = %q, want the cannot-read failure", got)
+	}
 }
 
-// snapshot records every path under root except skip, with what would show
-// a change to it: a created or removed entry, or a changed file.
+// snapshot records every path under root except skip (nothing is skipped
+// when it is empty), with what would show a change to it: a created or
+// removed entry, or a changed file.
 func snapshot(t *testing.T, root, skip string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
 	walk(t, root, func(rel string, info fs.FileInfo) {
 		p := filepath.Join(root, rel)
-		if p == skip || strings.HasPrefix(p, skip+string(filepath.Separator)) {
+		if skip != "" && (p == skip || strings.HasPrefix(p, skip+string(filepath.Separator))) {
 			return
 		}
 		if info.IsDir() {

@@ -8,7 +8,7 @@ description: When a `release` plugin skill needs the CLI, a script bundled
 slug: adr-008
 type: adr
 status: approved
-updated_at: 2026-10-09T00:00:00Z
+updated_at: 2026-10-10T00:00:00Z
 ---
 
 # ADR-008: The Plugin Provisions Its Pinned Release
@@ -53,9 +53,9 @@ its PATH, and the choice is constrained by:
 Every plugin skill that drives the CLI will ship an `install-cli` script
 and run it as its first step. The script provisions the CLI release whose
 version is the plugin manifest's `version`. It first looks for one already
-installed, in order: the binary the repository's agent settings name, the
-copy in `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, and `release` on the PATH
-when it reports the pinned version. Only when none is found does it select
+installed, in order: the binary the repository's agent settings name, then
+the copy in `${CLAUDE_PLUGIN_DATA}/bin/<version>/`. It never runs a
+`release` it finds on the PATH. Only when neither is found does it select
 the archive for the machine's OS and architecture, fetch it and SHA256SUMS
 through the GitHub REST release-asset endpoint, verify the checksum, and
 extract the binary to `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, where a later
@@ -66,7 +66,7 @@ The directory is `~/.claude/plugins/data/<plugin id>/`, one per plugin on
 the machine whatever scope enabled it, so repositories pinning different
 versions keep separate `bin/<version>/` copies side by side. It prints the binary's absolute
 path, and the skill runs the CLI by that path, so a `release` earlier on
-the PATH at another version, such as a Homebrew install, is never run. In
+the PATH, such as a Homebrew install, is never run, whatever its version. In
 a cloud session it also links the binary into `/usr/local/bin`. Nothing is
 provisioned in a session that invokes no such skill.
 
@@ -102,6 +102,7 @@ REST requests succeed without one.
 | A `SessionStart` hook | The CLI is on PATH before any skill runs<br>No step for a skill to forget | Every session pays a network check, including the many that never release<br>Plugin hooks run only in Claude Code; the skills also load in harnesses that ignore them<br>A hook's PATH change reaches subprocesses only through `CLAUDE_ENV_FILE`, unverified for plugin hooks | Cost on sessions that never use it, and a harness dependency the skills do not otherwise have |
 | A `bin/release` launcher in the plugin, which Claude Code puts on the Bash tool's PATH | The agent types `release` and gets the plugin's CLI | Plugin `bin/` directories come after the person's own PATH, so a Homebrew `release` at another version wins<br>claude.ai and Cowork do not install a plugin with a top-level `bin/` | Does not pin where a person has the CLI installed, and blocks the account-synced route cloud sessions use |
 | Install into a gitignored `bin/` in each repository | The person's terminal in that repository finds the same binary | Writes into the person's working tree<br>One download per repository per version<br>Every adopting repository must ignore the path | The plugin data directory is the documented home for caches that survive plugin updates, and a session needs nothing in the working tree |
+| Reuse a matching `release` on the PATH | Saves one cached download per version where the person already has the CLI | Telling whether it matches means running an arbitrary program by that name, which needs a portable timeout, and macOS ships no `timeout` | Running an unknown program with a hand-rolled timeout costs more than one cached download per version saves |
 | Require a manual install | Nothing to build | The agent discovers the gap mid-task; the version drifts from the skills | Defeats the FRD's premise that installing the plugin is adoption |
 | Download and verify the pinned release asset when a skill needs it | One archive per machine and version, cached across sessions<br>Nothing happens in sessions that do not release<br>Works wherever the skill's script can run<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs a credential while the repository is private<br>Needs the GitHub API reachable at first use | N/A — selected |
 

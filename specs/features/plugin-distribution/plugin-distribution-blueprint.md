@@ -6,7 +6,7 @@ description: How the release plugin provisions the CLI it pins, teaches an
 slug: feature-plugin-distribution
 type: feature-blueprint
 status: in-progress
-updated_at: 2026-10-09T00:00:00Z
+updated_at: 2026-10-10T00:00:00Z
 delivery: single-pr
 frd: frd-plugin-distribution
 plan: release-bi5
@@ -67,9 +67,9 @@ the skill never reimplements any part of it.
      fail naming `RELEASE_CLI`; it SHALL NOT fall through.
   2. `<data-dir>/bin/<version>/release` (`release.exe` on Windows), WHEN
      it exists and is executable.
-  3. `release` on the PATH, WHEN `release --version` prints
-     `release v<version>`.
-- WHEN none is found, the script SHALL select the archive
+- The script SHALL NOT run a `release` it finds on the PATH, whatever
+  version it reports, and SHALL NOT change it.
+- WHEN neither is found, the script SHALL select the archive
   `release_<version>_<os>_<arch>.tar.gz` (`.zip` for `windows`), mapping
   `uname -s` Linux→`linux`, Darwin→`darwin`, MINGW*/MSYS*/CYGWIN*→
   `windows`, and `uname -m` x86_64/amd64→`amd64`, aarch64/arm64→`arm64`.

@@ -11,7 +11,8 @@
 #   1. RELEASE_CLI, a path to an executable (relative to the git toplevel of
 #      the working directory). Not executable is a failure, never a fall-through.
 #   2. <data-dir>/bin/<version>/release (release.exe on windows).
-#   3. `release` on the PATH, when `release --version` prints release v<version>.
+#
+# A `release` on the PATH is never run, whatever version it reports.
 #
 # Otherwise the release archive for this platform is downloaded from the
 # GitHub API with SHA256SUMS, verified, extracted with tar and moved into
@@ -24,9 +25,7 @@
 # It never reaches a command line, the output or a file.
 #
 # Test seams: INSTALL_CLI_API_URL (default https://api.github.com) and
-# INSTALL_CLI_LINK_DIR (default /usr/local/bin), and INSTALL_CLI_PROBE_TIMEOUT
-# (whole seconds the PATH probe of `release --version` may run before its
-# process group is killed, default 5).
+# INSTALL_CLI_LINK_DIR (default /usr/local/bin).
 #
 # Exit status: 0 with the path as the only line of standard output; 1 with one
 # line `install-cli: <cause>. <remedy>` on standard error; 2 on bad usage.
@@ -68,7 +67,7 @@ if [ -r "$manifest" ]; then
           else if (c == "\\") { esc = 1; buf = buf c }
           else if (c == "\"") {
             instr = 0
-            if (want) { print buf; found++; want = 0 }
+            if (want) { if (!found) first = buf; found++; want = 0 }
             else last = buf
           } else buf = buf c
           continue
@@ -80,12 +79,20 @@ if [ -r "$manifest" ]; then
         else if (c == ":") { want = (depth == 1 && last == "version"); last = "" }
         else { want = 0; last = "" }
       }
-      if (found > 1) exit 2
-    }' "$manifest")"
-  status=$?
-  [ "$status" -ne 2 ] ||
-    fail "more than one top-level version in $manifest" "keep a single version key in the plugin manifest"
-  version="${candidates%%[[:space:]]*}"
+      # One line: the count of top-level versions, a space, the first one. A
+      # duplicate is reported on standard output, never as an exit status:
+      # awk itself exits 2 on its own fatal errors, such as a manifest it
+      # cannot read.
+      print (found + 0) " " first
+    }' "$manifest" 2>/dev/null)" ||
+    fail "cannot read $manifest" "reinstall the release plugin"
+  case "${candidates%% *}" in
+    0 | 1) ;;
+    [0-9]*) fail "more than one top-level version in $manifest" "keep a single version key in the plugin manifest" ;;
+    *) fail "cannot read $manifest" "reinstall the release plugin" ;;
+  esac
+  version="${candidates#* }"
+  version="${version%%[[:space:]]*}"
 fi
 [ -n "$version" ] ||
   fail "no version in $manifest" "reinstall the release plugin"
@@ -139,34 +146,6 @@ fi
 # 2. Already provisioned.
 if [ -f "$dest" ] && [ -x "$dest" ]; then
   link_and_print "$dest"
-fi
-
-# 3. On the PATH at the pinned version.
-if found="$(command -v release 2>/dev/null)" && [ -n "$found" ]; then
-  # An arbitrary `release` runs here: stdin is /dev/null, and it runs in its
-  # own process group that the shell polls and kills with SIGKILL after the
-  # limit (no GNU timeout; macOS has none). A killed or failing probe appends
-  # a marker line, so it is a version mismatch even if it printed the version.
-  reported="$(
-    set -m
-    "$found" --version </dev/null 2>/dev/null &
-    p=$!
-    n=0
-    while kill -0 "$p" 2>/dev/null; do
-      if [ "$n" -ge "${INSTALL_CLI_PROBE_TIMEOUT:-5}" ]; then
-        kill -KILL -- "-$p" 2>/dev/null
-        echo '<timed out>'
-        break
-      fi
-      sleep 1
-      n=$((n + 1))
-    done
-    wait "$p" 2>/dev/null || echo '<failed>'
-  )"
-  if [ "$reported" = "release v$version" ]; then
-    printf '%s\n' "$found"
-    exit 0
-  fi
 fi
 
 # Download.

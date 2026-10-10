@@ -31,9 +31,10 @@ be another version (a package-manager install, an old build), and a skill
 that ran it would describe one binary while running another.
 
 The script reuses what is already there — a repository's own build named by
-`RELEASE_CLI`, an earlier download in the plugin data directory, or a
-`release` on the PATH that reports the pinned version — and otherwise
-downloads the pinned release, verifies its checksum and caches it.
+`RELEASE_CLI`, or an earlier download in the plugin data directory — and
+otherwise downloads the pinned release, verifies its checksum and caches it.
+It never runs a `release` it finds on the PATH, whatever version that
+reports.
 
 **If it exits non-zero, tell the person its message — one line naming the
 cause and the remedy — and stop.** Do not build the CLI from source, download

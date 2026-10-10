@@ -8,7 +8,7 @@ description: The agent plugin published from this repository — the skills
 slug: module-release-plugin
 type: module-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
+updated_at: 2026-10-10T00:00:00Z
 kind: standard
 visibility: public
 contracts_consumed:
@@ -121,8 +121,8 @@ step by the path it prints.
   directories above the script, and nowhere else.
 - **Lookup**, first hit wins and fetches nothing: `RELEASE_CLI` (relative
   paths resolved against the git toplevel; not executable is a failure,
-  never a fall-through), then `<data-dir>/bin/<version>/release`, then a
-  `release` on the PATH whose `--version` prints `release v<version>`.
+  never a fall-through), then `<data-dir>/bin/<version>/release`. A
+  `release` on the PATH is never run, whatever version it reports.
 - **Download:** the archive `release_<version>_<os>_<arch>` and
   `SHA256SUMS` of release `v<version>`, by asset id through the GitHub
   REST API, verified with `sha256sum` (or `shasum -a 256`) before `tar`
