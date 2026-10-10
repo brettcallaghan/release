@@ -1,4 +1,5 @@
 target = "main"
+release_paths = ["plugin/.claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]
 
 [changelog]
 breaking_heading = "💥 Breaking changes"
@@ -10,6 +11,7 @@ groups = [
 ]
 
 [commands]
-# The version is stamped at build time (internal/buildinfo); no manifest holds it.
-propagate = "true"
+# The binary's version is stamped at build time (internal/buildinfo); the
+# plugin manifest carries the same version.
+propagate = "scripts/propagate-version.sh"
 validate = "go build ./... && go test ./..."

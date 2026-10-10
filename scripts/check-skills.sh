@@ -163,6 +163,9 @@ VENDORED = (
     ('plugin/skills/changelog/references/evidence.strata', 'schemas/evidence.strata'),
     ('plugin/skills/changelog/references/collection.strata', 'schemas/collection.strata'),
     ('plugin/skills/changelog/references/changelog-contract.md', 'specs/contracts/changelog-contract.md'),
+    ('plugin/skills/cut-release/references/repository-release-policy.md', 'specs/standards/repository-release-policy.md'),
+    ('plugin/skills/cut-release/references/release-tooling-standards.md', 'specs/standards/release-tooling-standards.md'),
+    ('plugin/skills/cut-release/references/cli-distribution-policy.md', 'specs/standards/cli-distribution-policy.md'),
 )
 for copy, source in VENDORED:
     try:
