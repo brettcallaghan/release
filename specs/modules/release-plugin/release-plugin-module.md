@@ -133,7 +133,8 @@ step by the path it prints.
   redirects are followed without it.
 - **Placement:** nothing outside `<data-dir>`, except that with
   `CLAUDE_CODE_REMOTE=true` the provisioned binary is linked as `release`
-  into `/usr/local/bin`.
+  into `/usr/local/bin`, replacing only an earlier such link; any other
+  `release` there is left unchanged.
 - **Result:** the binary's absolute path as the only line of standard
   output; on failure one line `install-cli: <cause>. <remedy>` on standard
   error and exit 1; exit 2 on a missing data directory.

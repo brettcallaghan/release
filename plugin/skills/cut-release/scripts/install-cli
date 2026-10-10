@@ -12,12 +12,13 @@
 #      the working directory). Not executable is a failure, never a fall-through.
 #   2. <data-dir>/bin/<version>/release (release.exe on windows).
 #
-# A `release` on the PATH is never run, whatever version it reports.
+# A `release` on the PATH is never run or changed, whatever version it reports.
 #
 # Otherwise the release archive for this platform is downloaded from the
 # GitHub API with SHA256SUMS, verified, extracted with tar and moved into
 # <data-dir>/bin/<version>/. With CLAUDE_CODE_REMOTE=true the provisioned
-# binary is also linked as `release` into /usr/local/bin.
+# binary is also linked as `release` into /usr/local/bin, unless a `release`
+# other than an earlier such link is already there.
 #
 # Credential: GH_TOKEN, else GITHUB_TOKEN, else `gh auth token`, else none.
 # It is sent as a header read from standard input, to the API host only:
@@ -119,12 +120,26 @@ exe=release
 dest_dir="$data/bin/$version"
 dest="$dest_dir/$exe"
 
-# Link the provisioned binary for every process in a cloud session.
+# Link the provisioned binary for every process in a cloud session. Only a
+# link into <data-dir>/bin/ is replaced; any other `release` there is left as
+# it is, and the skill runs the binary by the printed path either way.
 link_and_print() {
   if [ "${CLAUDE_CODE_REMOTE:-}" = true ]; then
     link_dir="${INSTALL_CLI_LINK_DIR:-/usr/local/bin}"
-    ln -sf "$1" "$link_dir/release" 2>/dev/null ||
-      fail "cannot link release into $link_dir" "make $link_dir writable, or run release by the path this script prints"
+    link="$link_dir/release"
+    replace=true
+    if [ -L "$link" ]; then
+      case "$(readlink "$link" 2>/dev/null)" in
+        "$data"/bin/*) ;;
+        *) replace=false ;;
+      esac
+    elif [ -e "$link" ]; then
+      replace=false
+    fi
+    if [ "$replace" = true ]; then
+      ln -sf "$1" "$link" 2>/dev/null ||
+        fail "cannot link release into $link_dir" "make $link_dir writable, or run $1 directly"
+    fi
   fi
   printf '%s\n' "$1"
   exit 0

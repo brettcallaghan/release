@@ -37,7 +37,7 @@ var installCLI = filepath.Join("..", "..", "plugin", "skills", "cut-release", "s
 var tools = []string{
 	"bash", "sh", "curl", "tar", "gzip", "sha256sum", "shasum", "awk", "sed",
 	"mkdir", "rm", "mv", "chmod", "ln", "cat", "dirname", "git", "uname",
-	"tr", "env",
+	"tr", "env", "readlink",
 }
 
 // fakeAPI stands in for api.github.com and for the host its asset downloads
@@ -559,6 +559,44 @@ func TestCloudSessionProvisionsIntoTheDataDirAndLinksRelease(t *testing.T) {
 	}
 	if got := h.version(link); got != "release v"+pinned {
 		t.Errorf("release via the link reports %q", got)
+	}
+}
+
+// AC: AC-PLG-002.5
+func TestCloudSessionLeavesAnotherReleaseInTheLinkDirUnchanged(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		place func(t *testing.T, h *harness, link string)
+	}{
+		{"a regular file", func(t *testing.T, h *harness, link string) {
+			if err := os.WriteFile(link, []byte("#!/bin/sh\necho release v0.1.0\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"a link outside the data directory", func(t *testing.T, h *harness, link string) {
+			if err := os.Symlink(filepath.Join(h.root, "elsewhere", "release"), link); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.env["CLAUDE_CODE_REMOTE"] = "true"
+			h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+			link := filepath.Join(h.linkDir, "release")
+			tc.place(t, h, link)
+			before := snapshot(t, h.root, h.data)
+
+			if path := h.succeed(); path != h.provisioned("release") {
+				t.Errorf("path = %s, want it under the data directory", path)
+			}
+			after := snapshot(t, h.root, h.data)
+			for p, v := range after {
+				if before[p] != v {
+					t.Errorf("%s was created or changed outside the data directory", p)
+				}
+			}
+		})
 	}
 }
 

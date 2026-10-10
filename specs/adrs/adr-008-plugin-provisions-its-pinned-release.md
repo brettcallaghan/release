@@ -67,7 +67,8 @@ the machine whatever scope enabled it, so repositories pinning different
 versions keep separate `bin/<version>/` copies side by side. It prints the binary's absolute
 path, and the skill runs the CLI by that path, so a `release` earlier on
 the PATH, such as a Homebrew install, is never run, whatever its version. In
-a cloud session it also links the binary into `/usr/local/bin`. Nothing is
+a cloud session it also links the binary into `/usr/local/bin`, unless
+another `release` is already there, which it leaves unchanged. Nothing is
 provisioned in a session that invokes no such skill.
 
 A failure stops the skill with one line of cause and remedy; the rest of

@@ -105,7 +105,9 @@ the skill never reimplements any part of it.
   one SHALL be left in place.
 - WHEN `CLAUDE_CODE_REMOTE` is `true`, the script SHALL also link the
   binary as `release` into `/usr/local/bin` (overridable through
-  `INSTALL_CLI_LINK_DIR`, for tests), replacing any link there. Otherwise
+  `INSTALL_CLI_LINK_DIR`, for tests), replacing a link there only when it
+  points into `<data-dir>/bin/`. WHERE any other `release` is already
+  there, the script SHALL leave it unchanged and still succeed. Otherwise
   it SHALL create or change nothing outside `<data-dir>`.
 - On success the script SHALL print the binary's absolute path as its only
   line on standard output and exit 0.
