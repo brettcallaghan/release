@@ -52,6 +52,10 @@ esac
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 manifest="$script_dir/../../../.claude-plugin/plugin.json"
 version=""
+if [ -e "$manifest" ] && { [ ! -f "$manifest" ] || [ ! -r "$manifest" ]; }; then
+  # awk differs by implementation on a directory (mawk fails, gawk skips it).
+  fail "cannot read $manifest" "reinstall the release plugin"
+fi
 if [ -r "$manifest" ]; then
   # Only a "version" key at the top level of the document counts; a nested one
   # (an object-form dependency) and the layout of the file are ignored.
