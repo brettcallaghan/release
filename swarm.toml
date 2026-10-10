@@ -62,6 +62,9 @@ frontier = "fable"
 
 [retros]
 dir = "docs/retros"
+# Issues against the swarm and specs skills, one folder per vending plugin,
+# for delivery to the repository that vends them.
+skill_issues_dir = "outbox"
 
 [review]
 skill = "code-review"
