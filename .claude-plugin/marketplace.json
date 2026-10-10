@@ -17,7 +17,7 @@
         "source": "git-subdir",
         "url": "brettcallaghan/release",
         "path": "plugin",
-        "ref": "v0.2.0"
+        "ref": "v0.3.0"
       },
       "description": "Skills for the release CLI. The changelog skill authors a release's changelog corpus; the CLI's claude producer invokes it as release:changelog"
     }
