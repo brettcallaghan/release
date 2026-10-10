@@ -19,23 +19,24 @@ sources:
 
 ## Overview
 
-Nobody outside this repository has used the `release` CLI yet, so an
-agent asked to cut a release has neither the binary nor any knowledge of
-how to drive it. Enabling the plugin in a repository should be the whole
-of adoption: every agent session in that repository gains the CLI, at the
-version the plugin was written against, and the skill that says how to use
-it and what a well-run release process looks like. The first repository to
-adopt it, after this one, is `agent-plugins`.
+Enabling the `release` plugin in a repository is the whole of adoption.
+Every agent session there can cut a release: the plugin brings the CLI at
+the exact version its skill was written for, and the skill brings the
+judgement, so the agent knows both how to drive each command and what a
+well-run release process looks like. Nothing is installed by hand, no
+version is chosen by hand, and nothing the person installed is replaced
+or changed. `agent-plugins` is the first repository to adopt it
+after this one.
 
-Pinning matters more than convenience. A skill describes one version's
-command surface; a binary from another version answers the same commands
-differently or not at all. The plugin and the CLI are therefore released
-together and carry one version, and the plugin provisions exactly that
-version ([[adr-008]]).
+The plugin and the CLI are released together and carry one version, and
+the plugin provisions exactly that version ([[adr-008]]). A skill describes
+one version's command surface, so the agent never meets a binary that
+answers the same commands differently: whatever else the machine has
+installed, the skill and the CLI it runs always agree.
 
-Provisioning happens when a skill needs the CLI, not when a session
-starts, so a session that never releases pays nothing for it. A skill
-that cannot get the CLI stops and says why, with the remedy.
+Provisioning happens the first time a skill needs the CLI, and the copy is
+reused from then on, so a session that never releases pays nothing. A
+skill that cannot get the CLI stops and says why, with the remedy.
 
 This feature SHALL comply with [[cli-distribution-policy]].
 
