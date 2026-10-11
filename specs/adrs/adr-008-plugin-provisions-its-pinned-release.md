@@ -8,7 +8,7 @@ description: When a `release` plugin skill needs the CLI, a script bundled
 slug: adr-008
 type: adr
 status: approved
-updated_at: 2026-10-10T00:00:00Z
+updated_at: 2026-10-11T00:00:00Z
 ---
 
 # ADR-008: The Plugin Provisions Its Pinned Release
@@ -80,13 +80,18 @@ is declared in `release_paths`, without which cut refuses the propagated
 change. The publication workflow refuses a merge commit whose plugin
 version differs from the stage branch's.
 
-The marketplace pins the plugin to its release tag: the same propagation
-writes the marketplace entry's source as this repository at `v<version>`,
-so an installed plugin's skills are the ones published with the binary
-they provision. `.claude-plugin/marketplace.json` is declared in
-`release_paths` alongside the plugin manifest. The release commit names a
-tag that exists once publication creates it; until then the marketplace
-keeps serving the previous release.
+The plugin is vended by the `brettcallaghan` marketplace in
+`brettcallaghan/agent-plugins`, which serves every plugin Brett develops.
+Its entry pins this repository's `plugin/` to the latest published
+release's `v<version>` tag, so an installed plugin's skills are the ones
+published with the binary they provision. This repository is not a
+marketplace, and its release commit writes nothing outside it. The
+marketplace moves the pin itself: a workflow there reads this repository's
+latest published release, checks that the plugin manifest at its tag
+carries the tag's version, and commits the new tag. Until that runs, the
+marketplace keeps serving the previous release. The marketplace pulls
+rather than this repository's publish workflow pushing, so no plugin
+repository needs write access to the marketplace.
 
 Until the repository is public, a session reads the release assets with
 the credential of an account that can read it, through the order in
@@ -128,8 +133,9 @@ REST requests succeed without one.
   session with none reports the remedy and runs without the CLI.
 - The plugin and the CLI cannot be released separately. A skill-only fix
   is a CLI patch release.
-- Every release commit edits the marketplace file as well as the plugin
-  manifest.
+- A published release reaches the marketplace only when its pin workflow
+  next runs, hourly or by hand, and while this repository is private that
+  workflow needs a token that can read it.
 - The skills on the default branch can describe commands the last
   release lacks; the marketplace's tag pin keeps them from installed
   plugins until the next release.

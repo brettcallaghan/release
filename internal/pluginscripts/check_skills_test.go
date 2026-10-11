@@ -34,7 +34,7 @@ func checkSkillsTree(t *testing.T) string {
 	}
 	repo := filepath.Join("..", "..")
 	root := t.TempDir()
-	for _, dir := range []string{"scripts", "plugin", ".claude-plugin", "schemas", "specs/contracts", "specs/standards"} {
+	for _, dir := range []string{"scripts", "plugin", "schemas", "specs/contracts", "specs/standards"} {
 		copyTree(t, filepath.Join(repo, dir), filepath.Join(root, dir))
 	}
 	return root

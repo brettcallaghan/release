@@ -7,7 +7,7 @@ description: Delivering the release CLI through the `release` agent plugin —
 slug: frd-plugin-distribution
 type: frd
 status: approved
-updated_at: 2026-10-10T00:00:00Z
+updated_at: 2026-10-11T00:00:00Z
 sources:
   - adr-008
   - cli-distribution-policy
@@ -25,7 +25,7 @@ the exact version its skill was written for, and the skill brings the
 judgement, so the agent knows both how to drive each command and what a
 well-run release process looks like. Nothing is installed by hand, no
 version is chosen by hand, and nothing the person installed is replaced
-or changed. `agent-plugins` is the first repository to adopt it
+or changed. `specs` is the first repository to adopt it
 after this one.
 
 The plugin and the CLI are released together and carry one version, and
@@ -266,20 +266,14 @@ Feature: One Version for Plugin and CLI
   So that a skill always describes the binary its plugin provisions
 
   The release commit is where the two are bound: the plugin manifest's
-  version, and the marketplace's pin to the release tag, are written by
-  the same cut that writes the changelog.
+  version is written by the same cut that writes the changelog. The
+  marketplace that vends the plugin pins each published release's tag.
 
   @AC-PLG-004.1
   Scenario: Cutting a release writes the plugin's version
     Given the repository's release configuration
     When a release of version "0.2.0" is cut
     Then the release commit sets the plugin manifest's version to "0.2.0"
-
-  @AC-PLG-004.3
-  Scenario: Cutting a release pins the marketplace to its tag
-    Given the repository's release configuration
-    When a release of version "0.2.0" is cut
-    Then the release commit sets the marketplace's plugin source to tag "v0.2.0"
 
   @AC-PLG-004.2 @negative
   Scenario: A release whose plugin version disagrees is not published
@@ -288,6 +282,20 @@ Feature: One Version for Plugin and CLI
     When the stage pull request merges
     Then no tag is created and no release is published
     And the publication run reports the disagreement
+
+  @AC-PLG-004.3 @manual
+  Scenario: A published release is pinned in the marketplace
+    Given the marketplace vends the plugin pinned to tag "v0.2.0"
+    When version "0.3.0" is published
+    And the marketplace's pin workflow runs
+    Then the marketplace's plugin source is this repository at tag "v0.3.0"
+
+  @AC-PLG-004.4 @manual @negative
+  Scenario: A release whose plugin version disagrees is not pinned
+    Given a published release "v0.3.0" whose plugin manifest names another version
+    When the marketplace's pin workflow runs
+    Then the marketplace keeps its previous pin
+    And the run reports the disagreement
 ```
 
 ### FEAT-PLG-005: Cutting a Release From a Skill
@@ -382,7 +390,7 @@ Feature: Adoption and Updates Through the Marketplace
 
   @AC-PLG-007.1
   Scenario: A repository enables the plugin for every session in it
-    Given a repository whose shared agent settings add the release marketplace
+    Given a repository whose shared agent settings add the brettcallaghan marketplace
     And enable the release plugin
     When a person starts an agent session in that repository
     Then the cut-release skill is available in the session
@@ -401,6 +409,10 @@ Feature: Adoption and Updates Through the Marketplace
     When the person starts a cloud session
     Then the cut-release skill is available in the session
 ```
+
+The marketplace is `brettcallaghan`, in `brettcallaghan/agent-plugins`,
+which vends all of Brett's agent plugins; it serves this plugin pinned to
+its latest published release and its `specs` dependency alongside it.
 
 A cloud session does not load plugins that a repository's settings enable;
 it loads the plugins synced to the person's account, and that sync follows

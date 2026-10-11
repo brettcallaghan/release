@@ -1,4 +1,4 @@
-# Configuration for the `spec` CLI (github.com/brettcallaghan/agent-plugins/cli/spec).
+# Configuration for the `spec` CLI (github.com/brettcallaghan/specs/cli/spec).
 #
 # This corpus holds the portable release and branching strategy for CLI
 # tools, libraries, and language toolchains. It governs several

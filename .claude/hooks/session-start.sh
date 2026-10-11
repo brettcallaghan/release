@@ -4,7 +4,7 @@
 #   1. Install `bd` (Beads) and hydrate the tracker from the `beads/data`
 #      branch via scripts/beads-setup.sh.
 #   2. Build the `release` CLI from this working tree onto PATH.
-#   3. Build the `specs` CLI from a sibling agent-plugins checkout, when one
+#   3. Build the `specs` CLI from a sibling specs checkout, when one
 #      is attached, so `specs check --strict` can gate the corpus.
 #   4. Install the `strata` compiler when STRATA_ACCESS_TOKEN is set, so
 #      scripts/generate-schemas.sh can regenerate and check internal/ types.
@@ -166,10 +166,10 @@ fi
 
 # --- 4. specs CLI --------------------------------------------------------------
 # `specs check --strict` gates the corpus under specs/. The CLI lives in
-# brettcallaghan/agent-plugins, which is private, so it is built from a sibling
+# brettcallaghan/specs, which is private, so it is built from a sibling
 # checkout when the session has one, and skipped otherwise. The checks that
 # need it say SKIPPED out loud rather than passing silently.
-for candidate in "${SPECS_SRC_DIR:-}" "$PROJECT_DIR/../agent-plugins"; do
+for candidate in "${SPECS_SRC_DIR:-}" "$PROJECT_DIR/../specs"; do
   [ -n "$candidate" ] && [ -f "$candidate/cli/specs/main.go" ] || continue
   if (cd "$candidate/cli" && CGO_ENABLED=0 go build -trimpath -o /usr/local/bin/specs ./specs) >/dev/null 2>&1; then
     log "specs CLI ready (built from $candidate)"
@@ -178,7 +178,7 @@ for candidate in "${SPECS_SRC_DIR:-}" "$PROJECT_DIR/../agent-plugins"; do
   fi
   break
 done
-command -v specs >/dev/null 2>&1 || log "note: no specs CLI — attach brettcallaghan/agent-plugins to check the corpus"
+command -v specs >/dev/null 2>&1 || log "note: no specs CLI — attach brettcallaghan/specs to check the corpus"
 
 # --- 5. strata CLI --------------------------------------------------------------
 # The Go types and JSON Schema under internal/ are generated from

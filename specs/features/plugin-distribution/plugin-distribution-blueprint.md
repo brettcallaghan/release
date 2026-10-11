@@ -2,11 +2,11 @@
 title: "Feature Blueprint: Plugin Distribution"
 description: How the release plugin provisions the CLI it pins, teaches an
   agent to cut a release with the standards built in, and is released in
-  lockstep with the CLI and pinned in the marketplace.
+  lockstep with the CLI and pinned in the marketplace that vends it.
 slug: feature-plugin-distribution
 type: feature-blueprint
 status: in-progress
-updated_at: 2026-10-10T00:00:00Z
+updated_at: 2026-10-11T00:00:00Z
 delivery: single-pr
 frd: frd-plugin-distribution
 plan: release-bi5
@@ -23,8 +23,9 @@ The [[module-release-plugin]] gains a `cut-release` skill and the
 downloads the CLI release the plugin's manifest names and prints its path;
 the skill runs every CLI step by that path, and carries the release
 standards as byte-identical references. This repository's release
-configuration writes the version into the plugin manifest and pins the
-marketplace entry to the release tag, and the publish workflow refuses a
+configuration writes the version into the plugin manifest, the
+`brettcallaghan` marketplace in `brettcallaghan/agent-plugins` pins its
+entry to each published release's tag, and the publish workflow refuses a
 release whose plugin version disagrees. Delta blocks in dependency order:
 ICLI, SKILL, STD, PIN, GATE.
 
@@ -202,26 +203,30 @@ copies, so its advice cannot drift from the corpus.
 **Anchors:** `scripts/check-skills.sh` (the list holding
 `plugin/skills/changelog/references/changelog-contract.md`).
 
-### `scripts/propagate-version.sh` (modified — marketplace pin)
+### Marketplace pin (in `brettcallaghan/agent-plugins`)
 
-**Intent:** Pin the marketplace to each release's tag in the same release
-commit that writes the plugin version.
+**Intent:** Serve each published release's plugin from the marketplace
+that vends all of Brett's plugins, pinned to its tag, without this
+repository writing to that one.
 
 **Behavior:**
-- The script SHALL keep writing `RELEASE_VERSION` into
-  `plugin/.claude-plugin/plugin.json`.
-- The script SHALL also set the `release` entry's `source` in
-  `.claude-plugin/marketplace.json` to
-  `{"source": "git-subdir", "url": "brettcallaghan/release", "path": "plugin", "ref": "v<version>"}`,
-  leaving the file's other content unchanged. IF the entry is missing,
-  THEN the script SHALL fail.
-- `config/release.toml`'s `release_paths` SHALL list
-  `.claude-plugin/marketplace.json` alongside the plugin manifest.
-- `claude plugin validate . --strict` SHALL pass on the written file.
+- This repository SHALL carry no `.claude-plugin/marketplace.json`, and
+  `config/release.toml`'s `release_paths` SHALL list only
+  `plugin/.claude-plugin/plugin.json`. `scripts/propagate-version.sh`
+  SHALL write `RELEASE_VERSION` into that manifest and nothing else.
+- The `release` entry of `brettcallaghan/agent-plugins`'s
+  `.claude-plugin/marketplace.json` SHALL have the source
+  `{"source": "git-subdir", "url": "brettcallaghan/release", "path": "plugin", "ref": "v<version>"}`
+  for the latest published release.
+- The marketplace's pin workflow SHALL move that `ref` to a newer published
+  release's tag WHEN the plugin manifest at the tag carries the tag's
+  version, and SHALL leave every pin unchanged and fail, naming the
+  disagreement, otherwise. It SHALL never move a pin backwards.
 
-**Anchors:** `scripts/propagate-version.sh`, `config/release.toml`,
-`.claude-plugin/marketplace.json`. Tests go in `internal/pluginscripts`,
-running the script in a temporary copy of the two files.
+**Anchors:** `scripts/propagate-version.sh`, `config/release.toml`; in
+`brettcallaghan/agent-plugins`, `.claude-plugin/marketplace.json`,
+`scripts/pin_releases.py` and `.github/workflows/pin-releases.yml`. The
+pin logic's tests live beside it there.
 
 ### `.github/workflows/release.yml` (modified — plugin version gate)
 
@@ -281,7 +286,7 @@ None. The skill invocation names are the plugin's interface, recorded in
 
 Legend: ICLI = `Install CLI Script` delta; SKILL = `Cut Release Skill`
 delta; STD = `Cut Release Skill` delta (— standards references);
-PIN = `scripts/propagate-version.sh` delta (— marketplace pin);
+PIN = Marketplace pin delta;
 GATE = `.github/workflows/release.yml` delta (— plugin version gate).
 
 | AC | Satisfied by | Verified by |
@@ -304,7 +309,8 @@ GATE = `.github/workflows/release.yml` delta (— plugin version gate).
 | AC-PLG-003.4 | ICLI | integration |
 | AC-PLG-004.1 | PIN | integration |
 | AC-PLG-004.2 | GATE | manual |
-| AC-PLG-004.3 | PIN | integration |
+| AC-PLG-004.3 | PIN | manual |
+| AC-PLG-004.4 | PIN | manual |
 | AC-PLG-005.1 | ICLI, **SKILL (proves)** | manual |
 | AC-PLG-005.2 | ICLI, **SKILL (proves)** | manual |
 | AC-PLG-005.3 | SKILL | manual |
@@ -318,8 +324,9 @@ AC-PLG-001.7 is proven by a unit test asserting the plugin has no
 `hooks/` directory and no hook in its manifest. AC-PLG-006.1 and 006.2 are
 proven by `scripts/check-skills.sh --strict` passing on the copies and
 failing, naming the file, on a test edit of one source. The manual rows
-run once the plugin is published, from `agent-plugins` as the first
-adopter.
+run once the plugin is published, from `specs` as the first adopter.
+AC-PLG-004.3 and 004.4 are also covered by the pin logic's unit tests in
+`brettcallaghan/agent-plugins`.
 
 ## Key Decisions
 
