@@ -23,10 +23,11 @@ The [[module-release-plugin]] gains a `cut-release` skill and the
 downloads the CLI release the plugin's manifest names and prints its path;
 the skill runs every CLI step by that path, and carries the release
 standards as byte-identical references. This repository's release
-configuration writes the version into the plugin manifest, the
-`brettcallaghan` marketplace in `brettcallaghan/agent-plugins` pins its
-entry to each published release's tag, and the publish workflow refuses a
-release whose plugin version disagrees. Delta blocks in dependency order:
+configuration writes the version into the plugin manifest, the publish
+workflow refuses a release whose plugin version disagrees and moves the
+`stable` branch to each latest release, and the `brettcallaghan`
+marketplace in `brettcallaghan/agent-plugins` serves the plugin from
+`stable`. Delta blocks in dependency order:
 ICLI, SKILL, STD, PIN, GATE.
 
 ## Element Deltas
@@ -203,11 +204,11 @@ copies, so its advice cannot drift from the corpus.
 **Anchors:** `scripts/check-skills.sh` (the list holding
 `plugin/skills/changelog/references/changelog-contract.md`).
 
-### Marketplace pin (in `brettcallaghan/agent-plugins`)
+### Marketplace pin (`stable`, served by `brettcallaghan/agent-plugins`)
 
 **Intent:** Serve each published release's plugin from the marketplace
-that vends all of Brett's plugins, pinned to its tag, without this
-repository writing to that one.
+that vends all of Brett's plugins, with neither repository changing a
+file per release.
 
 **Behavior:**
 - This repository SHALL carry no `.claude-plugin/marketplace.json`, and
@@ -216,17 +217,14 @@ repository writing to that one.
   SHALL write `RELEASE_VERSION` into that manifest and nothing else.
 - The `release` entry of `brettcallaghan/agent-plugins`'s
   `.claude-plugin/marketplace.json` SHALL have the source
-  `{"source": "git-subdir", "url": "brettcallaghan/release", "path": "plugin", "ref": "v<version>"}`
-  for the latest published release.
-- The marketplace's pin workflow SHALL move that `ref` to a newer published
-  release's tag WHEN the plugin manifest at the tag carries the tag's
-  version, and SHALL leave every pin unchanged and fail, naming the
-  disagreement, otherwise. It SHALL never move a pin backwards.
+  `{"source": "git-subdir", "url": "brettcallaghan/release", "path": "plugin", "ref": "stable"}`.
+- `.github/workflows/release.yml` SHALL fast-forward `stable` to the merge
+  commit WHEN it marks the release latest, after every asset is attached.
+  It SHALL NOT move `stable` for a release it does not mark latest.
 
-**Anchors:** `scripts/propagate-version.sh`, `config/release.toml`; in
-`brettcallaghan/agent-plugins`, `.claude-plugin/marketplace.json`,
-`scripts/pin_releases.py` and `.github/workflows/pin-releases.yml`. The
-pin logic's tests live beside it there.
+**Anchors:** `scripts/propagate-version.sh`, `config/release.toml`,
+`.github/workflows/release.yml` (after the `Publish the release` step); in
+`brettcallaghan/agent-plugins`, `.claude-plugin/marketplace.json`.
 
 ### `.github/workflows/release.yml` (modified — plugin version gate)
 
@@ -310,7 +308,6 @@ GATE = `.github/workflows/release.yml` delta (— plugin version gate).
 | AC-PLG-004.1 | PIN | integration |
 | AC-PLG-004.2 | GATE | manual |
 | AC-PLG-004.3 | PIN | manual |
-| AC-PLG-004.4 | PIN | manual |
 | AC-PLG-005.1 | ICLI, **SKILL (proves)** | manual |
 | AC-PLG-005.2 | ICLI, **SKILL (proves)** | manual |
 | AC-PLG-005.3 | SKILL | manual |
@@ -325,8 +322,6 @@ AC-PLG-001.7 is proven by a unit test asserting the plugin has no
 proven by `scripts/check-skills.sh --strict` passing on the copies and
 failing, naming the file, on a test edit of one source. The manual rows
 run once the plugin is published, from `specs` as the first adopter.
-AC-PLG-004.3 and 004.4 are also covered by the pin logic's unit tests in
-`brettcallaghan/agent-plugins`.
 
 ## Key Decisions
 

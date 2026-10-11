@@ -5,9 +5,9 @@
 # `release cut` runs it in the stage checkout with RELEASE_VERSION set and
 # commits what it changes, provided every path is in release_paths. It
 # writes the version into the plugin manifest, so the plugin and the CLI it
-# provisions carry one version. The marketplace that vends the plugin lives
-# in brettcallaghan/agent-plugins and pins it to each published release's
-# tag itself.
+# provisions carry one version. The marketplace that vends the plugin, in
+# brettcallaghan/agent-plugins, serves it from the stable branch, which the
+# publish workflow moves to each published release.
 set -eu
 
 : "${RELEASE_VERSION:?RELEASE_VERSION is not set; release cut sets it}"

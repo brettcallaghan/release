@@ -267,7 +267,7 @@ Feature: One Version for Plugin and CLI
 
   The release commit is where the two are bound: the plugin manifest's
   version is written by the same cut that writes the changelog. The
-  marketplace that vends the plugin pins each published release's tag.
+  marketplace that vends the plugin serves the latest published release.
 
   @AC-PLG-004.1
   Scenario: Cutting a release writes the plugin's version
@@ -284,18 +284,11 @@ Feature: One Version for Plugin and CLI
     And the publication run reports the disagreement
 
   @AC-PLG-004.3 @manual
-  Scenario: A published release is pinned in the marketplace
-    Given the marketplace vends the plugin pinned to tag "v0.2.0"
-    When version "0.3.0" is published
-    And the marketplace's pin workflow runs
-    Then the marketplace's plugin source is this repository at tag "v0.3.0"
-
-  @AC-PLG-004.4 @manual @negative
-  Scenario: A release whose plugin version disagrees is not pinned
-    Given a published release "v0.3.0" whose plugin manifest names another version
-    When the marketplace's pin workflow runs
-    Then the marketplace keeps its previous pin
-    And the run reports the disagreement
+  Scenario: Publishing a release makes it the one the marketplace serves
+    Given the marketplace serves the plugin at version "0.2.0"
+    When version "0.3.0" is published with every asset attached
+    Then the marketplace serves the plugin as tagged "v0.3.0"
+    And the marketplace's own file is unchanged
 ```
 
 ### FEAT-PLG-005: Cutting a Release From a Skill
@@ -411,8 +404,9 @@ Feature: Adoption and Updates Through the Marketplace
 ```
 
 The marketplace is `brettcallaghan`, in `brettcallaghan/agent-plugins`,
-which vends all of Brett's agent plugins; it serves this plugin pinned to
-its latest published release and its `specs` dependency alongside it.
+which vends all of Brett's agent plugins; it serves this plugin from the
+`stable` branch, which names the latest published release, and its `specs`
+dependency alongside it.
 
 A cloud session does not load plugins that a repository's settings enable;
 it loads the plugins synced to the person's account, and that sync follows
