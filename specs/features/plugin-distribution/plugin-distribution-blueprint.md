@@ -25,9 +25,9 @@ the skill runs every CLI step by that path, and carries the release
 standards as byte-identical references. This repository's release
 configuration writes the version into the plugin manifest, the publish
 workflow refuses a release whose plugin version disagrees and moves the
-`stable` branch to each latest release, and the `brettcallaghan`
-marketplace in `brettcallaghan/agent-plugins` serves the plugin from
-`stable`. Delta blocks in dependency order:
+`release/v<major>` branch to each latest release of its major, and the
+`brettcallaghan` marketplace in `brettcallaghan/agent-plugins` serves the
+plugin from the current major's branch. Delta blocks in dependency order:
 ICLI, SKILL, STD, PIN, GATE.
 
 ## Element Deltas
@@ -204,7 +204,7 @@ copies, so its advice cannot drift from the corpus.
 **Anchors:** `scripts/check-skills.sh` (the list holding
 `plugin/skills/changelog/references/changelog-contract.md`).
 
-### Marketplace pin (`stable`, served by `brettcallaghan/agent-plugins`)
+### Marketplace pin (`release/v<major>`, served by `brettcallaghan/agent-plugins`)
 
 **Intent:** Serve each published release's plugin from the marketplace
 that vends all of Brett's plugins, with neither repository changing a
@@ -217,10 +217,11 @@ file per release.
   SHALL write `RELEASE_VERSION` into that manifest and nothing else.
 - The `release` entry of `brettcallaghan/agent-plugins`'s
   `.claude-plugin/marketplace.json` SHALL have the source
-  `{"source": "git-subdir", "url": "brettcallaghan/release", "path": "plugin", "ref": "stable"}`.
-- `.github/workflows/release.yml` SHALL fast-forward `stable` to the merge
-  commit WHEN it marks the release latest, after every asset is attached.
-  It SHALL NOT move `stable` for a release it does not mark latest.
+  `{"source": "git-subdir", "url": "brettcallaghan/release", "path": "plugin", "ref": "release/v<major>"}` for the current major (`release/v0` today).
+- `.github/workflows/release.yml` SHALL fast-forward `release/v<major>`
+  to the merge commit, creating it if absent, WHEN the release is the
+  highest tag of its major, after every asset is attached. It SHALL NOT
+  move the branch for any other release.
 
 **Anchors:** `scripts/propagate-version.sh`, `config/release.toml`,
 `.github/workflows/release.yml` (after the `Publish the release` step); in

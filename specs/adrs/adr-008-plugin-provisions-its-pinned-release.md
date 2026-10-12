@@ -82,13 +82,17 @@ version differs from the stage branch's.
 
 The plugin is vended by the `brettcallaghan` marketplace in
 `brettcallaghan/agent-plugins`, which serves every plugin Brett develops.
-Its entry serves this repository's `plugin/` from the `stable` branch,
-which the publication workflow moves to each release once its assets are
-attached and it is marked latest, so an installed plugin's skills are the
-ones published with the binary they provision. This repository is not a
+Its entry serves this repository's `plugin/` from the `release/v<major>`
+branch of the current major, which the publication workflow fast-forwards
+to each release of that major once its assets are attached, so an
+installed plugin's skills are the ones published with the binary they
+provision. The branch name is the one [[repository-release-policy]]
+RRP-005 gives a major's line, and when the next major ships it is left on
+its major's last release, where RRP-006 starts a maintenance line. This repository is not a
 marketplace, nothing here writes to the marketplace, and the marketplace
 does not change per release: a plugin update arrives because the manifest
-version on `stable` changed.
+version on that branch changed. Moving adopters to a new major is an edit
+to the marketplace entry's ref, made deliberately.
 
 Until the repository is public, a session reads the release assets with
 the credential of an account that can read it, through the order in
@@ -130,11 +134,11 @@ REST requests succeed without one.
   session with none reports the remedy and runs without the CLI.
 - The plugin and the CLI cannot be released separately. A skill-only fix
   is a CLI patch release.
-- `stable` must stay unprotected against the publication workflow's own
-  token, and only fast-forwards: a maintenance release on an older line
-  never moves it.
+- `release/v<major>` must stay writable by the publication workflow's own
+  token, and only fast-forwards: a release that is not the highest of its
+  major never moves it.
 - The skills on the default branch can describe commands the last
-  release lacks; serving `stable` keeps them from installed plugins until
+  release lacks; serving `release/v<major>` keeps them from installed plugins until
   the next release.
 - `install-cli` is a Bash script. Windows depends on the agent's shell
   being a Bash, as Claude Code's is on Windows (**unverified**).

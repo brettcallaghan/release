@@ -405,7 +405,8 @@ Feature: Adoption and Updates Through the Marketplace
 
 The marketplace is `brettcallaghan`, in `brettcallaghan/agent-plugins`,
 which vends all of Brett's agent plugins; it serves this plugin from the
-`stable` branch, which names the latest published release, and its `specs`
+`release/v<major>` branch of the current major, which names that major's
+latest published release, and its `specs`
 dependency alongside it.
 
 A cloud session does not load plugins that a repository's settings enable;
