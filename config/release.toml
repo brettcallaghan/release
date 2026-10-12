@@ -1,5 +1,5 @@
 target = "main"
-release_paths = ["plugin/.claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]
+release_paths = ["plugin/.claude-plugin/plugin.json"]
 
 [changelog]
 breaking_heading = "💥 Breaking changes"

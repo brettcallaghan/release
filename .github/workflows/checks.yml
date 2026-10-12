@@ -52,7 +52,3 @@ jobs:
       - name: Validate the plugin
         if: ${{ !cancelled() }}
         run: claude plugin validate plugin --strict
-
-      - name: Validate the marketplace
-        if: ${{ !cancelled() }}
-        run: claude plugin validate . --strict

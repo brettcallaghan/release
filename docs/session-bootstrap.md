@@ -10,7 +10,7 @@ This is an operations note, not a specification.
 - **SessionStart** runs `.claude/hooks/session-start.sh`, which installs `bd`,
   hydrates the tracker from the `beads/data` branch with
   `scripts/beads-setup.sh`, builds the `release` CLI onto PATH, and builds the
-  `specs` CLI when a sibling `agent-plugins` checkout is attached. It then
+  `specs` CLI when a sibling `specs` checkout is attached. It then
   runs `bd prime --hook-json` for the tracker's workflow context.
 - **Stop** runs `.claude/hooks/dolt-push.sh`, which pushes the tracker to
   `beads/data` at the end of every turn.
@@ -22,7 +22,7 @@ branch. See `AGENTS.md`, "How beads persist in THIS project".
 ## When the hook does not run
 
 Claude Code loads hooks from the **project root** only. A session that
-attaches this repository alongside another (for example `agent-plugins`,
+attaches this repository alongside another (for example `specs`,
 whose `specs` CLI gates this corpus) clones both as siblings under a shared
 parent with no `.claude/`, so neither repository's hook runs. `CLAUDE.md`
 tells the agent to run the hook by hand.

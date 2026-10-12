@@ -16,12 +16,9 @@ import (
 	"github.com/brettcallaghan/release/internal/config"
 )
 
-const (
-	manifestPath    = "plugin/.claude-plugin/plugin.json"
-	marketplacePath = ".claude-plugin/marketplace.json"
-)
+const manifestPath = "plugin/.claude-plugin/plugin.json"
 
-// propagateTree copies the two files the script writes into a temporary
+// propagateTree copies the file the script writes into a temporary
 // repository root, as the stage checkout `release cut` runs it in.
 func propagateTree(t *testing.T) string {
 	t.Helper()
@@ -34,14 +31,12 @@ func propagateTree(t *testing.T) string {
 		}
 	}
 	root := t.TempDir()
-	for _, p := range []string{manifestPath, marketplacePath} {
-		data, err := os.ReadFile(filepath.Join("..", "..", p))
-		if err != nil {
-			t.Fatal(err)
-		}
-		mustMkdir(t, filepath.Dir(filepath.Join(root, p)))
-		mustWrite(t, filepath.Join(root, p), data, 0o644)
+	data, err := os.ReadFile(filepath.Join("..", "..", manifestPath))
+	if err != nil {
+		t.Fatal(err)
 	}
+	mustMkdir(t, filepath.Dir(filepath.Join(root, manifestPath)))
+	mustWrite(t, filepath.Join(root, manifestPath), data, 0o644)
 	return root
 }
 
@@ -102,99 +97,43 @@ func TestCutWritesThePluginVersion(t *testing.T) {
 	requireNoPropagateTemps(t, root)
 }
 
-// AC: AC-PLG-004.3
-func TestCutPinsTheMarketplaceToItsTag(t *testing.T) {
-	requireReleasePath(t, marketplacePath)
-	root := propagateTree(t)
-	before := readJSON(t, filepath.Join(root, marketplacePath))
-	if out, err := runPropagate(t, root, "0.2.0"); err != nil {
-		t.Fatalf("propagate-version.sh: %v\n%s", err, out)
+// The marketplace that vends the plugin lives in brettcallaghan/agent-plugins,
+// so the release commit carries the plugin manifest and nothing else of the
+// plugin's.
+func TestReleasePathsCarryOnlyThePluginManifest(t *testing.T) {
+	cfg := config.Default()
+	if _, err := toml.DecodeFile(filepath.Join("..", "..", "config", "release.toml"), &cfg); err != nil {
+		t.Fatalf("loading config/release.toml: %v", err)
 	}
-	after := readJSON(t, filepath.Join(root, marketplacePath))
-
-	want := map[string]any{"source": "git-subdir", "url": "brettcallaghan/release", "path": "plugin", "ref": "v0.2.0"}
-	var entry map[string]any
-	for _, p := range after["plugins"].([]any) {
-		if m := p.(map[string]any); m["name"] == "release" {
-			entry = m
-		}
-	}
-	if entry == nil {
-		t.Fatal("the release entry is gone")
-	}
-	if !reflect.DeepEqual(entry["source"], want) {
-		t.Errorf("source = %v, want %v", entry["source"], want)
-	}
-
-	// Everything else is as it was.
-	for _, p := range before["plugins"].([]any) {
-		if m := p.(map[string]any); m["name"] == "release" {
-			m["source"] = want
-		}
-	}
-	if !reflect.DeepEqual(before, after) {
-		t.Errorf("the marketplace changed beyond the release entry's source:\nbefore %v\nafter  %v", before, after)
+	if want := []string{manifestPath}; !reflect.DeepEqual(cfg.ReleasePaths, want) {
+		t.Errorf("release_paths = %v, want %v", cfg.ReleasePaths, want)
 	}
 }
 
-func TestPropagateFailsWithoutAReleaseEntryAndWritesNothing(t *testing.T) {
+func TestPropagateFailsWithoutAVersionFieldAndWritesNothing(t *testing.T) {
 	root := propagateTree(t)
-	mp := filepath.Join(root, marketplacePath)
-	market := readJSON(t, mp)
-	market["plugins"] = []any{}
-	data, _ := json.Marshal(market)
+	mp := filepath.Join(root, manifestPath)
+	data := []byte(`{"name": "release"}` + "\n")
 	mustWrite(t, mp, data, 0o644)
-	manifestBefore, _ := os.ReadFile(filepath.Join(root, manifestPath))
 
 	out, err := runPropagate(t, root, "0.2.0")
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
 		t.Fatalf("err = %v, want a non-zero exit\n%s", err, out)
 	}
-	if !bytes.Contains([]byte(out), []byte("no plugin entry named release")) {
-		t.Errorf("output = %q, want it to name the missing entry", out)
-	}
-	if after, _ := os.ReadFile(filepath.Join(root, manifestPath)); !bytes.Equal(after, manifestBefore) {
-		t.Error("plugin.json was written although the script failed")
+	if !bytes.Contains([]byte(out), []byte("no version field")) {
+		t.Errorf("output = %q, want it to name the missing field", out)
 	}
 	if after, _ := os.ReadFile(mp); !bytes.Equal(after, data) {
-		t.Error("marketplace.json was written although the script failed")
-	}
-}
-
-// A marketplace.json that cannot be prepared leaves plugin.json untouched,
-// and no temp file is left behind either way.
-func TestPropagateFailureToPrepareMarketplaceLeavesPluginManifestUnchanged(t *testing.T) {
-	root := propagateTree(t)
-	dir := filepath.Dir(filepath.Join(root, marketplacePath))
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
-	if f, err := os.CreateTemp(dir, "probe-"); err == nil {
-		f.Close()
-		os.Remove(f.Name())
-		t.Skip("directory permissions are not enforced for this user (running as root?)")
-	}
-	manifestBefore, _ := os.ReadFile(filepath.Join(root, manifestPath))
-
-	out, err := runPropagate(t, root, "0.2.0")
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		t.Fatalf("err = %v, want a non-zero exit\n%s", err, out)
-	}
-	if after, _ := os.ReadFile(filepath.Join(root, manifestPath)); !bytes.Equal(after, manifestBefore) {
-		t.Error("plugin.json was written although marketplace.json could not be prepared")
+		t.Error("plugin.json was written although the script failed")
 	}
 	requireNoPropagateTemps(t, root)
 }
 
 func requireNoPropagateTemps(t *testing.T, root string) {
 	t.Helper()
-	for _, p := range []string{manifestPath, marketplacePath} {
-		left, _ := filepath.Glob(filepath.Join(filepath.Dir(filepath.Join(root, p)), ".propagate-*"))
-		if len(left) != 0 {
-			t.Errorf("temp files left beside %s: %v", p, left)
-		}
+	left, _ := filepath.Glob(filepath.Join(filepath.Dir(filepath.Join(root, manifestPath)), ".propagate-*"))
+	if len(left) != 0 {
+		t.Errorf("temp files left beside %s: %v", manifestPath, left)
 	}
 }

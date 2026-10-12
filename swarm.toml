@@ -26,7 +26,7 @@ command = 'go build ./...'
 id = "test-go"
 command = 'go test ./...'
 
-# The corpus, checked by the Spec CLI from brettcallaghan/agent-plugins. It is
+# The corpus, checked by the Spec CLI from brettcallaghan/specs. It is
 # built by the session hook only when that repository is attached, so the
 # check SKIPs out loud rather than going red where it is absent.
 [[checks]]

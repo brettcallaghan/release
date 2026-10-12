@@ -146,9 +146,9 @@ for link in sorted(glob.glob('.claude/skills/*')):
             err(link, f"symlink resolves outside plugin/skills/ ({target}); "
                       f"a .claude/skills link must point at a plugin skill")
 
-# ---- 3. plugin and marketplace manifests are valid JSON --------------------
+# ---- 3. the plugin manifest is valid JSON ---------------------------------
 import json
-for p in ('plugin/.claude-plugin/plugin.json', '.claude-plugin/marketplace.json'):
+for p in ('plugin/.claude-plugin/plugin.json',):
     try:
         with open(p) as f:
             json.load(f)

@@ -16,7 +16,7 @@ These standards govern how [[container-release-cli]] and
 [[module-release-core]] are tested. They adopt the Spec CLI's testing
 standard by reference and state only what this repository binds.
 
-**Adopted:** [Testing Standards for the Spec CLI](https://github.com/brettcallaghan/agent-plugins/blob/3e612b9/specs/standards/testing-standards.md),
+**Adopted:** [Testing Standards for the Spec CLI](https://github.com/brettcallaghan/specs/blob/3e612b9/specs/standards/testing-standards.md),
 pinned to commit `3e612b9`. Its requirements apply here as written: unit
 tests for components, snapshot cases for observable behavior, and every case
 citing the acceptance criterion it verifies. They are not copied, so a

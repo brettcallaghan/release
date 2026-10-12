@@ -3,12 +3,12 @@ title: "Module Blueprint: Release Plugin"
 entity_name: Release Plugin
 technology: Claude Code plugin (skills, Bash)
 description: The agent plugin published from this repository — the skills
-  an agent uses to work with the release CLI, distributed through the
-  repository's marketplace at the CLI's own version.
+  an agent uses to work with the release CLI, vended by the brettcallaghan
+  marketplace in brettcallaghan/agent-plugins at the CLI's own version.
 slug: module-release-plugin
 type: module-blueprint
 status: approved
-updated_at: 2026-10-10T00:00:00Z
+updated_at: 2026-10-11T00:00:00Z
 kind: standard
 visibility: public
 contracts_consumed:
@@ -25,9 +25,9 @@ version: "0.1"
 
 ## Overview
 
-A Claude Code plugin, published from `plugin/` through the marketplace in
-`.claude-plugin/marketplace.json`, that an agent harness loads into a
-session. It carries no release logic: every rule lives in
+A Claude Code plugin, published from `plugin/` and vended by the
+`brettcallaghan` marketplace in `brettcallaghan/agent-plugins`, that an
+agent harness loads into a session. It carries no release logic: every rule lives in
 [[module-release-core]] and reaches an agent through the
 [[container-release-cli]] binary. The plugin holds the skills that tell an
 agent how to drive that binary, and the producer skill the binary invokes
@@ -147,10 +147,11 @@ against an `httptest` server.
 
 The plugin's version is the CLI's version: `release cut` writes it into
 `plugin/.claude-plugin/plugin.json` through `scripts/propagate-version.sh`
-([[adr-008]]), which also pins the `release` entry of
-`.claude-plugin/marketplace.json` to the release's `v<version>` tag, so the
-marketplace serves the plugin as released. A skill change ships in the next
-CLI release.
+([[adr-008]]). The marketplace serves its `release` entry from the
+`release/v<major>` branch of the current major, which the publication
+workflow moves to each latest release of that major, so it serves the plugin as released; this repository carries no
+marketplace file. A skill change ships in the
+next CLI release.
 
 ## Cross-Cutting Standards
 
