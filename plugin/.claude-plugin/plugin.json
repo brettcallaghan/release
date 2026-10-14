@@ -1,6 +1,6 @@
 {
   "name": "release",
-  "description": "Release tooling skills for the release CLI: author a release's structured changelog from its evidence bundle of commit, pull request and diff records",
+  "description": "Release management with the release CLI, AI generated changelogs, and a cut-release skill with built-in standards.",
   "version": "0.3.0",
   "author": {
     "name": "Brett Callaghan",
