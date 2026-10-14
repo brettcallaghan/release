@@ -24,8 +24,9 @@ import (
 )
 
 const (
-	pinned   = "0.2.0"
-	repoPath = "/repos/brettcallaghan/release/releases"
+	pinned       = "0.2.0"
+	repoPath     = "/repos/brettcallaghan/release/releases"
+	downloadPath = "/brettcallaghan/release/releases/download/v" + pinned + "/"
 )
 
 // installCLI is the script under test, relative to this package.
@@ -40,19 +41,24 @@ var tools = []string{
 	"tr", "env", "readlink",
 }
 
-// fakeAPI stands in for api.github.com and for the host its asset downloads
-// redirect to. The asset host is reached as "localhost" and the API as
-// "127.0.0.1", so the redirect crosses hosts as the real one does.
+// fakeAPI stands in for api.github.com, for the host its asset downloads
+// redirect to, and for github.com's public release-download URL. The asset
+// host is reached as "localhost" and the API as "127.0.0.1", so the redirect
+// crosses hosts as the real one does. The public URL serves the release only
+// once public is set; until then it answers 404, as it does for a private
+// repository.
 type fakeAPI struct {
-	api, assets *httptest.Server
+	api, assets, download *httptest.Server
 
-	mu         sync.Mutex
-	files      map[string][]byte // asset name -> bytes
-	ids        map[int]string    // asset id -> name
-	tagStatus  int               // non-zero: the tags lookup answers with it
-	apiAuth    []string          // Authorization of every API request
-	assetAuth  []string          // Authorization of every asset-host request
-	downloaded []string          // asset names, in download order
+	mu           sync.Mutex
+	files        map[string][]byte // asset name -> bytes
+	ids          map[int]string    // asset id -> name
+	tagStatus    int               // non-zero: the tags lookup answers with it
+	public       bool              // the public download URL serves the release
+	apiAuth      []string          // Authorization of every API request
+	assetAuth    []string          // Authorization of every asset-host request
+	downloadAuth []string          // Authorization of every public-URL request
+	downloaded   []string          // asset names, in download order
 }
 
 func newFakeAPI(t *testing.T) *fakeAPI {
@@ -71,6 +77,20 @@ func newFakeAPI(t *testing.T) *fakeAPI {
 	}))
 	t.Cleanup(f.assets.Close)
 	assetBase := strings.Replace(f.assets.URL, "127.0.0.1", "localhost", 1)
+
+	f.download = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		f.downloadAuth = append(f.downloadAuth, r.Header.Get("Authorization"))
+		name := strings.TrimPrefix(r.URL.Path, downloadPath)
+		if _, ok := f.files[name]; !ok || !f.public || !strings.HasPrefix(r.URL.Path, downloadPath) {
+			http.NotFound(w, r)
+			return
+		}
+		f.downloaded = append(f.downloaded, name)
+		http.Redirect(w, r, assetBase+"/"+name, http.StatusFound)
+	}))
+	t.Cleanup(f.download.Close)
 
 	f.api = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -165,6 +185,13 @@ func (f *fakeAPI) requests() (api, asset []string, downloaded []string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]string(nil), f.apiAuth...), append([]string(nil), f.assetAuth...), append([]string(nil), f.downloaded...)
+}
+
+// publicRequests is the Authorization of every public-URL request.
+func (f *fakeAPI) publicRequests() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.downloadAuth...)
 }
 
 // archive builds a release archive named like scripts/build-release.sh's:
@@ -307,6 +334,7 @@ func (h *harness) run() (stdout, stderr string, code int) {
 		"HOME=" + h.home,
 		"TMPDIR=" + h.home,
 		"INSTALL_CLI_API_URL=" + h.api.api.URL,
+		"INSTALL_CLI_DOWNLOAD_URL=" + h.api.download.URL,
 		"INSTALL_CLI_LINK_DIR=" + h.linkDir,
 	}
 	for k, v := range h.env {
@@ -390,8 +418,9 @@ func (h *harness) requireNoTemp() {
 func (h *harness) requireNoRequests() {
 	h.t.Helper()
 	api, asset, _ := h.api.requests()
-	if len(api)+len(asset) != 0 {
-		h.t.Errorf("made %d API and %d asset requests, want none", len(api), len(asset))
+	public := h.api.publicRequests()
+	if len(api)+len(asset)+len(public) != 0 {
+		h.t.Errorf("made %d API, %d asset and %d public-URL requests, want none", len(api), len(asset), len(public))
 	}
 }
 
@@ -804,17 +833,80 @@ func TestFirstAvailableCredentialIsUsed(t *testing.T) {
 // AC: AC-PLG-003.4
 func TestPublicReleaseNeedsNoCredential(t *testing.T) {
 	h := newHarness(t) // no token in the environment and no gh on the PATH
+	h.api.public = true
 	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
 
 	if got := h.version(h.succeed()); got != "release v"+pinned {
 		t.Errorf("--version = %q", got)
 	}
-	api, asset, _ := h.api.requests()
-	for _, auth := range append(api, asset...) {
+	api, asset, downloaded := h.api.requests()
+	if len(api) != 0 {
+		t.Errorf("made %d API requests, want none: the public URL serves the release", len(api))
+	}
+	if want := []string{"SHA256SUMS", "release_0.2.0_linux_amd64.tar.gz"}; strings.Join(downloaded, ",") != strings.Join(want, ",") {
+		t.Errorf("downloaded %v, want %v", downloaded, want)
+	}
+	for _, auth := range append(asset, h.api.publicRequests()...) {
 		if auth != "" {
 			t.Errorf("a request carried Authorization %q", auth)
 		}
 	}
+}
+
+// AC: AC-PLG-003.4
+func TestReleaseTheAPIBlocksIsProvisionedFromThePublicURL(t *testing.T) {
+	h := newHarness(t)
+	h.env["GH_TOKEN"] = secret
+	h.api.public = true
+	h.api.tagStatus = http.StatusForbidden // a proxy refusing the API
+	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+
+	if got := h.version(h.succeed()); got != "release v"+pinned {
+		t.Errorf("--version = %q", got)
+	}
+	if api, _, _ := h.api.requests(); len(api) != 0 {
+		t.Errorf("made %d API requests, want none", len(api))
+	}
+	for i, auth := range h.api.publicRequests() {
+		if auth != "" {
+			t.Errorf("public-URL request %d carried Authorization %q", i, auth)
+		}
+	}
+}
+
+// AC: AC-PLG-003.1
+func TestReleaseThePublicURLDoesNotServeIsReadThroughTheAPI(t *testing.T) {
+	h := newHarness(t)
+	h.env["GH_TOKEN"] = secret
+	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+
+	if got := h.version(h.succeed()); got != "release v"+pinned {
+		t.Errorf("--version = %q", got)
+	}
+	if public := h.api.publicRequests(); len(public) == 0 {
+		t.Error("the public URL was not tried first")
+	}
+	if api, _, _ := h.api.requests(); len(api) != 3 {
+		t.Errorf("made %d API requests, want 3", len(api))
+	}
+}
+
+// AC: AC-PLG-001.5
+func TestPublicArchiveFailingItsChecksumFailsWithoutTheAPI(t *testing.T) {
+	h := newHarness(t)
+	h.api.public = true
+	h.api.publish(t, pinned, "release_0.2.0_linux_amd64.tar.gz")
+	h.api.corrupt("release_0.2.0_linux_amd64.tar.gz")
+
+	msg := h.fail()
+	want := "install-cli: checksum mismatch for release_0.2.0_linux_amd64.tar.gz. retry; a repeated mismatch is a corrupted release to report"
+	if msg != want {
+		t.Errorf("stderr = %q\nwant      %q", msg, want)
+	}
+	if api, _, _ := h.api.requests(); len(api) != 0 {
+		t.Errorf("made %d API requests after a public checksum mismatch, want none", len(api))
+	}
+	h.requireNoTemp()
 }
 
 const secret = "ghp_secretTokenNeverRecorded"
@@ -870,6 +962,11 @@ func TestCredentialIsSentOnlyToTheAPI(t *testing.T) {
 	api, asset, _ := h.api.requests()
 	if len(asset) != 2 {
 		t.Fatalf("made %d asset-host requests, want 2 (redirects followed)", len(asset))
+	}
+	for i, auth := range h.api.publicRequests() {
+		if auth != "" {
+			t.Errorf("public-URL request %d carried Authorization %q", i, auth)
+		}
 	}
 	for i, auth := range asset {
 		if auth != "" {

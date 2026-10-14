@@ -77,7 +77,15 @@ the skill never reimplements any part of it.
   `windows`, and `uname -m` x86_64/amd64→`amd64`, aarch64/arm64→`arm64`.
   IF either maps to nothing, THEN it SHALL fail with "no release archive
   for <os>/<arch>".
-- The script SHALL read the release `v<version>` from
+- The script SHALL first download `SHA256SUMS` and the archive from
+  `GET <download>/brettcallaghan/release/releases/download/v<version>/<asset>`,
+  following redirects, with no `Authorization` header. `<download>` SHALL
+  default to `https://github.com` and be overridable only through
+  `INSTALL_CLI_DOWNLOAD_URL`, which exists for tests. WHEN both answer
+  2xx, the script SHALL verify and extract them as below and make no API
+  request; a checksum mismatch SHALL fail, not fall back.
+- WHEN either public download does not answer 2xx, the script SHALL
+  discard what it fetched and read the release `v<version>` from
   `GET <api>/repos/brettcallaghan/release/releases/tags/v<version>`, take
   the asset ids of the archive and `SHA256SUMS` from it, and download each
   with `GET <api>/repos/brettcallaghan/release/releases/assets/<id>` and
@@ -91,8 +99,8 @@ the skill never reimplements any part of it.
   none, requests go without an `Authorization` header, which is how a
   session's own repository access is used.
 - The credential SHALL be sent as an `Authorization` header to `<api>`
-  only. Redirects SHALL be followed without forwarding it (curl `-L`
-  without `--location-trusted`). The credential SHALL NOT appear in the
+  only, never to `<download>`. Redirects SHALL be followed without
+  forwarding it (curl `-L` without `--location-trusted`). The credential SHALL NOT appear in the
   script's output or in any file it writes, and SHALL NOT be passed on a
   command line (curl reads the header from standard input or a
   file descriptor).
