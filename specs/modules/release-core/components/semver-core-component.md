@@ -6,7 +6,6 @@ description: Version parsing and comparison, and every branch, tag and
 slug: component-semver-core
 type: component-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:

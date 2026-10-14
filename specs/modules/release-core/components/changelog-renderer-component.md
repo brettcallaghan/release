@@ -6,7 +6,6 @@ description: A changelog corpus rendered to markdown, one rendering per
 slug: component-changelog-renderer
 type: component-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog

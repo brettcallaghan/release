@@ -7,7 +7,6 @@ description: The component type that receives a release's evidence bundle
 slug: component-changelog-producer
 type: component-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: pattern
 contracts_consumed:
   - contract-changelog

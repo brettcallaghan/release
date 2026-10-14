@@ -6,7 +6,6 @@ description: The evidence a producer reads and the structured changelog it
 slug: contract-changelog
 type: contract
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 provider: module-release-core
 visibility: public
 specs:

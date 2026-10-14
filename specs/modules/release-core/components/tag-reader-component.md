@@ -6,7 +6,6 @@ description: Release tags reachable from a ref, parsed to versions and
 slug: component-tag-reader
 type: component-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:

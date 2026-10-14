@@ -6,7 +6,6 @@ description: How release core cuts a release as a stage branch and pull
 slug: feature-release-staging
 type: feature-blueprint
 status: retired
-updated_at: 2026-10-08T00:00:00Z
 delivery: single-pr
 plan: release-elu
 frd: frd-release-staging

@@ -7,7 +7,6 @@ description: Expressing every repository-specific behaviour as configuration
 slug: frd-tool-configuration
 type: frd
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001
   - adr-003

@@ -6,7 +6,6 @@ description: How release core assembles a changelog corpus from git,
 slug: feature-changelog-authoring
 type: feature-blueprint
 status: retired
-updated_at: 2026-10-09T00:00:00Z
 delivery: single-pr
 plan: release-mng
 frd: frd-changelog-authoring

@@ -6,7 +6,6 @@ description: Runs a repository's configured command for a named release step
 slug: component-delegated-command-runner
 type: component-blueprint
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:

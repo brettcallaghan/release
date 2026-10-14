@@ -5,7 +5,6 @@ description: The commands, arguments, flags, output and exit codes the release
 slug: contract-release-cli
 type: contract
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 provider: container-release-cli
 visibility: public
 specs:

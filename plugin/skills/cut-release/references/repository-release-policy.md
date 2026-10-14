@@ -7,8 +7,6 @@ description: The release choices a project makes for itself — which
 slug: repository-release-policy
 type: standards
 status: approved
-updated_at: 2026-10-09T00:00:00Z
-version: "0.2"
 ---
 
 # Repository Release Policy

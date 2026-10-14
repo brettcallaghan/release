@@ -6,7 +6,6 @@ description: A release is triggered by merging a branch carrying the
 slug: adr-002
 type: adr
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-002: Stage Branches as the Release Trigger

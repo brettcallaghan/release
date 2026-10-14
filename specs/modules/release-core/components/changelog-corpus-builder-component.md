@@ -6,7 +6,6 @@ description: Collected commit and pull-request records assembled into a
 slug: component-changelog-corpus-builder
 type: component-blueprint
 status: retired
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog

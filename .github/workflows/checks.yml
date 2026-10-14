@@ -1,6 +1,7 @@
 name: checks
 
 # The plugin gates: are the `release` plugin's skills and manifests intact?
+# The corpus gate: does specs/ pass `specs check --strict`?
 # The Go gates live in cli.yml.
 
 on:
@@ -52,3 +53,35 @@ jobs:
       - name: Validate the plugin
         if: ${{ !cancelled() }}
         run: claude plugin validate plugin --strict
+
+  corpus:
+    name: specs check
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    env:
+      # A published Spec CLI release from brettcallaghan/specs. Bumping the
+      # version and its checksum together is a deliberate change: a newer
+      # CLI can report findings the corpus does not yet satisfy.
+      SPECS_VERSION: v0.0.0
+      SPECS_SHA256: 1edd3ab7ccf9468360559d339f61374eb1a476041e0a4c1f7cc0abf1f5ad5016
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Spec CLI
+        run: |
+          set -euo pipefail
+          asset="specs_${SPECS_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$asset" \
+            "https://github.com/brettcallaghan/specs/releases/download/cli/${SPECS_VERSION}/${asset}"
+          echo "${SPECS_SHA256}  $RUNNER_TEMP/$asset" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/specs"
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/specs"
+          echo "$RUNNER_TEMP/specs" >> "$GITHUB_PATH"
+
+      - name: Report the Spec CLI version
+        run: specs --version
+
+      # --strict exits 1 on a warning or an unverified finding as well as an
+      # error: a diagram the check cannot read is a diagram it did not check.
+      - name: Check the corpus
+        run: specs check --strict

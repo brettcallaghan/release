@@ -5,7 +5,6 @@ description: How release core renders one changelog corpus into every
 slug: feature-changelog-rendering
 type: feature-blueprint
 status: retired
-updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 plan: release-fgl
 frd: frd-changelog-rendering
