@@ -23,21 +23,30 @@ whole of adopting the CLI: the session gains the binary at the plugin's
 own version. Something has to put a binary for the session's platform on
 its PATH, and the choice is constrained by:
 
-- **The repository is private.** Release assets need a credential that can
-  read it. Measured from a Claude Code cloud session on 2026-10-08, with
-  the repository attached and the session's `GH_TOKEN` rejected by
-  `gh auth status`:
+- **The route that works depends on the session.** The repository is
+  public, so its release assets download from
+  `https://github.com/<repo>/releases/download/<tag>/<asset>` with no
+  credential. A Claude Code cloud session's proxy refuses `api.github.com`
+  for every repository the session has not attached, public or not, so the
+  REST API is unavailable in exactly the sessions that adopt the plugin.
+  Measured on 2026-10-14 from a cloud session in another repository, with
+  this one not attached:
+
+  | Request | Result |
+  |---|---|
+  | `curl -L https://github.com/brettcallaghan/release/releases/download/v0.3.0/SHA256SUMS` | 200 |
+  | `curl https://api.github.com/repos/brettcallaghan/release/releases/tags/v0.3.0` | 403: "GitHub access to this repository is not enabled for this session" |
+
+  A private repository, or a fork that is one, is the reverse: the public
+  URL answers 404 and only the REST release-asset endpoint, with a
+  credential, serves the assets. Measured on 2026-10-08 with the
+  repository private and attached:
 
   | Request | Result |
   |---|---|
   | `curl https://github.com/brettcallaghan/release/releases/download/v0.1.0/SHA256SUMS` | 404 |
-  | `curl https://api.github.com/repos/brettcallaghan/release/releases/tags/v0.1.0` | 200 |
   | `curl -H 'Accept: application/octet-stream' https://api.github.com/repos/brettcallaghan/release/releases/assets/<id>` | 200, and the archive's SHA-256 matched SHA256SUMS |
   | `gh release download v0.1.0 -R brettcallaghan/release` | 403: GraphQL is refused in cloud sessions |
-
-  The REST asset endpoint is the one route that worked. Whether it works
-  in a cloud session that does **not** have this repository attached is
-  **unverified**; a session in another repository settles it.
 - **Six targets.** [[cli-distribution-policy]] publication already builds
   linux, darwin and windows on amd64 and arm64, with a SHA256SUMS file,
   for every release (`.github/workflows/release.yml`).
@@ -57,7 +66,9 @@ installed, in order: the binary the repository's agent settings name, then
 the copy in `${CLAUDE_PLUGIN_DATA}/bin/<version>/`. It never runs a
 `release` it finds on the PATH. Only when neither is found does it select
 the archive for the machine's OS and architecture, fetch it and SHA256SUMS
-through the GitHub REST release-asset endpoint, verify the checksum, and
+from the public release-download URL with no credential, falling back to
+the GitHub REST release-asset endpoint with one when the public URL does
+not serve both, verify the checksum, and
 extract the binary to `${CLAUDE_PLUGIN_DATA}/bin/<version>/`, where a later
 session reuses it without the network. The skill passes
 `${CLAUDE_PLUGIN_DATA}` to the script as an argument: Claude Code
@@ -94,10 +105,10 @@ does not change per release: a plugin update arrives because the manifest
 version on that branch changed. Moving adopters to a new major is an edit
 to the marketplace entry's ref, made deliberately.
 
-Until the repository is public, a session reads the release assets with
-the credential of an account that can read it, through the order in
-[[frd-plugin-distribution]] FEAT-PLG-003. Once it is public, the same
-REST requests succeed without one.
+The public URL never receives a credential. When it does not serve the
+assets, a session reads them through the REST API with the credential of
+an account that can read the repository, through the order in
+[[frd-plugin-distribution]] FEAT-PLG-003.
 
 ## Alternatives Considered
 
@@ -111,7 +122,7 @@ REST requests succeed without one.
 | Install into a gitignored `bin/` in each repository | The person's terminal in that repository finds the same binary | Writes into the person's working tree<br>One download per repository per version<br>Every adopting repository must ignore the path | The plugin data directory is the documented home for caches that survive plugin updates, and a session needs nothing in the working tree |
 | Reuse a matching `release` on the PATH | Saves one cached download per version where the person already has the CLI | Telling whether it matches means running an arbitrary program by that name, which needs a portable timeout, and macOS ships no `timeout` | Running an unknown program with a hand-rolled timeout costs more than one cached download per version saves |
 | Require a manual install | Nothing to build | The agent discovers the gap mid-task; the version drifts from the skills | Defeats the FRD's premise that installing the plugin is adoption |
-| Download and verify the pinned release asset when a skill needs it | One archive per machine and version, cached across sessions<br>Nothing happens in sessions that do not release<br>Works wherever the skill's script can run<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs a credential while the repository is private<br>Needs the GitHub API reachable at first use | N/A — selected |
+| Download and verify the pinned release asset when a skill needs it | One archive per machine and version, cached across sessions<br>Nothing happens in sessions that do not release<br>Works wherever the skill's script can run<br>Exactly the plugin's version<br>Reuses the six archives and SHA256SUMS already published | Needs github.com, or the GitHub API with a credential, reachable at first use | N/A — selected |
 
 ## Consequences
 
@@ -130,8 +141,9 @@ REST requests succeed without one.
 
 **Negative:**
 
-- While the repository is private, first use depends on a credential; a
-  session with none reports the remedy and runs without the CLI.
+- Where the public URL does not serve the release, first use depends on a
+  credential; a session with none reports the remedy and runs without the
+  CLI.
 - The plugin and the CLI cannot be released separately. A skill-only fix
   is a CLI patch release.
 - `release/v<major>` must stay writable by the publication workflow's own
