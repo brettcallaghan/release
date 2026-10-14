@@ -124,13 +124,13 @@ step by the path it prints.
   never a fall-through), then `<data-dir>/bin/<version>/release`. A
   `release` on the PATH is never run, whatever version it reports.
 - **Download:** the archive `release_<version>_<os>_<arch>` and
-  `SHA256SUMS` of release `v<version>`, by asset id through the GitHub
-  REST API, verified with `sha256sum` (or `shasum -a 256`) before `tar`
+  `SHA256SUMS` of release `v<version>`, from the public release-download
+  URL, else by asset id through the GitHub REST API, verified with `sha256sum` (or `shasum -a 256`) before `tar`
   extracts it under `<data-dir>/bin/.tmp-<pid>`; only the verified binary
   moves into `<data-dir>/bin/<version>/`. POSIX tools only.
 - **Credential:** `GH_TOKEN`, `GITHUB_TOKEN`, `gh auth token`, or none —
   sent as a header read from standard input, to the API host only;
-  redirects are followed without it.
+  redirects are followed without it, and the public URL never gets it.
 - **Placement:** nothing outside `<data-dir>`, except that with
   `CLAUDE_CODE_REMOTE=true` the provisioned binary is linked as `release`
   into `/usr/local/bin`, replacing only an earlier such link; any other
