@@ -7,8 +7,6 @@ description: What the release tooling guarantees and validates — stage
 slug: release-tooling-standards
 type: standards
 status: approved
-updated_at: 2026-10-09T00:00:00Z
-version: "0.5"
 ---
 
 # Release Tooling Standards

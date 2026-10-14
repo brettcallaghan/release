@@ -7,7 +7,6 @@ description: The changelog producer of last resort — entries derived from
 slug: component-mechanical-producer
 type: component-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog

@@ -5,7 +5,6 @@ description: How the release core gains semver, tag, commit, impact and
 slug: feature-version-computation
 type: feature-blueprint
 status: in-progress
-updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 frd: frd-version-computation
 plan: release-cb2

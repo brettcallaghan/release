@@ -6,7 +6,6 @@ description: How release core gains a validated configuration model and a
 slug: feature-tool-configuration
 type: feature-blueprint
 status: retired
-updated_at: 2026-10-07T00:00:00Z
 delivery: single-pr
 plan: release-0qc
 frd: frd-tool-configuration

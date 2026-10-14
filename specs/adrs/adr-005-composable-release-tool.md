@@ -6,7 +6,6 @@ description: The release tooling is built as small, independently testable
 slug: adr-005
 type: adr
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-005: A Composable Library With a Thin CLI

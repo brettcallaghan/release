@@ -5,7 +5,6 @@ description: The release core reads and writes repositories by running the
 slug: adr-006
 type: adr
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-006: Git Through the Git Binary

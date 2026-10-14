@@ -7,7 +7,6 @@ description: The next version for a release line, carrying the version
 slug: component-version-calculator
 type: component-blueprint
 status: approved
-updated_at: 2026-10-08T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:

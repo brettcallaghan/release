@@ -8,7 +8,6 @@ description: The library that collects commit evidence from git, has a
 slug: module-release-core
 type: module-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 visibility: internal
 contracts_consumed: []
@@ -62,26 +61,44 @@ and a person confirms it before anything is written ([[adr-003]]).
 ### Release time
 
 ```mermaid
-flowchart TB
-  TR[Tag Reader] -->|"base version + range"| CC[Commit Collector]
-  CC -->|"commit records: subject, body, trailers,<br/>conventional parts, files, PR info from git"| DC[Diff Collector]
-  CC -->|commit records| BC[Bump Classifier]
-  CC -->|commit records| EB[Evidence Builder]
-  DC -->|"per-commit diffs within the<br/>release budget + budget report"| EB
-  BC -->|"per-commit signals"| EB
-  EB -->|evidence bundle| AB[Changelog Authoring Bridge]
-  AB <-->|"bundle / structured changelog<br/>(claude -p release:changelog, command)"| P[Changelog Producer]
-  AB <-->|"bundle / structured changelog<br/>(skip-notes, no model)"| MP[Mechanical Producer]
-  AB -->|"validated structured changelog"| BS[Bump Suggester]
-  BC -->|"signal floor + drivers,<br/>unclassified commits"| BS
-  H(["maintainer: named bump<br/>or confirmation"]) -->|"named bump / acceptance"| BS
-  BS -->|"confirmed bump"| VC[Version Calculator]
-  VC -->|version| R[Changelog Renderer]
-  AB -->|"structured changelog"| R
-  R -->|"rendered section"| W[Changelog Writer]
-  W -->|"CHANGELOG.md in scratch checkout"| SO[Stage Orchestrator]
-  BS -->|"confirmed bump → Release-Type trailer,<br/>suggestion + reasons"| SO
-  SO -->|"cut/X branch + stage PR:<br/>changelog, suggestion, reasons"| GH[(origin)]
+C4Component
+    title Release time — Release Core
+    Person(maintainer, "Maintainer", "Names a bump or confirms the suggested one")
+    System_Ext(origin, "Origin", "The git remote and its hosting platform")
+    Container_Boundary(core, "Release Core") {
+        Component(tr, "Tag Reader", "Go package", "Base version and commit range")
+        Component(cc, "Commit Collector", "Go package", "Commit records from git, with PR identity and trailers")
+        Component(dc, "Diff Collector", "Go package", "Per-commit diffs within the release budget")
+        Component(bc, "Bump Classifier", "Go package", "Per-commit signals and the signal floor")
+        Component(eb, "Evidence Builder", "Go package", "The evidence bundle a producer authors from")
+        Component(ab, "Changelog Authoring Bridge", "Go package", "Hands the bundle to a producer and validates its changelog")
+        Component(cp, "Changelog Producer", "Go package", "claude -p release:changelog, or a configured command")
+        Component(mp, "Mechanical Producer", "Go package", "The skip-notes changelog, with no model")
+        Component(bs, "Bump Suggester", "Go package", "Suggests a bump and takes the maintainer's confirmation")
+        Component(vc, "Version Calculator", "Go package", "The release version from the base and the confirmed bump")
+        Component(cr, "Changelog Renderer", "Go package", "The rendered changelog section")
+        Component(cw, "Changelog Writer", "Go package", "CHANGELOG.md in the scratch checkout")
+        Component(so, "Stage Orchestrator", "Go package", "The stage branch, commit and pull request")
+    }
+    Rel(cc, tr, "Takes the base version and range from")
+    Rel(dc, cc, "Reads the commits of")
+    Rel(bc, cc, "Classifies the commit records of")
+    Rel(eb, cc, "Assembles the commit records of")
+    Rel(eb, dc, "Attaches the diffs and budget report of")
+    Rel(eb, bc, "Attaches the per-commit signals of")
+    Rel(ab, eb, "Takes the evidence bundle from")
+    Rel(ab, cp, "Exchanges the bundle for a structured changelog with")
+    Rel(ab, mp, "Exchanges the bundle for a structured changelog with")
+    Rel(bs, ab, "Suggests from the validated changelog of")
+    Rel(bs, bc, "Floors the suggestion by the signals and drivers of")
+    Rel(maintainer, bs, "Names a bump or confirms the suggestion through")
+    Rel(vc, bs, "Computes from the confirmed bump of")
+    Rel(cr, vc, "Heads the section with the version from")
+    Rel(cr, ab, "Renders the structured changelog of")
+    Rel(cw, cr, "Writes the rendered section of")
+    Rel(so, cw, "Commits the CHANGELOG.md written by")
+    Rel(so, bs, "Writes the Release-Type trailer and reasons from")
+    Rel(so, origin, "Pushes the cut/ branch and opens the stage pull request on")
 ```
 
 The `Prepare` operation runs this flow up to the renderer; the Stage

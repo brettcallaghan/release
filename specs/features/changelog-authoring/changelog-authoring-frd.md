@@ -7,7 +7,6 @@ description: Collecting the evidence of what changed from git — commit
 slug: frd-changelog-authoring
 type: frd
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-003
   - adr-004

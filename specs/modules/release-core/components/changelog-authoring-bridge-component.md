@@ -7,7 +7,6 @@ description: The seam across which a selected producer receives a release's
 slug: component-changelog-authoring-bridge
 type: component-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog

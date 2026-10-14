@@ -8,7 +8,6 @@ description: When a `release` plugin skill needs the CLI, a script bundled
 slug: adr-008
 type: adr
 status: approved
-updated_at: 2026-10-11T00:00:00Z
 ---
 
 # ADR-008: The Plugin Provisions Its Pinned Release

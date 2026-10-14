@@ -5,7 +5,6 @@ description: The release CLI and its core module are written in Go, built as
 slug: adr-007
 type: adr
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-007: Go for the Release CLI

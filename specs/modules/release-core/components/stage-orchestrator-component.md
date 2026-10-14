@@ -8,7 +8,6 @@ description: The sequence that cuts a release — producing a release commit
 slug: component-stage-orchestrator
 type: component-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog

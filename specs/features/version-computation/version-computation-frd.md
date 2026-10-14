@@ -7,7 +7,6 @@ description: Resolving a release line's base version, reading the signal
 slug: frd-version-computation
 type: frd
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 sources:
   - adr-001
   - adr-003

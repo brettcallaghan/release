@@ -7,7 +7,6 @@ description: The signal floor computed deterministically from the explicit
 slug: component-bump-classifier
 type: component-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:

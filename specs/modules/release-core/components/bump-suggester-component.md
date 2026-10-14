@@ -8,7 +8,6 @@ description: The suggested bump derived from the structured changelog's
 slug: component-bump-suggester
 type: component-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed:
   - contract-changelog

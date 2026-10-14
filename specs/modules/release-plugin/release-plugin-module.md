@@ -8,7 +8,6 @@ description: The agent plugin published from this repository — the skills
 slug: module-release-plugin
 type: module-blueprint
 status: approved
-updated_at: 2026-10-11T00:00:00Z
 kind: standard
 visibility: public
 contracts_consumed:

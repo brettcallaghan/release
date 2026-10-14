@@ -6,7 +6,6 @@ description: The field survey behind building rather than adopting — what
 slug: adr-004
 type: adr
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-004: Existing Release Tooling Is Not Adopted

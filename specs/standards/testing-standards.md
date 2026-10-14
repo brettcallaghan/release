@@ -6,8 +6,6 @@ description: How the release CLI is tested — this repository's bindings of
 slug: testing-standards
 type: standards
 status: approved
-updated_at: 2026-10-07T00:00:00Z
-version: "0.1"
 ---
 
 # Release Testing Standards

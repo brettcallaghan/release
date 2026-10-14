@@ -8,7 +8,6 @@ description: "Not part of the MVP. An optional enrichment: pull-request
 slug: component-pr-metadata-collector
 type: component-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 kind: standard
 contracts_consumed: []
 source_paths:

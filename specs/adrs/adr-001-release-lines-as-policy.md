@@ -6,7 +6,6 @@ description: The tooling accepts any branch as a release line and does not
 slug: adr-001
 type: adr
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 ---
 
 # ADR-001: Release Lines Are Policy, Not Tooling

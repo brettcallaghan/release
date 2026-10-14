@@ -6,7 +6,6 @@ description: The command-line front end to the release core library — its
 slug: container-release-cli
 type: container-blueprint
 status: approved
-updated_at: 2026-10-09T00:00:00Z
 contracts_consumed: []
 modules:
   - module-release-core
@@ -35,20 +34,17 @@ rather than a second implementation of the same rules.
 ## Container Context
 
 ```mermaid
-flowchart LR
-  maintainer["Maintainer or agent<br/>(workstation)"]
-  cli["Release CLI<br/>[container]"]
-  core["Release Core<br/>[module]"]
-  producer["Changelog producer<br/>(model, command, or person)"]
-  git["Git repository<br/>[local]"]
-  platform["Hosting platform API<br/>(pull requests, metadata)"]
-
-  maintainer -->|"release version, release changelog,<br/>release cut"| cli
-  cli -->|"calls"| core
-  core -->|"reads tags, commits, diffs"| git
-  core -->|"writes branch and commit"| git
-  core -->|"opens the stage pull request"| platform
-  core -->|"exchanges an evidence bundle"| producer
+C4Container
+    title Container Context — Release CLI
+    Person(maintainer, "Maintainer or Agent", "Cuts releases from a workstation or a session")
+    Container(cli, "Release CLI", "Go binary", "Computes versions, authors changelogs and stages releases")
+    System_Ext(producer, "Changelog Producer", "A model, a command, or a person authoring the structured changelog")
+    ContainerDb(git, "Git Repository", "local git", "Tags, commits and diffs; the stage branch and commit")
+    System_Ext(platform, "Hosting Platform", "Pull requests and their metadata")
+    Rel(maintainer, cli, "Runs release version, release changelog and release cut", "shell")
+    Rel(cli, git, "Reads tags, commits and diffs; writes the stage branch and commit", "git executable")
+    Rel(cli, platform, "Opens the stage pull request", "gh executable")
+    Rel(cli, producer, "Exchanges an evidence bundle for a structured changelog with", "subprocess, JSON")
 ```
 
 Neither continuous integration nor continuous delivery needs to invoke this

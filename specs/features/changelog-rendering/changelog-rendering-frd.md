@@ -5,7 +5,6 @@ description: Rendering one changelog corpus into every published artifact
 slug: frd-changelog-rendering
 type: frd
 status: approved
-updated_at: 2026-10-07T00:00:00Z
 sources:
   - adr-003
   - contract-changelog
